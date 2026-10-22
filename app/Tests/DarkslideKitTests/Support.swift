@@ -92,11 +92,11 @@ func makeModel(counts: [Int] = [40, 5], renderer: FakeRenderer = FakeRenderer(),
 /// The budget only matters when a test is failing: a passing wait returns as soon as the
 /// condition holds. 15 s, because in a full parallel suite on a loaded machine a step that
 /// takes ~1 s alone was measured at 10+ s (zoomRequestsTrueOneToOneTiles failed at the
-/// old 3 s budget while its earlier 15 s wait passed).
+/// old 3 s budget while its earlier 15 s wait passed). Scaled by `TestTiming.scale`.
 @MainActor
 func waitUntil(timeout: Duration = .seconds(15), _ condition: @MainActor () -> Bool) async -> Bool {
     let clock = ContinuousClock()
-    let deadline = clock.now + timeout
+    let deadline = clock.now + timeout * TestTiming.scale
     while !condition() {
         if clock.now > deadline { return false }
         try? await Task.sleep(for: .milliseconds(2))
@@ -178,4 +178,9 @@ enum TestTiming {
         guard getloadavg(&l, 3) > 0 else { return 1 }
         return max(1, l[0] / Double(ProcessInfo.processInfo.activeProcessorCount))
     }
+
+    /// ≥ 1: how much slower than a developer Mac this machine runs the suite
+    /// (`DS_TEST_TIME_SCALE`; CI's 3-core runners run ~1,900 parallel tests). Hang
+    /// detectors and wall-clock bounds stretch by it; CPU-time budgets don't need to.
+    static let scale: Double = max(1, Double(ProcessInfo.processInfo.environment["DS_TEST_TIME_SCALE"] ?? "") ?? 1)
 }

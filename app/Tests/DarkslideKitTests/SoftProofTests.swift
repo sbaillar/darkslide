@@ -412,7 +412,7 @@ private func identityTable(size n: Int = 17) -> [Float] {
         proofed.gamutWarning = true
         let (off, on) = (gpuMs(plain), gpuMs(proofed))
         print("soft proof draw 2832x1888: off \(String(format: "%.3f", off)) ms, on \(String(format: "%.3f", on)) ms (median GPU)")
-        #expect(on < 4, "proofed draw \(on) ms")
+        #expect(on < 4 * TestTiming.scale, "proofed draw \(on) ms") // CI's virtual GPU is slower
     }
 }
 

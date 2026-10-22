@@ -400,14 +400,17 @@ struct DepthMapTests {
         }
         let slow = ExportDepth(photos: [1: PhotoID(1)], timeout: .milliseconds(200), provider: never)
         let cancelled = ExportDepth(photos: [1: PhotoID(1)], provider: never)
-        let fast = ExportDepth(photos: [1: PhotoID(1)], timeout: .milliseconds(200)) { _, _ in map }
+        // Not about timing: a timeout a contended machine can't hit.
+        let fast = ExportDepth(photos: [1: PhotoID(1)], timeout: .seconds(60)) { _, _ in map }
+        let bound = 5 * TestTiming.scale
         let got = await withCheckedContinuation { (c: CheckedContinuation<[Bool], Never>) in
             Thread.detachNewThread {
                 let t0 = Date()
-                let a = slow.map(1) == nil && Date().timeIntervalSince(t0) < 5
-                DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { cancelled.cancel() }
+                let a = slow.map(1) == nil && Date().timeIntervalSince(t0) < bound
+                // Its own thread: the suite parks GCD's global threads in hung fakes.
+                Thread.detachNewThread { Thread.sleep(forTimeInterval: 0.1); cancelled.cancel() }
                 let t1 = Date()
-                let b = cancelled.map(1) == nil && Date().timeIntervalSince(t1) < 5
+                let b = cancelled.map(1) == nil && Date().timeIntervalSince(t1) < bound
                 c.resume(returning: [a, b, fast.map(1) == map])
             }
         }

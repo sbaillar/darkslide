@@ -242,12 +242,12 @@ private func tempDir() throws -> URL {
         // A client that connects and never sends anything is cut off.
         let c = NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!, using: .tcp)
         let closed = GPBox(false)
-        c.start(queue: .global())
+        c.start(queue: DispatchQueue(label: "test.idle-client")) // not GCD's global pool: the suite parks it
         c.receive(minimumIncompleteLength: 1, maximumLength: 1) { _, _, done, error in
             closed.mutate { $0 = done || error != nil }
         }
         let start = ContinuousClock.now
-        while !closed.current && ContinuousClock.now - start < .seconds(5) { try await Task.sleep(for: .milliseconds(20)) }
+        while !closed.current && ContinuousClock.now - start < .seconds(5) * TestTiming.scale { try await Task.sleep(for: .milliseconds(20)) }
         #expect(closed.current, "the idle connection was closed")
         c.cancel()
         // Only the first `maxQueued` untaken redirects are kept.

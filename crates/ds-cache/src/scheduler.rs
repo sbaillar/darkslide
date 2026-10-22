@@ -76,7 +76,16 @@ struct State<K, T> {
     entries: HashMap<K, Entry<T>>,
     next_seq: u64,
     running: usize,
+    /// Callers delivering `Cancelled` outside the lock (see `cancel_where`).
+    delivering: usize,
     shutdown: bool,
+}
+
+impl<K, T> State<K, T> {
+    /// Nothing queued, running, or still being delivered to waiters.
+    fn is_idle(&self) -> bool {
+        self.queue.is_empty() && self.running == 0 && self.delivering == 0
+    }
 }
 
 struct Shared<K, T> {
@@ -168,6 +177,7 @@ where
                 entries: HashMap::new(),
                 next_seq: 0,
                 running: 0,
+                delivering: 0,
                 shutdown: false,
             }),
             work: Condvar::new(),
@@ -281,6 +291,9 @@ where
             .filter(|(k, e)| pred(k, e.prio))
             .map(|(k, _)| k.clone())
             .collect();
+        if doomed.is_empty() {
+            return 0;
+        }
         let mut waiters = Vec::new();
         for k in &doomed {
             let e = st.entries.remove(k).expect("collected above");
@@ -288,12 +301,17 @@ where
             e.token.cancel();
             waiters.extend(e.waiters);
         }
-        let idle = st.queue.is_empty() && st.running == 0;
+        // Idle is only signalled once the waiters have been answered.
+        st.delivering += 1;
+        drop(st);
+        deliver(waiters, &JobResult::Cancelled);
+        let mut st = self.shared.lock();
+        st.delivering -= 1;
+        let idle = st.is_idle();
         drop(st);
         if idle {
             self.shared.idle.notify_all();
         }
-        deliver(waiters, &JobResult::Cancelled);
         doomed.len()
     }
 
@@ -317,10 +335,11 @@ where
         self.shared.lock().queue.len()
     }
 
-    /// Block until nothing is queued or running.
+    /// Block until nothing is queued or running and every waiter of the
+    /// finished or cancelled jobs has returned.
     pub fn wait_idle(&self) {
         let mut st = self.shared.lock();
-        while !(st.queue.is_empty() && st.running == 0) {
+        while !st.is_idle() {
             st = self
                 .shared
                 .idle
@@ -349,30 +368,35 @@ fn worker_loop<K: Hash + Eq + Clone, T: Clone>(shared: &Shared<K, T>) {
             (key, e.generation, job, e.token.clone())
         };
         let out = catch_unwind(AssertUnwindSafe(|| job(&token)));
-        let (waiters, idle) = {
+        let waiters = {
             let mut st = shared.lock();
-            st.running -= 1;
             // A cancelled entry was already removed (and maybe resubmitted under
             // a new generation); its waiters were told `Cancelled`.
-            let waiters = match st.entries.get(&key) {
+            match st.entries.get(&key) {
                 Some(e) if e.generation == generation => st
                     .entries
                     .remove(&key)
                     .map(|e| e.waiters)
                     .unwrap_or_default(),
                 _ => Vec::new(),
-            };
-            (waiters, st.queue.is_empty() && st.running == 0)
+            }
         };
-        if idle {
-            shared.idle.notify_all();
-        }
         let result = match out {
             Ok(_) if token.is_cancelled() => JobResult::Cancelled,
             Ok(v) => JobResult::Done(v),
             Err(_) => JobResult::Panicked,
         };
         deliver(waiters, &result);
+        // Still counted as running until its waiters have returned, so
+        // `wait_idle` cannot wake while results are in flight.
+        let idle = {
+            let mut st = shared.lock();
+            st.running -= 1;
+            st.is_idle()
+        };
+        if idle {
+            shared.idle.notify_all();
+        }
     }
 }
 
@@ -791,6 +815,63 @@ mod tests {
         s.wait_idle();
         assert_eq!(s.queued(), 0);
         assert!(format!("{s:?}").contains("workers: 1"));
+    }
+
+    /// A waiter callback is running and blocks until `release` is used. Until
+    /// then `wait_idle` must not return: idle means every waiter has been
+    /// answered, so a caller may inspect what the callbacks recorded.
+    fn assert_wait_idle_waits_for_callback(s: &Arc<Sched>, release: &Sender<()>) {
+        let (idle_tx, idle_rx) = channel::<()>();
+        let s2 = Arc::clone(s);
+        std::thread::spawn(move || {
+            s2.wait_idle();
+            idle_tx.send(()).unwrap();
+        });
+        assert!(
+            idle_rx
+                .recv_timeout(std::time::Duration::from_millis(100))
+                .is_err(),
+            "wait_idle returned while a waiter callback was still running"
+        );
+        release.send(()).unwrap();
+        idle_rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("wait_idle returns once the callback finishes");
+    }
+
+    fn blocking_callback() -> (Receiver<()>, Sender<()>, Callback<u32>) {
+        let (started_tx, started_rx) = channel::<()>();
+        let (release_tx, release_rx) = channel::<()>();
+        let cb: Callback<u32> = Box::new(move |_| {
+            started_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+        });
+        (started_rx, release_tx, cb)
+    }
+
+    #[test]
+    fn wait_idle_waits_for_completed_job_callbacks() {
+        let s = Arc::new(Sched::new(1));
+        let (started, release, cb) = blocking_callback();
+        s.submit(1, Priority::Visible, |_| 1, cb);
+        started.recv().unwrap();
+        assert_wait_idle_waits_for_callback(&s, &release);
+    }
+
+    #[test]
+    fn wait_idle_waits_for_cancelled_callbacks() {
+        let s = Arc::new(Sched::new(1));
+        let gate = block_worker(&s, 0);
+        let (started, release, cb) = blocking_callback();
+        s.submit(1, Priority::Visible, |_| 1, cb);
+        let s2 = Arc::clone(&s);
+        let canceller = std::thread::spawn(move || s2.cancel(&1));
+        // Job 1 was cancelled while queued; now let the worker go idle so only
+        // the canceller's delivery is left.
+        started.recv().unwrap();
+        drop(gate);
+        assert_wait_idle_waits_for_callback(&s, &release);
+        assert!(canceller.join().unwrap());
     }
 
     #[test]

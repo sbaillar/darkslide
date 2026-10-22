@@ -214,7 +214,6 @@ func bruteCounts(_ sf: SmartFolderController, _ photos: [Photo]) -> [Int64: Int]
         folders.append(SmartFolder(id: 2, name: "Wide", criteria: SmartCriteria(lens: "16-35", edited: false)))
         sf.set(folders, index: [:], photos: photos)
         #expect(sf.counts == bruteCounts(sf, photos))
-        let clock = ContinuousClock()
         var current = photos
         let presses = 20_000
         var elapsed = Duration.zero
@@ -223,9 +222,7 @@ func bruteCounts(_ sf: SmartFolderController, _ photos: [Photo]) -> [Int64: Int]
             let old = current[k]
             var new = old
             new.rating = (old.rating + 1) % 6
-            let t = clock.now
-            sf.photoChanged(old: old, new: new)
-            elapsed += clock.now - t
+            elapsed += TestTiming.cpu { sf.photoChanged(old: old, new: new) } // preemption doesn't count
             current[k] = new
         }
         let perPress = elapsed / presses

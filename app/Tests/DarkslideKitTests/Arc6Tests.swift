@@ -212,7 +212,7 @@ final class RecordingArchive: ArchiveService, @unchecked Sendable {
         #expect(hung.returned == 0, "never waits for the hung calls")
         // A few 0.2 s timeouts: generous for a loaded machine, but a refresh that
         // ignored its timeout (and sat out the minute) still fails.
-        #expect(took < .seconds(30), "\(took)")
+        #expect(took < .seconds(30) * TestTiming.scale, "\(took)")
         #expect(m.suggestion == nil && m.amazonAppInstalled == false)
         await m.setTarget("/Volumes/hung/Darkslide")
         #expect(hung.returned == 0)

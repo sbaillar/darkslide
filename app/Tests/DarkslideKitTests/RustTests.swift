@@ -362,7 +362,8 @@ private func sampleARW() -> URL? {
         // 200 ms is the budget (checked in the isolated perf pass, DS_PERF=1); the parallel
         // suite shares CPU and GPU with the develop tests (214-232 ms seen), so it only
         // guards against a full RAW decode sneaking in.
-        #expect(ms < (ProcessInfo.processInfo.environment["DS_PERF"] != nil ? 200 : 1000), "preview in \(ms) ms")
+        let budget = ProcessInfo.processInfo.environment["DS_PERF"] != nil ? 200 : 1000 * TestTiming.scale * TestTiming.loadFactor
+        #expect(ms < budget, "preview in \(ms) ms")
         let again = try await provider.preview(for: url, maxPixelSize: 512)
         #expect(again === img, "cache hit")
         let full = try await provider.preview(for: url, maxPixelSize: 0)

@@ -140,10 +140,12 @@ fn cache_get_costs_about_a_file_read() {
     }
     let (read, get, overhead) = (median(reads), median(gets), median(diffs));
     eprintln!("file read {read:?}, get {get:?}, median overhead {overhead:?}");
-    // The old per-get UPDATE + commit cost ~18 µs.
+    // The old per-get UPDATE + commit cost ~18 µs over a ~16 µs read here. A slower
+    // machine (CI: 52 µs reads) scales both, so bound the overhead by the read too.
+    let bound = Duration::from_micros(6).max(read / 4);
     assert!(
-        overhead < Duration::from_micros(6),
-        "index overhead per get {overhead:?}"
+        overhead < bound,
+        "index overhead per get {overhead:?} (bound {bound:?})"
     );
 }
 

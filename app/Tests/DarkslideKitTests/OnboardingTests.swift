@@ -37,7 +37,8 @@ import Testing
 
     @Test func refreshRunsOffMainAndTimesOut() async {
         let paths = PathSet(["/Volumes/pics"])
-        let o = OnboardingModel(settings: makeSettings(), fileExists: { paths.contains($0) }, createDirectory: { _ in })
+        let o = OnboardingModel(settings: makeSettings(), fileExists: { paths.contains($0) }, createDirectory: { _ in },
+                                isWritable: { _ in true }) // never this Mac's real volumes
         #expect(o.archiveStatus == .checking)
         o.archiveTarget = "/Volumes/pics/Darkslide"
         await o.refreshArchiveStatus()

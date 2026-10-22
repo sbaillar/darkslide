@@ -50,7 +50,8 @@ jobs:
           rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
           rustup default "$RUST_TOOLCHAIN"
       - name: Swift tests
-        run: DS_SUPPORT_ROOT="$(mktemp -d)" scripts/test-app.sh
+        # ~1,900 tests share 3 cores: hang detectors and wall-clock bounds stretch 8x (TestTiming.scale).
+        run: DS_TEST_TIME_SCALE=8 DS_SUPPORT_ROOT="$(mktemp -d)" scripts/test-app.sh
       - name: Build and self-test the app
         run: DS_SKIP_MODELS=1 scripts/build-app.sh --test
 
