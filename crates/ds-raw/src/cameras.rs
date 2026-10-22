@@ -187,7 +187,8 @@ mod tests {
         assert!((m[0] - 0.6389).abs() < 1e-6);
         assert_eq!(ill, D65_LIGHT_SOURCE);
         // Make case does not matter (consistent with Container::is_sony).
-        assert_eq!(matrix("Sony", "ILCE-9").unwrap().0, m);
+        let same = |a: [f32; 9]| a.map(f32::to_bits);
+        assert_eq!(same(matrix("Sony", "ILCE-9").unwrap().0), same(m));
         // Variant entries, with the plain one as the fallback.
         let d850 = lookup("NIKON CORPORATION", "NIKON D850", "14bit");
         assert_eq!(d850.white, Some(15520));
