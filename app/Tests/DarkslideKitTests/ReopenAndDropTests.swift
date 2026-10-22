@@ -86,7 +86,7 @@ private actor LateClose: SessionStore, SessionClosing {
         let start = clock.now
         await m.open(second)
         #expect(m.currentSession?.id == second.id)
-        #expect(clock.now - start < .seconds(20), "not held up by the other session's release")
+        #expect(clock.now - start < TestTiming.bound(.seconds(20)), "not held up by the other session's release")
         m.stop()
     }
 

@@ -529,7 +529,7 @@ struct C1SettingsFailureTests {
         let start = clock.now
         let plan = s.importer.plan(scan)
         try s.importer.apply(plan, categories: [.keywords])
-        #expect(clock.now - start < .seconds(5))
+        #expect(clock.now - start < TestTiming.bound(.seconds(5)))
         #expect(s.keywords.keywords.count == 5000 && s.keywords.keywords.first == "kw 7")
         // A grown library adds only what's new; a revert removes what the imports added.
         var bigger = scan

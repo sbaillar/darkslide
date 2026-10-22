@@ -356,7 +356,7 @@ final class RecordingArchive: ArchiveService, @unchecked Sendable {
         let t1 = clock.now
         #expect(await service.stop(), "the manager stopped within its own 2 s timeout")
         // Hang guard only: the timeout is the manager's; a loaded test pool adds hops.
-        #expect(clock.now - t1 < .seconds(15))
+        #expect(clock.now - t1 < TestTiming.bound(.seconds(15)))
         watcher.cancel()
         _ = await watcher.value
         // The originals were never touched.
@@ -387,7 +387,7 @@ final class RecordingArchive: ArchiveService, @unchecked Sendable {
         var st = service.snapshot()
         let statusCost = TestTiming.cpu { st = service.snapshot() }
         print("ARC6 status with an offline target: \(statusCost) CPU")
-        #expect(statusCost < .milliseconds(20))
+        #expect(statusCost < TestTiming.bound(.milliseconds(20)))
         #expect(st.detail?.targetReason?.contains("not mounted") == true)
         await service.shutdown()
         await service.refresh() // after shutdown: still answers

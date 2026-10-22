@@ -241,7 +241,7 @@ private func remotePin(_ name: String = "a", index: Int = 0) -> MapPin.Remote {
     }
     #expect(MapClustering.clusters(pins, region: world, size: size).reduce(0) { $0 + $1.count } == pins.count,
             "the world view keeps every pin")
-    #expect(worst < .seconds(2), "\(worst) for 50k pins (debug build)")
+    #expect(worst < TestTiming.bound(.seconds(2)), "\(worst) for 50k pins (debug build)")
     // A tight cap folds cells together until it fits.
     #expect(MapClustering.clusters(pins, region: world, size: size, limit: 5).count <= 5)
 }

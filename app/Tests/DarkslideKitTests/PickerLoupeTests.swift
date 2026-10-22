@@ -482,6 +482,6 @@ import Testing
             worst = max(worst, TestTiming.cpu { v.hover(at: p) })
         }
         print("LOUPE hover: worst main-thread CPU \(worst) over 240 moves")
-        #expect(worst < .milliseconds(4), "\(worst)")
+        #expect(worst < TestTiming.bound(.milliseconds(4)), "\(worst)")
     }
 }

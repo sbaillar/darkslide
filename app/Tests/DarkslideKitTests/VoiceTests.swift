@@ -185,7 +185,7 @@ private func rate(_ n: Int) -> VoiceAction { .key(.rate(n)) }
         }
         let perParse = elapsed / n
         print("voice parser: \(perParse) per utterance (\(n) parses)")
-        #expect(perParse < .milliseconds(1))
+        #expect(perParse < TestTiming.bound(.milliseconds(1)))
     }
 }
 

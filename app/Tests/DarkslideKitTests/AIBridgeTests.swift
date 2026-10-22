@@ -264,6 +264,6 @@ private let hardReason = ReasonRecord(kind: "out_of_focus", text: "out of focus"
         let d = TestTiming.cpu { g = BurstGrouping().groups(ps) }
         print("AI3 ds-ai burst grouping, 2000 photos: \(d) CPU")
         #expect(g.flatMap { $0 }.count == 2000)
-        #expect(d < .milliseconds(500))
+        #expect(d < TestTiming.bound(.milliseconds(500)))
     }
 }

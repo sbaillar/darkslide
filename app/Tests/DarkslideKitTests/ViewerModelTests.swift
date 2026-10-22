@@ -141,10 +141,16 @@ func makeViewerApp(renderer: any Renderer = ViewerSizedRenderer(), previews: Vie
 
     /// C2/H1: the stale render's Task is cancelled when focus moves.
     @Test func staleRenderIsCancelledOnNavigation() async {
-        let r = ViewerSizedRenderer(latency: .milliseconds(500))
+        // The superseded renders run until cancelled, however late a loaded machine notices
+        // they started; the last one (latency zero) lands.
+        let r = ViewerSizedRenderer(latency: .seconds(60))
         let m = makeViewerApp(renderer: r)
         await m.start()
+        // Each move supersedes a render already under way (an unstarted one has nothing to cancel).
+        #expect(await waitUntil { r.requests.count >= 1 })
         m.perform(.move(.right, extend: false))
+        #expect(await waitUntil { r.requests.count >= 2 })
+        r.latency = .zero
         m.perform(.move(.right, extend: false))
         #expect(await waitUntil { r.cancelled >= 2 }, "two superseded renders cancelled")
         #expect(await waitUntil { m.viewer.frame != nil })

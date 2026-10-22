@@ -164,7 +164,7 @@ import Testing
     @Test func realModelQuitDecision() async {
         let m = makeModel()
         await m.start()
-        #expect(await m.prepareToTerminate(timeout: .seconds(2)) == .ok)
+        #expect(await m.prepareToTerminate(timeout: TestTiming.bound(.seconds(2))) == .ok)
     }
 }
 

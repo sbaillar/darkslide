@@ -16,10 +16,30 @@ final class Rnd9AsShotTools: DevelopTools, @unchecked Sendable {
     var delay: Duration = .milliseconds(5)
     private var _asked: [PhotoID] = []
     var asked: [PhotoID] { lock.withLock { _asked } }
+    /// Loads parked by `hold()` until `release()` (nil: not holding).
+    private var held: [CheckedContinuation<Void, Never>]?
+
+    /// Loads wait from now until `release()`: a test can act while they're still loading.
+    func hold() { lock.withLock { held = [] } }
+    func release() {
+        let waiting = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            defer { held = nil }
+            return held ?? []
+        }
+        waiting.forEach { $0.resume() }
+    }
 
     func info(for photo: Photo) async throws -> PhotoDevelopInfo {
         lock.withLock { _asked.append(photo.id) }
         try await Task.sleep(for: delay) // loading takes a moment
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            let parked = lock.withLock { () -> Bool in
+                guard held != nil else { return false }
+                held?.append(c)
+                return true
+            }
+            if !parked { c.resume() }
+        }
         let wb = lock.withLock { asShot[photo.id] } ?? WhiteBalanceValue(kelvin: 5500, tint: 0)
         return PhotoDevelopInfo(asShot: wb, lens: nil, lensProfile: nil, iso: nil, renderer: "fake")
     }
@@ -168,12 +188,12 @@ final class Rnd9EndlessExport: ExportService, @unchecked Sendable {
         #expect(e.isRunning)
         // Its own import registry: other suites import in parallel through `.shared`.
         let imports = ImportRegistry()
-        #expect(await m.quitDecision(timeout: .seconds(30), imports: imports) == .exportRunning)
+        #expect(await m.quitDecision(timeout: TestTiming.bound(.seconds(30)), imports: imports) == .exportRunning)
         let t0 = ContinuousClock.now
-        #expect(await m.stopExportsForQuit(timeout: .seconds(10)))
-        #expect(ContinuousClock.now - t0 < .seconds(10))
+        #expect(await m.stopExportsForQuit(timeout: TestTiming.bound(.seconds(10))))
+        #expect(ContinuousClock.now - t0 < TestTiming.bound(.seconds(10)))
         #expect(!e.isRunning)
-        #expect(await m.quitDecision(timeout: .seconds(30), imports: imports) == .ok)
+        #expect(await m.quitDecision(timeout: TestTiming.bound(.seconds(30)), imports: imports) == .ok)
     }
 }
 

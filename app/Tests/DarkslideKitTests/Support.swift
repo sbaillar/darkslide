@@ -183,4 +183,7 @@ enum TestTiming {
     /// (`DS_TEST_TIME_SCALE`; CI's 3-core runners run ~1,900 parallel tests). Hang
     /// detectors and wall-clock bounds stretch by it; CPU-time budgets don't need to.
     static let scale: Double = max(1, Double(ProcessInfo.processInfo.environment["DS_TEST_TIME_SCALE"] ?? "") ?? 1)
+
+    /// A wall-clock bound (or a timeout handed to the code under test) stretched by `scale`.
+    static func bound(_ d: Duration) -> Duration { d * scale }
 }

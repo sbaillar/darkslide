@@ -241,8 +241,7 @@ private func warm(_ name: String = "LR Warm", groups: Set<AdjustGroup> = [.expos
         try? await Task.sleep(for: .milliseconds(30))
         m.toggle(.lens) // supersedes it
         await m.settle()
-        try? await Task.sleep(for: .milliseconds(400))
-        #expect(m.preview != nil)
+        #expect(await waitUntil { m.preview != nil })
         #expect(!m.categories.contains(.crop) && !m.categories.contains(.lens))
         #expect(m.preview?.count(.crop) == 0 && m.preview?.count(.lens) == 0, "the answer for both toggles, not the late one")
     }

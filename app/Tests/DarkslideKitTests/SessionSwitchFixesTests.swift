@@ -149,8 +149,9 @@ private final class OverlappingScans: ImportService, @unchecked Sendable {
         await m.start()
         await m.open(store.a)
         await m.open(store.b)
+        #expect(await waitUntil { m.remote.served?.name == "B" })
         try await Task.sleep(for: .milliseconds(400)) // A's slow lookup has finished by now
-        #expect(m.remote.served?.name == "B")
+        #expect(m.remote.served?.name == "B", "A's late lookup didn't take it back")
         m.stop()
     }
 

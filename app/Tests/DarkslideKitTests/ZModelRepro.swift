@@ -220,7 +220,7 @@ import Testing
         let t0 = ContinuousClock.now
         if case .failed = await slow.prepareToTerminate(timeout: .milliseconds(50)) {} else { Issue.record("expected timeout") }
         // It returns at the timeout, not when the 60 s save finally ends (bound loose for loaded machines).
-        #expect(ContinuousClock.now - t0 < .seconds(30), "\(ContinuousClock.now - t0)")
+        #expect(ContinuousClock.now - t0 < TestTiming.bound(.seconds(30)), "\(ContinuousClock.now - t0)")
     }
 
     // L4: concurrent flushes are serialized and in order.

@@ -158,7 +158,7 @@ private final class Calls {
         let m = model(merger, calls: calls)
         m.start()
         var tries = 0
-        while await merger.started.isEmpty, tries < 5000 {
+        while await merger.started.isEmpty, tries < Int(5000 * TestTiming.scale) {
             tries += 1
             try? await Task.sleep(for: .milliseconds(2))
         }

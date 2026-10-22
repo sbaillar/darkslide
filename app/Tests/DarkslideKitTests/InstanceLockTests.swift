@@ -93,7 +93,7 @@ import Testing
         other.terminate()
         other.waitUntilExit()
         var ok = false
-        for _ in 0..<200 {
+        for _ in 0..<Int(200 * TestTiming.scale) {
             if case .acquired = InstanceLock.acquire(in: root) {
                 ok = true
                 break

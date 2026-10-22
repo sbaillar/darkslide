@@ -128,7 +128,8 @@ private func sheet(_ volume: URL, service: any ImportService, store: any Session
     /// continues into the same session; no "Stop 2".
     @Test func stopThenImportAgainContinuesIntoTheSameSession() async throws {
         try await Imp6LiveImportTests.withEnv { env in
-            let slow = env.service(throttleMs: 40)
+            // Slow enough that files are still left when a loaded machine gets to the Stop.
+            let slow = env.service(throttleMs: UInt32(40 * TestTiming.scale))
             let m = sheet(env.card.mount, service: slow, store: env.store)
             await m.scan()
             m.sessionText = "Stop"
@@ -380,7 +381,7 @@ final class Imp7Box<T>: @unchecked Sendable {
         #expect(alert.title == ImportWording.quitImportTitle && alert.choices == [.cancel, .stopImportAndQuit])
         #expect(TerminationFlow.reply(for: .stopImportAndQuit) == .terminate)
         #expect(TerminationFlow.Choice.stopImportAndQuit.title == "Stop Import and Quit")
-        #expect(await app.stopImportsForQuit(timeout: .seconds(10), imports: registry))
+        #expect(await app.stopImportsForQuit(timeout: TestTiming.bound(.seconds(10)), imports: registry))
         guard case .failed(let msg) = m.phase else { Issue.record("\(m.phase)"); return }
         #expect(msg.contains("import again to continue"))
         #expect(await app.quitDecision(imports: registry) == .ok)

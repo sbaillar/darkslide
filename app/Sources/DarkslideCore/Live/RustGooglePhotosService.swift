@@ -40,15 +40,22 @@ public struct RustGooglePhotosService: GooglePhotosService {
                 progress(GooglePhotosProgress(done: Int(e.completed), total: Int(e.total), adding: e.kind == "gphotos.add"))
             }
         }
-        defer {
+        let r: GphotosUploadReport
+        do {
+            r = try await Self.run { token in
+                try await gphotosUpload(http: http, account: account,
+                                        files: files.map { GphotosFile(path: $0.url.path, description: $0.description) },
+                                        album: album, listener: stream, token: token)
+            }
+        } catch {
             stream.finish()
             listen.cancel()
+            throw error
         }
-        let r = try await Self.run { token in
-            try await gphotosUpload(http: http, account: account,
-                                    files: files.map { GphotosFile(path: $0.url.path, description: $0.description) },
-                                    album: album, listener: stream, token: token)
-        }
+        // Every step the upload reported reaches `progress` before it returns (the last,
+        // "adding to the album", was dropped when the listener was cancelled here).
+        stream.finish()
+        await listen.value
         return GooglePhotosUpload(
             albumTitle: r.album?.title, uploaded: r.uploaded.map { URL(fileURLWithPath: $0.path) },
             failed: r.failed.map { GooglePhotosFailure(url: URL(fileURLWithPath: $0.path), reason: $0.reason) },

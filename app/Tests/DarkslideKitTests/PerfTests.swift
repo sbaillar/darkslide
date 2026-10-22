@@ -27,7 +27,7 @@ import Testing
             worst = max(worst, d)
         }
         print("PERF rating keypress (2000 photos): mean \(total / 50) CPU, worst \(worst) CPU (\(worstWall) wall)")
-        #expect(worst < .milliseconds(20))
+        #expect(worst < TestTiming.bound(.milliseconds(20)))
     }
 
     @Test func filteredRatingCostOn2000() async {
@@ -38,6 +38,6 @@ import Testing
         for _ in 0..<50 { m.perform(.reject) }
         let d = (Self.threadCPU() - c) / 50
         print("PERF reject with active filter (2000 photos): mean \(d) CPU")
-        #expect(d < .milliseconds(20))
+        #expect(d < TestTiming.bound(.milliseconds(20)))
     }
 }

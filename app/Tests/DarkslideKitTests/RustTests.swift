@@ -162,7 +162,9 @@ private func sampleARW() -> URL? {
             return
         }
         #expect(cancelled.error is CancellationError)
-        #expect(cancelled.after < max(full, 20), "returned \(cancelled.after) ms after cancel; a full render takes \(full) ms")
+        // The full render was timed once, earlier: a loaded machine's load moves in between.
+        #expect(cancelled.after < max(full, 20) * TestTiming.scale,
+                "returned \(cancelled.after) ms after cancel; a full render takes \(full) ms")
 
         let pre = Task {
             withUnsafeCurrentTask { $0?.cancel() }

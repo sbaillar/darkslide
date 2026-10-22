@@ -433,7 +433,7 @@ extension DenoiseGlobalStore {
             let t0 = ContinuousClock.now
             try token.cancel()
             await #expect(throws: DsError.self) { try await worker.value }
-            #expect(ContinuousClock.now - t0 < .seconds(2), "well inside the quit bound")
+            #expect(ContinuousClock.now - t0 < TestTiming.bound(.seconds(2)), "well inside the quit bound")
             #expect(await waitUntil { s.states[Self.url(5)] == nil }, "the denoise stopped")
             #expect(!(try await backend.isReady(Self.url(5))))
         }
@@ -801,7 +801,7 @@ extension DenoiseGlobalStore {
             let t0 = ContinuousClock.now
             export.cancel()
             _ = try? await export.value
-            #expect(ContinuousClock.now - t0 < .seconds(3), "the export returns within the quit bound")
+            #expect(ContinuousClock.now - t0 < TestTiming.bound(.seconds(3)), "the export returns within the quit bound")
             #expect(await waitUntil { s.states.isEmpty }, "the denoise was cancelled, not finished")
             #expect(!(try await backend.isReady(raw)))
             await s.settle() // its model check must not land in the next test

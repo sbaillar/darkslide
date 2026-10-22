@@ -524,13 +524,16 @@ extension CropEdit {
     }
 
     @Test func closingTheSessionDropsAWaitingPaste() async {
-        let (m, _, ids) = await app(delay: .milliseconds(200))
+        let (m, tools, ids) = await app()
         m.perform(.copyAdjustments)
+        #expect(await waitUntil { m.clipboard?.sourceAsShot != nil }) // the copy's own load
+        tools.hold() // the paste's loads are still running at the close, however slow the machine
         m.selection = Set(ids.dropFirst())
         m.applyToSelection()
         let pending = m.pendingPaste
         #expect(pending != nil)
         await m.closeSession()
+        tools.release()
         #expect(await pending?.value == 0, "nothing pasted after the close")
         #expect(m.edits.isEmpty && m.developInfo.isEmpty, "nothing of the old session written back")
     }

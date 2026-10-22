@@ -445,7 +445,7 @@ struct LamaInpainterTests {
         wait.cancel()
         let why = await wait.value
         #expect(why == "the export was cancelled")
-        #expect(Date().timeIntervalSince(start) < 2, "didn't wait for the load")
+        #expect(Date().timeIntervalSince(start) < 2 * TestTiming.scale, "didn't wait for the load")
         // Already cancelled before waiting: returns at once too.
         let done = Task<Void, Never> {}
         let early = Task {

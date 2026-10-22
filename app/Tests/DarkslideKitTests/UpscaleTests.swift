@@ -65,6 +65,8 @@ final class FakeUpscaleTiles: UpscalePhotoTiles, @unchecked Sendable {
     var readDelay: Double = 0
     /// How long `finish` takes (it can't be cancelled once begun, like the real one).
     var finishDelay: Double = 0
+    /// `finish` waits here until opened (blocking, like `finishDelay`).
+    var finishGate: TileGate?
     /// `finish` writes a file at `dng`.
     var writesFile = false
     private let lock = NSLock()
@@ -99,6 +101,7 @@ final class FakeUpscaleTiles: UpscalePhotoTiles, @unchecked Sendable {
 
     func finish() async throws {
         if finishDelay > 0 { usleep(UInt32(finishDelay * 1_000_000)) } // blocking: not cancellable
+        finishGate?.pass()
         guard lock.withLock({ written.count == count }) else { return }
         if writesFile { FileManager.default.createFile(atPath: dng.path, contents: Data("dng".utf8)) }
         lock.withLock { placed = dng }
@@ -112,6 +115,7 @@ final class FakeUpscaleBackend: UpscaleBackend, @unchecked Sendable {
     var failBegin: Set<URL> = []
     var noResult = false
     var finishDelay: Double = 0
+    var finishGate: TileGate?
     /// Where the DNGs go (and are written as files); nil: next to the photo, not written.
     var outDir: URL?
     private let lock = NSLock()
@@ -130,6 +134,7 @@ final class FakeUpscaleBackend: UpscaleBackend, @unchecked Sendable {
         let t = FakeUpscaleTiles(count: tileCount, dng: noResult ? URL(fileURLWithPath: "/") : dng)
         t.readDelay = readDelay
         t.finishDelay = finishDelay
+        t.finishGate = finishGate
         t.writesFile = outDir != nil
         if noResult { return NoResult(t) }
         return t
@@ -482,13 +487,18 @@ actor DerivingStore: SessionStore, DerivedPhotoAdding {
         let dir = root()
         defer { try? FileManager.default.removeItem(at: dir) }
         let backend = FakeUpscaleBackend()
-        backend.finishDelay = 1
+        let finishing = TileGate() // the run is held in its finish until the switch has happened
+        backend.finishGate = finishing
         let s = service(backend, root: dir)
         let store = DerivingStore(counts: [6, 4])
         let m = await app(s, store: store)
         s.toggle()
-        #expect(await waitUntil { (s.progress?.fraction ?? 0) >= 1 }, "every tile done: finishing")
-        await m.open(m.sessionList[1])
+        #expect(await waitUntil { finishing.entered > 0 }, "every tile done: finishing")
+        let other = m.sessionList[1]
+        let opening = Task { await m.open(other) }
+        #expect(await waitUntil { m.currentSession?.id == other.id })
+        finishing.open()
+        await opening.value
         await s.settle()
         #expect(await store.derived.isEmpty, "nothing was added to the session that was switched to")
         #expect(m.toast?.message.contains("Upscaled") != true)

@@ -852,10 +852,11 @@ public final class AppModel {
         isLoading = false
         isSwitchingSession = false
         switchingTo = nil
-        if let shown = currentSession { await (sessions as? any CurrentSessionPointing)?.makeCurrent(shown) }
+        // Said with the state change it explains, not after the store has been re-pointed.
         show(Toast("“\(session.name)” is taking too long to open (is its drive connected?). "
                    + "\(currentSession.map { "“\($0.name)”" } ?? "The previous session") is still open.",
                    symbol: "exclamationmark.triangle", isError: true))
+        if let shown = currentSession { await (sessions as? any CurrentSessionPointing)?.makeCurrent(shown) }
     }
 
     /// Whether an edit is refused because a session is loading (and says so).

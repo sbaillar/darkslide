@@ -199,7 +199,7 @@ private actor HungClose: SessionStore, SessionClosing {
         #expect(m.currentSession == nil && m.closing == nil)
         await m.open(other)
         #expect(m.currentSession?.id == other.id)
-        #expect(clock.now - start < .seconds(30), "bounded, not stuck (the store sleeps an hour)")
+        #expect(clock.now - start < TestTiming.bound(.seconds(30)), "bounded, not stuck (the store sleeps an hour)")
         m.stop()
     }
 
@@ -215,7 +215,7 @@ private actor HungClose: SessionStore, SessionClosing {
         let start = clock.now
         await m.open(other)
         #expect(m.currentSession?.id == other.id)
-        #expect(clock.now - start < .seconds(30), "bounded, not stuck (the store sleeps an hour)")
+        #expect(clock.now - start < TestTiming.bound(.seconds(30)), "bounded, not stuck (the store sleeps an hour)")
         close.cancel()
         m.stop()
     }
@@ -232,7 +232,7 @@ private actor HungClose: SessionStore, SessionClosing {
         let clock = ContinuousClock()
         let start = clock.now
         await store.close(s)
-        #expect(clock.now - start < .seconds(30), "bounded, not stuck (the store sleeps an hour)")
+        #expect(clock.now - start < TestTiming.bound(.seconds(30)), "bounded, not stuck (the store sleeps an hour)")
         #expect(await !store.isOpen(s))
     }
 }

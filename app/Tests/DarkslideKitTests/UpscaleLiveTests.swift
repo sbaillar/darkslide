@@ -171,20 +171,20 @@ func tinyLinearDNG(_ url: URL, w: Int, h: Int) throws {
             try? FileManager.default.removeItem(at: dir)
             setUpscaleProvider(provider: nil)
         }
-        let started = DoublingModel.Counter()
+        let gate = TileGate() // the first tile is held until the cancel: no race with the run
         AppUpscaleProvider.install { tiles in
-            started.add()
-            try await DenoiseEngine.run(tiles, models: [NearestModel(delay: 0.5)], scale: 2)
+            try await DenoiseEngine.run(tiles, models: [NearestModel(delay: 0.5, gate: gate)], scale: 2)
             return true
         }
         let raw = dir.appendingPathComponent("DSC00001.dng")
         let export = Task { try await RustExportService().export(Self.job(raw, out: dir.appendingPathComponent("Out"))) { _, _ in } }
-        #expect(await waitUntil { started.value > 0 })
+        #expect(await waitUntil { gate.entered > 0 })
         let t0 = ContinuousClock.now
         export.cancel()
+        gate.open() // a run that ignored the cancel would now finish every tile
         let o = try? await export.value
         #expect(o?.written.isEmpty ?? true)
-        #expect(ContinuousClock.now - t0 < .seconds(3), "the tiles in flight finish, no more")
+        #expect(ContinuousClock.now - t0 < TestTiming.bound(.seconds(3)), "the tiles in flight finish, no more")
         let out = (try? FileManager.default.contentsOfDirectory(atPath: dir.appendingPathComponent("Out").path)) ?? []
         #expect(out.filter { !$0.hasPrefix(".") }.isEmpty, "nothing exported")
     }

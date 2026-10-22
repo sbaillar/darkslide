@@ -300,7 +300,7 @@ import Testing
         m.setRating(2)
         m.updateEdit(label: "ev") { $0.exposure.ev = 1 }
         var saves = 0
-        for _ in 0..<500 where saves < 2 {
+        for _ in 0..<Int(500 * TestTiming.scale) where saves < 2 {
             saves = await store.saveCount
             try await Task.sleep(for: .milliseconds(2))
         }
