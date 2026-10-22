@@ -269,6 +269,7 @@ private func openA(ai: any AIService = MockAIService()) async -> (AppModel, TwoS
 
     @Test func aSwitchThatNeverFinishesIsGivenUpAndTheShownSessionWorksAgain() async throws {
         let (m, store) = await openA()
+        m.toastDuration = .seconds(60) // the give-up toast is read after a slow wait
         let (deadline, giveUp) = AsyncStream<Void>.makeStream()
         m.switchDeadline = { for await _ in deadline { return } }
         await store.holdLoadOfB()

@@ -262,6 +262,7 @@ private actor CreateFailingStore: SessionCreating {
     @Test func closeSavesThenClearsEverythingAndDeletesNothing() async throws {
         let store = MockSessionStore(counts: [12, 3])
         let m = quietModel(store: store)
+        m.toastDuration = .seconds(60) // the close's toast is read after slow steps
         await m.start()
         let session = try #require(m.currentSession)
         let first = try #require(m.focusedID)

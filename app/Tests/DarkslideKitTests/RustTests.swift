@@ -180,34 +180,39 @@ private func sampleARW() -> URL? {
         let buf = UnsafeMutableRawPointer.allocate(byteCount: len, alignment: 256)
         defer { buf.deallocate() }
         memset(buf, 0, len)
-        let token = try CancelToken()
         let addr = UInt64(UInt(bitPattern: buf))
-        let clock = ContinuousClock()
-        let started = clock.now
-        let task = Task {
-            try await engine.renderTestPatternInto(
-                sourceWidth: 4000, sourceHeight: 16_000, params: TestPatternParams(exposureEv: 0, warmth: 0, saturation: 0),
-                request: req, destPtr: addr, destLen: UInt64(len), token: token)
-        }
-        try await Task.sleep(for: .milliseconds(3))
-        try? token.cancel()
-        let cancelledAt = clock.now
-        let result = await task.result
-        let latency = (clock.now - cancelledAt).inMilliseconds
         let bands = Int(info.height) / 64
-        var written = 0
-        for b in 0..<bands where buf.load(fromByteOffset: b * 64 * Int(info.bytesPerRow) + 3, as: UInt8.self) == 255 {
-            written += 1
+        func written() -> Int {
+            (0..<bands).count { buf.load(fromByteOffset: $0 * 64 * Int(info.bytesPerRow) + 3, as: UInt8.self) == 255 }
         }
-        if case .success = result {
-            Issue.record("render finished in \((cancelledAt - started).inMilliseconds) ms before the cancel")
-            return
+        // Cancel 3 ms in. A loaded machine can wake this task only after the render is done
+        // (nothing left to cancel): try again then, a few times.
+        var stopped: (atCancel: Int, after: Int, latency: Double)?
+        let clock = ContinuousClock()
+        for _ in 0..<10 {
+            memset(buf, 0, len)
+            let token = try CancelToken()
+            let task = Task {
+                try await engine.renderTestPatternInto(
+                    sourceWidth: 4000, sourceHeight: 16_000, params: TestPatternParams(exposureEv: 0, warmth: 0, saturation: 0),
+                    request: req, destPtr: addr, destLen: UInt64(len), token: token)
+            }
+            try await Task.sleep(for: .milliseconds(3))
+            let atCancel = written()
+            try? token.cancel()
+            let cancelledAt = clock.now
+            if case .failure = await task.result {
+                stopped = (atCancel, written(), (clock.now - cancelledAt).inMilliseconds)
+                break
+            }
         }
-        #expect(written < bands / 2, "\(written)/\(bands) bands written before stopping")
+        let s = try #require(stopped, "every render finished before its cancel")
+        // Only the bands already in flight finish after the cancel (one per rayon thread).
+        #expect(s.after - s.atCancel < bands / 2, "\(s.after - s.atCancel)/\(bands) bands written after the cancel")
         // Early stop is proven by the band count above. Wall-clock latency is only sanity-checked
         // here (the suite shares the rayon pool and the machine); the tight bound (< 50 ms) is
         // enforced standalone by `Darkslide --self-test` and ZFFI.cancelLatency1to1.
-        #expect(latency < 5000, "stopped \(latency) ms after cancel")
+        #expect(s.latency < 5000 * TestTiming.scale, "stopped \(s.latency) ms after cancel")
     }
 
     @Test func progressStreamDeliversInOrder() async throws {

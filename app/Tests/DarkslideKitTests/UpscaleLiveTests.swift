@@ -111,9 +111,11 @@ func tinyLinearDNG(_ url: URL, w: Int, h: Int) throws {
         defer { try? FileManager.default.removeItem(at: dir) }
         let tiles = try await RustUpscaleBackend().begin(dir.appendingPathComponent("DSC00001.dng"),
                                                          name: "DSC00001-Upscaled.dng")
-        let run = Task { try await DenoiseEngine.run(tiles, models: [NearestModel(delay: 0.3)], scale: 2) }
-        try await Task.sleep(for: .milliseconds(50))
+        let gate = TileGate() // the first tile is held until the cancel: no race with the run
+        let run = Task { try await DenoiseEngine.run(tiles, models: [NearestModel(gate: gate)], scale: 2) }
+        #expect(await waitUntil(timeout: .seconds(60)) { gate.entered > 0 }) // liveness only
         run.cancel()
+        gate.open() // a run that ignored the cancel would now finish every tile
         await #expect(throws: CancellationError.self) { try await run.value }
         #expect(tiles.result == nil)
         await #expect(throws: (any Error).self) { try await tiles.finish() } // a tile is missing
