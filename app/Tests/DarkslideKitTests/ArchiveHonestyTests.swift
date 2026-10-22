@@ -2,7 +2,9 @@ import DarkslideFFI
 import Foundation
 import Synchronization
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // final-journeys2 N1, N2, L4: the archive status never claims more than is true.
 

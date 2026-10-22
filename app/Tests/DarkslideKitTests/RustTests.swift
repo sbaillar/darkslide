@@ -4,7 +4,9 @@ import Foundation
 import ImageIO
 import Metal
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func sum(_ f: RenderedFrame) -> Int {
     f.withBytes { p in

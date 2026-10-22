@@ -8,24 +8,30 @@ What Darkslide does with RAWs from each maker, measured by the opt-in compatibil
 - **cull only**: imports and culls (metadata, embedded preview, ratings, tags, compare);
   the viewer says "Darkslide can't develop this file yet" instead of developing it.
 
-| Format | Cull (metadata + embedded preview) | Develop |
-|---|---|---|
-| Sony ARW | ✅ | ✅ |
-| Nikon NEF | ✅ | ✅, except Z 8 / Z 9 "High Efficiency" (HE/HE*) files: cull only (rawler has no decoder for that codec) |
-| Canon CR2 | ✅ | ✅ |
-| Canon CR3 | ✅ (1620×1080 `PRVW` preview) | ✅ |
-| Fujifilm RAF, Bayer (GFX) | ✅ | ✅ |
-| Fujifilm RAF, X-Trans (X-T, X-S, X-H, X-Pro, X-E…) | ✅ | ❌ cull only: Darkslide demosaics 2×2 Bayer sensors only |
-| Olympus / OM System ORF | ✅ (maker-note preview) | ✅ |
-| Panasonic RW2 | ✅ (`JpgFromRaw`) | ✅ |
-| Pentax PEF and DNG | ✅ | ✅ |
-| Leica DNG | ✅ | ✅ |
-| Phone DNG (Google Pixel, iPhone RAW) | ✅ | ✅ |
-| Apple ProRAW | ✅ | ✅ (linear RGB DNG) |
-| Canon CRW, Sigma X3F, Phase One IIQ, ARRI | metadata only | ❌ refused (their sizes aren't bounds-checked before decoding) |
+The **Decoder** column says which decoder develops the format: Darkslide's own (native,
+[RAWDEC.md](RAWDEC.md)) or rawler (the optional `rawler` feature, on in app builds). Native
+decodes of the corpus match rawler's sensor data; RAWDEC.md lists the few understood
+differences (rawler dithers some value mappings).
 
-Other cameras rawler supports should work the same way as their format above, but only the
-files below are tested. For CR3, the culling preview is the 1620×1080 `PRVW` JPEG; the full-size
+| Format | Cull (metadata + embedded preview) | Develop | Decoder |
+|---|---|---|---|
+| Sony ARW | ✅ | ✅ | native: uncompressed, compressed (cRAW), lossless; colour matrix from rawler's camera DB |
+| Nikon NEF | ✅ | ✅, except Z 8 / Z 9 "High Efficiency" (HE/HE*) files: cull only (no decoder has that codec) | native: 14-bit lossless and uncompressed; lossy and 12-bit lossless via rawler; colour matrix from rawler's camera DB |
+| Canon CR2 | ✅ | ✅ | native for the EOS 5D Mark IV and 6D Mark II (`ColorData` layouts checked so far), rawler otherwise; colour matrix from rawler's camera DB |
+| Canon CR3 | ✅ (1620×1080 `PRVW` preview) | ✅ | rawler |
+| Fujifilm RAF, Bayer (GFX) | ✅ | ✅ | rawler |
+| Fujifilm RAF, X-Trans (X-T, X-S, X-H, X-Pro, X-E…) | ✅ | ❌ cull only: Darkslide demosaics 2×2 Bayer sensors only | – |
+| Olympus / OM System ORF | ✅ (maker-note preview) | ✅ | rawler |
+| Panasonic RW2 | ✅ (`JpgFromRaw`) | ✅ | rawler |
+| Pentax PEF and DNG | ✅ | ✅ | native (K-3 Mark III fully, colour included; other bodies' matrices from rawler's DB) |
+| Leica DNG | ✅ | ✅ | native |
+| Phone DNG (Google Pixel, iPhone RAW) | ✅ | ✅ | native |
+| Apple ProRAW | ✅ | ✅ (linear RGB DNG) | native |
+| Canon CRW, Sigma X3F, Phase One IIQ, ARRI | metadata only | ❌ refused (their sizes aren't bounds-checked before decoding) | – |
+
+A build without the `rawler` feature develops DNGs and the K-3 Mark III PEF only; everything
+else is cull only there (see RAWDEC.md, "Camera data"). Other cameras rawler supports should
+work the same way as their format above, but only the files below are tested. For CR3, the culling preview is the 1620×1080 `PRVW` JPEG; the full-size
 JPEG in the file's first track isn't read, so zooming past that before developing shows the
 preview upscaled.
 
@@ -70,7 +76,11 @@ scripts/fetch-rawcompat.sh      # ~0.9 GB into ~/Library/Caches/darkslide-rawcom
 DS_RAWCOMPAT_DIR=~/Library/Caches/darkslide-rawcompat DS_RAWCOMPAT_REPORT=/tmp/cameras.md \
   cargo test -p ds-raw --release --test compat -- --nocapture
 DS_RAWCOMPAT_DIR=~/Library/Caches/darkslide-rawcompat cargo bench -p ds-raw -- compat   # preview time per file
+DS_RAWCOMPAT_DIR=~/Library/Caches/darkslide-rawcompat cargo bench -p ds-raw -- decode/  # native vs rawler decode
 ```
+
+The same test run includes `native_decoders_match_rawler`, the native/rawler parity check
+(RAWDEC.md).
 
 The test fails if any file's metadata or embedded preview can't be read, or if a decode fails
 with anything other than "unsupported". Paste the table it writes into the Results section.

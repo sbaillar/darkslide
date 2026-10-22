@@ -5,7 +5,9 @@ import ImageIO
 import SQLite3
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // [map] Geometry, clustering, the map filter, geotagging and All Sessions.
 

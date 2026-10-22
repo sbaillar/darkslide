@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The real store; its close starts only after `closeDelay` (a slow archive/store tail).
 private actor LateClose: SessionStore, SessionClosing {

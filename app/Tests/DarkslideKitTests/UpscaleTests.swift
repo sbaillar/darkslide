@@ -2,7 +2,9 @@ import CoreML
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The 2× model double: every output pixel is its input pixel (nearest neighbour), times
 /// `gain`; optionally slowed or held per tile (to cancel mid-run) or failing.

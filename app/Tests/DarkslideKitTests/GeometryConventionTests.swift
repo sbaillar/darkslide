@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import Testing
 @testable import DarkslideAI
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// R3-H2: the app stores crops in the ds-core / ds-pipeline convention and the viewer
 /// displays exactly what ds-pipeline would render.

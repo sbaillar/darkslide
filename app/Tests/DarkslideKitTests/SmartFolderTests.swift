@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Brute-force membership count (the reference the incremental counts must match).
 @MainActor

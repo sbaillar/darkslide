@@ -38,12 +38,18 @@ pub(crate) mod tag {
     pub const ARTIST: u16 = 0x013B;
     pub const COPYRIGHT: u16 = 0x8298;
     pub const SAMPLES_PER_PIXEL: u16 = 0x0115;
+    pub const ROWS_PER_STRIP: u16 = 0x0116;
     pub const STRIP_BYTE_COUNTS: u16 = 0x0117;
+    pub const PREDICTOR: u16 = 0x013D;
+    pub const TILE_WIDTH: u16 = 0x0142;
+    pub const TILE_LENGTH: u16 = 0x0143;
     pub const TILE_OFFSETS: u16 = 0x0144;
     pub const TILE_BYTE_COUNTS: u16 = 0x0145;
     pub const SUB_IFDS: u16 = 0x014A;
+    pub const SAMPLE_FORMAT: u16 = 0x0153;
     pub const JPEG_OFFSET: u16 = 0x0201;
     pub const JPEG_LENGTH: u16 = 0x0202;
+    pub const CFA_REPEAT_DIM: u16 = 0x828D;
     pub const CFA_PATTERN: u16 = 0x828E;
     pub const EXPOSURE_TIME: u16 = 0x829A;
     pub const F_NUMBER: u16 = 0x829D;
@@ -71,9 +77,22 @@ pub(crate) mod tag {
     pub const LENS_MODEL: u16 = 0xA434;
     pub const FOCAL_LENGTH_35MM: u16 = 0xA405;
     pub const DNG_PRIVATE_DATA: u16 = 0xC634;
+    /// DNG 1.7 tags (Adobe DNG Specification, chapter 4).
+    pub const DNG_VERSION: u16 = 0xC612;
+    pub const CFA_PLANE_COLOR: u16 = 0xC616;
+    pub const LINEARIZATION_TABLE: u16 = 0xC618;
+    pub const BLACK_LEVEL_REPEAT_DIM: u16 = 0xC619;
+    pub const BLACK_LEVEL: u16 = 0xC61A;
     pub const WHITE_LEVEL: u16 = 0xC61D;
     pub const DEFAULT_CROP_ORIGIN: u16 = 0xC61F;
     pub const DEFAULT_CROP_SIZE: u16 = 0xC620;
+    pub const COLOR_MATRIX_1: u16 = 0xC621;
+    pub const COLOR_MATRIX_2: u16 = 0xC622;
+    pub const AS_SHOT_NEUTRAL: u16 = 0xC628;
+    pub const AS_SHOT_WHITE_XY: u16 = 0xC629;
+    pub const CALIBRATION_ILLUMINANT_1: u16 = 0xC65A;
+    pub const CALIBRATION_ILLUMINANT_2: u16 = 0xC65B;
+    pub const ACTIVE_AREA: u16 = 0xC68D;
     /// Panasonic RW2 raw frame size (IFD0).
     pub const PANA_WIDTH: u16 = 0x0002;
     pub const PANA_LENGTH: u16 = 0x0003;

@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Ejects only after a delay, so a test can cancel mid-eject.
 final class SlowEjector: Ejecting, @unchecked Sendable {

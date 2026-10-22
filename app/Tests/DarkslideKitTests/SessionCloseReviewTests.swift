@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Forwards to a RustSessionStore; rating writes take `saveDelay` (a slow drive) and
 /// closing waits `closeDelay` first (a long Close tail).

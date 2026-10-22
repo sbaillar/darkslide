@@ -1,7 +1,9 @@
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Round 5, identity on the live path: store keys per volume (R4-H1), content
 /// identity and "file changed" restore (R4-H3), background refresh (R4-M1),

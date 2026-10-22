@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The tool rows an AI edit changed (AI Optimize, ⌘K, Auto Adjust): which rows, their
 /// hover texts, how long they stay, and the panel and tab badges.

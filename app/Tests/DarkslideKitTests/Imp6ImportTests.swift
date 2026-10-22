@@ -3,7 +3,9 @@ import DarkslideFFI
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func tempDir(_ name: String = "imp6") throws -> URL {
     let d = FileManager.default.temporaryDirectory.appendingPathComponent("\(name)-\(UUID().uuidString)")

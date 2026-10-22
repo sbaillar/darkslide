@@ -4,7 +4,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // Integration A review, export (Part C): E-M1, E-M2, E-L1…L6 and M4 (E-H1, the
 // preview-size labelling, is gone: exports are full develops, see Ex8ExportTests).

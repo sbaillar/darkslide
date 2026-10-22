@@ -3,7 +3,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func meta(_ date: Date) -> PhotoMeta {
     PhotoMeta(camera: "Sony ILCE-9", lens: "FE 85mm F1.4 GM", iso: 100, shutter: 0.004, aperture: 2, focalLength: 85,

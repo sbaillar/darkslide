@@ -1,7 +1,9 @@
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Horizons per photo (nil = none found), for ⌘K on a selection.
 private struct PerPhotoHorizon: HorizonDetecting {

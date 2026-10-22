@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Polish pass: text contrast over the design tokens.
 @Suite struct PolishContrastTests {
@@ -49,10 +51,13 @@ import Testing
     /// Section headers and secondary labels use the tested tokens, never the system's
     /// translucent `.secondary` / `.tertiary` styles (which measured about 3:1).
     @Test func viewsUseTheContrastTokensForSecondaryText() throws {
-        let views = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .appendingPathComponent("../../Sources/DarkslideKit/Views").standardized
-        let files = try #require(FileManager.default.enumerator(at: views, includingPropertiesForKeys: nil))
-            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+        let sources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Sources")
+        var files: [URL] = []
+        for target in ["DarkslideUI", "DarkslideMac"] {
+            let views = sources.appendingPathComponent("\(target)/Views").standardized
+            files += try #require(FileManager.default.enumerator(at: views, includingPropertiesForKeys: nil))
+                .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+        }
         #expect(files.count > 20)
         let banned = try NSRegularExpression(pattern: #"foregroundStyle\(\.(secondary|tertiary|quaternary)\)|: \.secondary\)|Color\.secondary\b"#)
         for f in files {

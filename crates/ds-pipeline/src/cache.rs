@@ -14,15 +14,24 @@ use crate::plan::{BaseKey, DemosaicMode};
 /// Physical RAM in bytes (macOS `hw.memsize`; 8 GiB when unknown).
 pub fn physical_memory() -> u64 {
     static MEM: OnceLock<u64> = OnceLock::new();
-    *MEM.get_or_init(|| {
-        std::process::Command::new("/usr/sbin/sysctl")
-            .args(["-n", "hw.memsize"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .and_then(|s| s.trim().parse().ok())
-            .unwrap_or(8 << 30)
-    })
+    *MEM.get_or_init(|| sysctl_memsize().unwrap_or(8 << 30))
+}
+
+#[cfg(target_os = "macos")]
+fn sysctl_memsize() -> Option<u64> {
+    std::process::Command::new("/usr/sbin/sysctl")
+        .args(["-n", "hw.memsize"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.trim().parse().ok())
+}
+
+/// iOS can't start processes: budget for 8 GiB (the smallest M-series iPad), which keeps
+/// the BASE caches well inside what iPadOS lets one app use.
+#[cfg(not(target_os = "macos"))]
+fn sysctl_memsize() -> Option<u64> {
+    None
 }
 
 /// Bytes counted against the budget in the process: BASE caches (CPU and GPU; unified

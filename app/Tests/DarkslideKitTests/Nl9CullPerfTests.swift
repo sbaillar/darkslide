@@ -1,7 +1,9 @@
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// AI Cull on many real photos, one preview per `add` against batches of 24 on the
 /// GPU analyzer (`add_batch`). Runs only with `NL9_CULL_DIR=<folder of ARWs>`

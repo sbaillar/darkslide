@@ -13,25 +13,39 @@
 
 use ds_core::Orientation;
 
+#[cfg(feature = "rawler")]
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
+#[cfg(feature = "rawler")]
 use rawler::decoders::raf::parse_raf_format;
+#[cfg(feature = "rawler")]
 use rawler::formats::tiff::IFD;
+#[cfg(feature = "rawler")]
 use rawler::rawsource::RawSource;
 
 use crate::RawError;
 use crate::container::Container;
-use crate::guard::{COMPRESSED_PER_BYTE, check, check_tiff};
+use crate::guard::check_tiff;
+#[cfg(feature = "rawler")]
+use crate::guard::{COMPRESSED_PER_BYTE, check};
 use crate::preview::{EmbeddedPreview, ifd0_orientation, largest};
-use crate::source::{Shifted, SliceSource, Source};
+#[cfg(feature = "rawler")]
+use crate::source::SliceSource;
+use crate::source::{Shifted, Source};
 
+#[cfg(any(test, feature = "rawler"))]
 const REC_RAW_SIZE: u16 = 0x100;
+#[cfg(feature = "rawler")]
 const REC_XTRANS_LAYOUT: u16 = 0x131;
+#[cfg(any(test, feature = "rawler"))]
 const FUJI_IFD: u16 = 0xF000;
+#[cfg(any(test, feature = "rawler"))]
 const FUJI_WIDTH: u16 = 0xF001;
+#[cfg(any(test, feature = "rawler"))]
 const FUJI_HEIGHT: u16 = 0xF002;
 
 /// Why an X-Trans file isn't developed.
+#[cfg(feature = "rawler")]
 pub(crate) const XTRANS: &str =
     "X-Trans sensor (6×6 colour filter); Darkslide demosaics 2×2 Bayer sensors only";
 
@@ -100,6 +114,7 @@ pub(crate) fn check_header(src: &dyn Source) -> Result<(), RawError> {
 
 /// Every IFD of `ifd`'s tree: itself, its sub-IFDs and its chain (what
 /// rawler's `find_first_ifd_with_tag` searches).
+#[cfg(feature = "rawler")]
 fn each_ifd<'a>(ifd: &'a IFD, out: &mut Vec<&'a IFD>) {
     out.push(ifd);
     for subs in ifd.sub_ifds().values() {
@@ -116,12 +131,14 @@ fn each_ifd<'a>(ifd: &'a IFD, out: &mut Vec<&'a IFD>) {
 /// by rawler itself: the JPEG's TIFF (12 bytes into the JPEG), the `FujiIFD`
 /// tree at the sensor data (it fakes one when that doesn't parse) and the
 /// record list (ignored when it doesn't parse).
+#[cfg(feature = "rawler")]
 struct Parsed {
     main: IFD,
     fuji: Option<IFD>,
     records: Option<IFD>,
 }
 
+#[cfg(feature = "rawler")]
 fn parse(rs: &RawSource, h: &Header) -> Result<Parsed, RawError> {
     let u32_of = |v: u64, what: &str| {
         u32::try_from(v).map_err(|_| RawError::Malformed(format!("RAF {what} offset {v}")))
@@ -154,6 +171,7 @@ fn parse(rs: &RawSource, h: &Header) -> Result<Parsed, RawError> {
 /// room for a second parser to disagree. Then refuse X-Trans files (record
 /// 0x131), whose 6×6 filter Darkslide can't demosaic, before a full decode
 /// is spent on them.
+#[cfg(feature = "rawler")]
 pub(crate) fn check_decodable(rs: &RawSource) -> Result<(), RawError> {
     let buf = rs.buf();
     let len = buf.len() as u64;
@@ -271,10 +289,12 @@ pub(crate) mod tests {
         f
     }
 
+    #[cfg(feature = "rawler")]
     fn decodable(f: &[u8]) -> Result<(), RawError> {
         check_decodable(&RawSource::new_from_slice(f))
     }
 
+    #[cfg(feature = "rawler")]
     fn refused(f: &[u8], what: &str) -> bool {
         matches!(decodable(f), Err(RawError::Malformed(m)) if m.contains(what))
     }
@@ -329,6 +349,7 @@ pub(crate) mod tests {
         ));
     }
 
+    #[cfg(feature = "rawler")]
     #[test]
     fn sizes_are_bounded_and_xtrans_refused() {
         let ok = raf(
@@ -359,6 +380,7 @@ pub(crate) mod tests {
         ));
     }
 
+    #[cfg(feature = "rawler")]
     #[test]
     fn jpeg_tiff_sizes_are_bounded_too() {
         // The JPEG's IFD0 carries a FujiIFD-style pair claiming 65535².
@@ -372,6 +394,7 @@ pub(crate) mod tests {
     /// Review H1: an odd-length record shifts rawler's walk of the record list
     /// by a byte (it reads `len / 2` shorts and doesn't skip the rest), so it
     /// sees a 0x100 of 65535² that a walk of our own never would.
+    #[cfg(feature = "rawler")]
     #[test]
     fn record_desync_is_bounded_as_rawler_reads_it() {
         let mut rec = 2u32.to_be_bytes().to_vec();
@@ -383,6 +406,7 @@ pub(crate) mod tests {
 
     /// Review H2: a `FujiIFD` (0xF000) listing two IFDs; rawler parses both and
     /// uses whichever has `StripOffsets`.
+    #[cfg(feature = "rawler")]
     #[test]
     fn every_fuji_ifd_is_bounded() {
         let mut data = header(Endian::Little);
@@ -423,6 +447,7 @@ pub(crate) mod tests {
 
     /// Review H3: without the `Exif` magic rawler still parses the TIFF 12 bytes
     /// into the JPEG; when that TIFF doesn't parse, rawler can't open the file.
+    #[cfg(feature = "rawler")]
     #[test]
     fn the_jpeg_tiff_is_bounded_however_it_looks() {
         let mut j = exif_jpeg(&[
@@ -448,6 +473,7 @@ pub(crate) mod tests {
         assert!(matches!(decodable(&f[..100]), Err(RawError::Truncated(_))));
     }
 
+    #[cfg(feature = "rawler")]
     #[test]
     fn missing_blocks_are_what_rawler_makes_of_them() {
         // No record list, no FujiIFD: nothing to bound, rawler fails later.

@@ -1,7 +1,9 @@
 import CryptoKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The shareable result (`BenchShare`), the test pack manifest and the JSON schema
 /// (docs/BENCHMARKS.md, Sharing results).

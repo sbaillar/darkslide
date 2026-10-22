@@ -3,7 +3,9 @@
 //! Skips (benchmarks nothing) when `samples/` is absent.
 //!
 //! With `DS_RAWCOMPAT_DIR` (see `scripts/fetch-rawcompat.sh`), also
-//! `embedded_preview` for every camera there (`compat/<file>`).
+//! `embedded_preview` for every camera there (`compat/<file>`), and the
+//! native decoders against rawler on every file they cover
+//! (`decode/<file>/native`, `decode/<file>/rawler`; docs/RAWDEC.md).
 
 use std::hint::black_box;
 
@@ -25,10 +27,10 @@ fn rawler_path(c: &mut Criterion) {
     g.finish();
 }
 
-/// The ≤ 10 ms preview budget, per format.
-fn compat(c: &mut Criterion) {
+/// The corpus files (`DS_RAWCOMPAT_DIR`), sorted; empty without it.
+fn corpus() -> Vec<std::path::PathBuf> {
     let Some(dir) = std::env::var_os("DS_RAWCOMPAT_DIR") else {
-        return;
+        return Vec::new();
     };
     let mut files: Vec<_> = std::fs::read_dir(dir)
         .unwrap()
@@ -37,6 +39,36 @@ fn compat(c: &mut Criterion) {
         .filter(|p| ds_raw::has_raw_extension(p))
         .collect();
     files.sort();
+    files
+}
+
+/// Native decoders against rawler, per corpus file they cover.
+fn native_vs_rawler(c: &mut Criterion) {
+    let mut g = c.benchmark_group("decode");
+    g.sample_size(10);
+    for p in corpus() {
+        let name = p.file_name().unwrap().to_string_lossy().into_owned();
+        let Ok(f) = ds_raw::open(&p) else { continue };
+        if !matches!(f.decode_native(), Ok(Some(_))) {
+            continue;
+        }
+        g.bench_function(format!("{name}/native"), |b| {
+            b.iter(|| black_box(f.decode_native().unwrap()));
+        });
+        #[cfg(feature = "rawler")]
+        g.bench_function(format!("{name}/rawler"), |b| {
+            b.iter(|| black_box(f.decode_rawler().unwrap()));
+        });
+    }
+    g.finish();
+}
+
+/// The ≤ 10 ms preview budget, per format.
+fn compat(c: &mut Criterion) {
+    let files = corpus();
+    if files.is_empty() {
+        return;
+    }
     let mut g = c.benchmark_group("compat");
     for p in files {
         let name = p.file_name().unwrap().to_string_lossy().into_owned();
@@ -69,11 +101,12 @@ fn benches(c: &mut Criterion) {
         b.iter(|| black_box(ds_raw::decode(&path).unwrap()));
     });
     // Baseline for comparison: stock rawler full decode (no crop/convert).
+    #[cfg(feature = "rawler")]
     g.bench_function("rawler_decode_baseline", |b| {
         b.iter(|| black_box(rawler::decode_file(&path).unwrap()));
     });
     g.finish();
 }
 
-criterion_group!(raw, benches, compat);
+criterion_group!(raw, benches, compat, native_vs_rawler);
 criterion_main!(raw);

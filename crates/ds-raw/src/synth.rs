@@ -1,6 +1,8 @@
 //! Synthetic Sony-ARW-like files, laid out like a real ILCE-9 ARW, used to
 //! exercise every path (fast decode, rawler fallback, metadata, preview,
-//! error handling) without the git-ignored sample files.
+//! error handling) without the git-ignored sample files. The synthetic camera
+//! has no row in the own camera table, so tests that develop it (or exercise
+//! rawler itself) need the `rawler` feature.
 #![allow(
     clippy::float_cmp,
     clippy::too_many_lines,
@@ -9,13 +11,18 @@
 
 use std::path::{Path, PathBuf};
 
-use ds_core::{CfaPattern, Orientation, Size};
+#[cfg(feature = "rawler")]
+use ds_core::CfaPattern;
+use ds_core::{Orientation, Size};
 
+#[cfg(feature = "rawler")]
+use crate::DecodePath;
 use crate::preview::tests::fake_jpeg;
 use crate::sony;
 use crate::tiff::build::{Val, header, ifd};
 use crate::tiff::{Endian, tag};
-use crate::{DecodePath, RawError, RawFile, decode, embedded_preview, read_metadata};
+use crate::{RawError, RawFile, decode, embedded_preview, read_metadata};
+#[cfg(feature = "rawler")]
 use rawler::rawsource::RawSource;
 
 const LE: Endian = Endian::Little;
@@ -308,10 +315,12 @@ pub fn write_tmp(bytes: &[u8], name: &str) -> (tempfile::TempDir, PathBuf) {
     (dir, p)
 }
 
+#[cfg(feature = "rawler")]
 fn cfa_from(p: [u8; 4]) -> CfaPattern {
     crate::decode::cfa_from_tag(&p.map(u32::from)).unwrap()
 }
 
+#[cfg(feature = "rawler")]
 fn assert_matches_source(s: &Synth, img: &ds_core::RawImage) {
     let [cx, cy, w, h] = s.crop.unwrap_or([0, 0, s.w, s.h]);
     assert_eq!(img.size, Size::new(w, h));
@@ -334,6 +343,7 @@ fn assert_matches_source(s: &Synth, img: &ds_core::RawImage) {
     }
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn fast_path_crops_and_shifts_cfa_for_every_parity() {
     for cfa in [[0, 1, 1, 2], [2, 1, 1, 0], [1, 0, 2, 1], [1, 2, 0, 1]] {
@@ -363,6 +373,7 @@ fn fast_path_crops_and_shifts_cfa_for_every_parity() {
     }
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn fast_path_uses_encrypted_sr2_when_raw_ifd_lacks_levels() {
     let s = Synth {
@@ -377,6 +388,7 @@ fn fast_path_uses_encrypted_sr2_when_raw_ifd_lacks_levels() {
     assert_eq!(img.black_level, [512.0, 510.0, 516.0, 514.0]);
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn rawler_fallback_agrees_with_fast_path() {
     let s = Synth {
@@ -412,6 +424,7 @@ fn rawler_fallback_agrees_with_fast_path() {
     assert_eq!(w.white_level, 16383.0);
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn color_info_matches_the_decode_without_reading_pixels() {
     // Fast (tags only) path.
@@ -435,6 +448,7 @@ fn color_info_matches_the_decode_without_reading_pixels() {
     assert!(crate::color_info(&p.with_extension("missing")).is_err());
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn non_fast_compression_goes_to_rawler() {
     // ARW2 "compressed" claims; our strip is not valid ARW2 data but rawler
@@ -454,6 +468,7 @@ fn non_fast_compression_goes_to_rawler() {
     assert!(matches!(decode(&p), Err(RawError::Decode(_))));
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn unknown_sony_model_is_unsupported() {
     let s = Synth {
@@ -485,6 +500,7 @@ fn non_sony_tiff_goes_to_rawler() {
     ));
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn bad_levels_are_rejected_or_deferred() {
     // Black above white.
@@ -541,6 +557,7 @@ fn metadata_from_synthetic() {
     assert_eq!(m.shutter_count, Some(3418));
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn rawler_metadata_agrees() {
     let (_d, p) = write_tmp(&Synth::default().build(), "rm.ARW");
@@ -643,6 +660,7 @@ fn non_raw_files_are_not_raw() {
     ));
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn non_tiff_raw_magic_goes_to_rawler() {
     // RAF magic with garbage: rawler must fail cleanly.
@@ -689,11 +707,15 @@ fn cr3_and_raf_previews_and_guards() {
     // Past both guards (rawler then fails on the header-only file).
     assert!(!matches!(r.decode(), Err(RawError::Malformed(_))));
     let _ = r.metadata();
-    let f = crate::cr3::tests::cr3(1, (65_535, 65_535), 0);
-    assert!(matches!(
-        crate::decode_bytes(&f),
-        Err(RawError::Malformed(_))
-    ));
+    // The CMP1 bound is rawler's guard; without it the file is unsupported.
+    #[cfg(feature = "rawler")]
+    {
+        let f = crate::cr3::tests::cr3(1, (65_535, 65_535), 0);
+        assert!(matches!(
+            crate::decode_bytes(&f),
+            Err(RawError::Malformed(_))
+        ));
+    }
 
     let size = (0x100, vec![0, 40, 0, 60]);
     let f = crate::raf::tests::raf(8, std::slice::from_ref(&size), Some((60, 40)), 4800);
@@ -702,11 +724,14 @@ fn cr3_and_raf_previews_and_guards() {
     assert_eq!(p.size, Size::new(1920, 1280));
     assert_eq!(p.orientation, Orientation::from_exif(8));
     assert!(!matches!(r.decode(), Err(RawError::Malformed(_))));
-    let f = crate::raf::tests::raf(1, &[size, (0x131, vec![1; 36])], None, 4800);
-    assert!(matches!(
-        crate::decode_bytes(&f),
-        Err(RawError::Unsupported { reason, .. }) if reason == crate::raf::XTRANS
-    ));
+    #[cfg(feature = "rawler")]
+    {
+        let f = crate::raf::tests::raf(1, &[size, (0x131, vec![1; 36])], None, 4800);
+        assert!(matches!(
+            crate::decode_bytes(&f),
+            Err(RawError::Unsupported { reason, .. }) if reason == crate::raf::XTRANS
+        ));
+    }
 }
 
 /// Truncate at every interesting boundary and a sweep of offsets: every call
@@ -844,6 +869,7 @@ fn one_corrupt_tag_does_not_hide_other_metadata() {
     assert_eq!(m.shutter_count, Some(3418));
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn sony_rawler_path_uses_dng_white_level() {
     // No PhotometricInterpretation → not the fast-path layout → rawler.
@@ -872,6 +898,7 @@ fn sony_rawler_path_uses_dng_white_level() {
     assert_eq!(info.path, DecodePath::SonyUncompressed);
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn fast_path_layout_requirements() {
     // Big-endian Sony TIFF, wrong spp, non-CFA photometric, odd bits and a
@@ -929,6 +956,7 @@ fn fast_path_layout_requirements() {
     assert!(crate::decode::sony_plan(&src, &c).unwrap().is_none());
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn preview_from_single_jpeg_strip() {
     let s = Synth {
@@ -964,6 +992,7 @@ fn sony_af_point_and_shot_numbers() {
     assert!((af.x - 0.5).abs() < 1e-6 && (af.y - 224.0 / 428.0).abs() < 1e-6);
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn bytes_api_matches_path_api() {
     let f = Synth::default().build();
@@ -996,6 +1025,7 @@ fn bytes_api_matches_path_api() {
 
 /// A 4 KB MRW declaring a 65535x65535 sensor must be refused before rawler
 /// allocates (the reviewer measured 1.47 GB resident without the guard).
+#[cfg(feature = "rawler")]
 #[test]
 fn mrw_with_hostile_dimensions_is_refused() {
     let mut f = b"\0MRM".to_vec();
@@ -1019,6 +1049,7 @@ fn mrw_with_hostile_dimensions_is_refused() {
 }
 
 /// ORF/RW2 signatures are TIFF-structured: their tags are bounded too.
+#[cfg(feature = "rawler")]
 #[test]
 fn tiff_variants_are_bounded() {
     let mut f = Synth {

@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// In-memory `LibraryBackend`: a list of items it filters by session, rating and
 /// collection; records what it was asked.

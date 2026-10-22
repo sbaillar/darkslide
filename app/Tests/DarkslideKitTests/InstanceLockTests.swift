@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// One Darkslide GUI per support folder (InstanceLock), checked across processes:
 /// `/usr/bin/lockf` takes the same `flock` lock from a second process.

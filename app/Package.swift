@@ -1,6 +1,9 @@
 // swift-tools-version: 6.2
 // Darkslide macOS app. Build via `scripts/build-app.sh` (it builds the Rust
 // static library and the generated bindings first); test via `scripts/test-app.sh`.
+//
+// DarkslideCore and DarkslideUI are shared with the iPad app (docs/IPAD_PLAN.md,
+// ipad/README.md); DarkslideMac and the Darkslide executable are Mac-only.
 import Foundation
 import PackageDescription
 
@@ -19,7 +22,9 @@ let testingLinker: [LinkerSetting] = FileManager.default.fileExists(atPath: cltF
 
 let package = Package(
     name: "Darkslide",
-    platforms: [.macOS(.v26)],
+    // SwiftPM has no per-target platforms: iOS is listed for DarkslideCore and DarkslideUI
+    // (and the AI/FFI targets they use). DarkslideMac and Darkslide are never built for it.
+    platforms: [.macOS(.v26), .iOS(.v26)],
     products: [.executable(name: "Darkslide", targets: ["Darkslide"])],
     targets: [
         // Generated C header + module map for the Rust static library (scripts/ffi.sh).
@@ -33,15 +38,27 @@ let package = Package(
         ),
         // On-device AI on Apple frameworks (Vision, FoundationModels). No UI, no FFI.
         .target(name: "DarkslideAI"),
-        // View models, services, mocks, and SwiftUI views.
+        // Models, services, AppModel logic, codecs, AI, the viewer renderer, mocks.
+        // No SwiftUI; AppKit only in Platform/ seams (scripts/check-core-platform.sh).
         .target(
-            name: "DarkslideKit",
+            name: "DarkslideCore",
             dependencies: ["DarkslideFFI", "DarkslideAI"]
         ),
-        .executableTarget(name: "Darkslide", dependencies: ["DarkslideKit"]),
+        // Shared SwiftUI views: DS tokens, panels, controls, browser, viewer.
+        // AppKit only in Views/Platform/ seams.
+        .target(
+            name: "DarkslideUI",
+            dependencies: ["DarkslideCore", "DarkslideFFI", "DarkslideAI"]
+        ),
+        // The Mac app: shell, menus, keyboard monitor, sheets, settings, archive, cards.
+        .target(
+            name: "DarkslideMac",
+            dependencies: ["DarkslideCore", "DarkslideUI", "DarkslideFFI", "DarkslideAI"]
+        ),
+        .executableTarget(name: "Darkslide", dependencies: ["DarkslideCore", "DarkslideMac"]),
         .testTarget(
             name: "DarkslideKitTests",
-            dependencies: ["DarkslideKit"],
+            dependencies: ["DarkslideCore", "DarkslideUI", "DarkslideMac"],
             // Tiny identity Core ML models for the AI Denoise engine (no network in tests).
             resources: [.copy("Fixtures")],
             swiftSettings: testingFlags,

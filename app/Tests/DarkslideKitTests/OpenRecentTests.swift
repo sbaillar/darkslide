@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A recents store with a fixed list (some unavailable), editable like the live one.
 private actor RecentsStore: SessionStore, RecentSessionsEditing {

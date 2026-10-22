@@ -4,7 +4,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// An `MLModel` whose predictions are canned (Core ML can't be faked any other way).
 final class StubMLModel: MLModel, @unchecked Sendable {

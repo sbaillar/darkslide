@@ -17,7 +17,7 @@ The method and the settings are in [docs/BENCHMARKS.md](../docs/BENCHMARKS.md).
 | `schema/bench-result-v1.schema.json` | the shareable result format (`result.json`) |
 
 The timing code is part of the app: `Darkslide --bench`, `--bench-drive`,
-`--bench-report` and `--bench-share` (app/Sources/DarkslideKit/Bench/).
+`--bench-report` and `--bench-share` (app/Sources/DarkslideMac/Bench/).
 
 ## Quick start: Darkslide only
 

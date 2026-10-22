@@ -11,7 +11,7 @@ rust-version.workspace = true
 ds-core.workspace = true
 ds-template = { path = "../ds-template" }
 ds-fsutil = { path = "../ds-fsutil" }
-ds-raw = { path = "../ds-raw" }
+ds-raw = { path = "../ds-raw", default-features = false }
 blake3.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -21,6 +21,7 @@ chrono = { version = "0.4.42", default-features = false, features = ["std", "clo
 rustix = { version = "1.1.2", features = ["fs", "process"] }
 
 [dev-dependencies]
+ds-raw = { path = "../ds-raw", features = ["rawler"] }
 tempfile.workspace = true
 proptest.workspace = true
 criterion.workspace = true

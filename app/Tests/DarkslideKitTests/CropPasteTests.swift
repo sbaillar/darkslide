@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// M10: a copied crop lands on another photo by ds-core's `adapt_crop` (through ds-ffi),
 /// so an aspect-locked crop keeps its ratio in the target's pixels across portrait and

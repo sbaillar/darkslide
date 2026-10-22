@@ -1,6 +1,6 @@
 # Darkslide for iPad: plan
 
-Status: proposed (2026-10-07; look-and-feel and Mac ↔ iPad link added 2026-10-10). Phase R (the Mac side of the link) is built; nothing else is yet.
+Status: proposed (2026-10-07; look-and-feel and Mac ↔ iPad link added 2026-10-10). Phase R (the Mac side of the link) is built. Phase 1 (the shared core) is done on the Mac side (2026-10-21): the split, the seams and the Rust gates are built and verified on macOS; compiling it for iOS waits for Xcode (see Phase 1 below and [ipad/README.md](../ipad/README.md)). Phase 0 waits for the installs listed under Phase 0.
 
 ## Goal
 
@@ -188,10 +188,22 @@ Each phase is one agent batch: build, adversarial review, fix, merge. All gates 
 - Build the XCFramework, plus an empty iPad app that opens a session read-only and shows one RAW rendered on the GPU.
 - **Verify:** it runs on your iPad. Measure the decode-and-render time for one A9 file, peak memory, and the time to fill the browser from embedded previews.
 - **Go/no-go:** under 1.5 s for the first render and under 50 ms to move to the next photo, the same budgets as the Mac.
+- **What you install first** (nothing here can be done by an agent; details in [ipad/README.md](../ipad/README.md#what-to-install-once)):
+  1. **Xcode** (App Store), then `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, `xcodebuild -runFirstLaunch` and the iOS platform (`xcodebuild -downloadPlatform iOS`).
+  2. **rustup** next to Homebrew Rust (`--no-modify-path`), then `~/.cargo/bin/rustup target add aarch64-apple-ios aarch64-apple-ios-sim` (plus `aarch64-apple-darwin` so the XCFramework's macOS slice uses the same toolchain).
+  3. **An Apple Developer account** added in Xcode ▸ Settings ▸ Accounts (paid recommended; a free one's installs expire after 7 days).
+  4. An M-series iPad on iPadOS 26, paired with the Mac in Xcode.
+
+  `scripts/build-ipad.sh --check` confirms 1; `scripts/ffi.sh --xcframework` reports what is missing from 2.
 
 ### Phase 1: shared core (1–2 agents)
 - Move the non-UI Swift into `DarkslideCore` and the reusable views into `DarkslideUI` (see "Look and feel"), and add the AppKit seams and Rust cfg gates.
 - **Verify:** the Mac app works exactly as before. All Mac tests pass, the Core tests also pass on the iOS simulator, and coverage is unchanged.
+- **Status (2026-10-21): done on macOS; the iOS half waits for Xcode.** The Mac app builds, all Swift tests pass with coverage unchanged, the Rust gates pass, and `--snapshot` screenshots match the pre-split build pixel for pixel.
+  - `app/Package.swift`: `DarkslideKit` is split into `DarkslideCore` (no SwiftUI), `DarkslideUI` (the shared views) and `DarkslideMac` (shell, menus, `KeyMonitor`, sheets, Settings, archive, cards, `--snapshot`, the benchmark kit). No umbrella module: `@testable` through a re-exporting module would not reach the internals the tests use, so each test file imports the three targets instead (one mechanical line each). The test target keeps its name, `DarkslideKitTests`. Names the other targets use are `package`, not `public`.
+  - Seams: `DarkslideCore/Platform/` (`PlatformWorkspace`: mounts, Finder, Launch Services, eject, the home folder and the computer's name; `PlatformAccessibility`; `VideoQuickLook`) and `DarkslideUI/Views/Platform/` (`PlatformInput.fineAdjustActive` and the selection modifiers, `Color.adaptive`, `ScrollWheelCatcher`, `PlatformDisplay` for P3/EDR, `PlatformPanels` for file pickers, confirmations and the pasteboard, and `MetalImageView`'s NSView/UIView representables). DiskArbitration and ColorSync's profile iteration are behind `#if os(macOS)`. `scripts/check-core-platform.sh` (run by `scripts/test-app.sh`) keeps it that way. The iOS branches have never been compiled.
+  - Rust: `sysctl` (ds-cache, ds-pipeline), `rsync` (ds-archive) and the `hdiutil` test volumes are macOS-only with fallbacks; `diskutil` already was. `scripts/ffi.sh --xcframework` builds the XCFramework once Xcode and rustup are installed.
+  - **Remaining:** compile `DarkslideCore`/`DarkslideUI` for iOS and fix what the compiler finds (macOS-only SwiftUI modifiers are listed in `ipad/README.md`), link the XCFramework on iOS, and run the Core tests on the simulator (they share one test target with the Mac views today, so the Mac-view tests need an `#if os(macOS)` or a target of their own).
 
 ### Phase 2: touch culling (1 agent)
 - A grid and a full-screen loupe:

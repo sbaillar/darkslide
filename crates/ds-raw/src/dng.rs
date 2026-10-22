@@ -2,29 +2,50 @@
 //! camera RGB (`LinearRaw`, 16 bits per sample, lossless JPEG) with the camera's colour
 //! matrix and as-shot neutral, so the file reads back through [`crate::decode`] as the
 //! same [`RawImage`] and develops like any RAW.
+//!
+//! The writer is rawler's (the `rawler` feature); without it
+//! [`write_linear_dng`] returns [`RawError::Unsupported`]. Replacing it is
+//! phase 2 of the native decoder work (`docs/RAWDEC.md`).
 
+#[cfg(feature = "rawler")]
 use std::collections::HashMap;
 use std::io::{Seek, Write};
 use std::path::Path;
 
-use ds_core::{CfaPattern, RawImage};
+#[cfg(feature = "rawler")]
+use ds_core::CfaPattern;
+use ds_core::RawImage;
+#[cfg(feature = "rawler")]
 use rawler::decoders::{Camera, RawDecodeParams};
+#[cfg(feature = "rawler")]
 use rawler::dng::writer::DngWriter;
+#[cfg(feature = "rawler")]
 use rawler::dng::{CropMode, DngCompression, DngPhotometricConversion};
+#[cfg(feature = "rawler")]
 use rawler::formats::tiff::CompressionMethod;
+#[cfg(feature = "rawler")]
 use rawler::imgop::xyz::Illuminant;
+#[cfg(feature = "rawler")]
 use rawler::pixarray::PixU16;
+#[cfg(feature = "rawler")]
 use rawler::rawimage::{BlackLevel, RawPhotometricInterpretation, WhiteLevel};
+#[cfg(feature = "rawler")]
 use rawler::tags::{DngTag, TiffCommonTag};
 
 use crate::RawError;
 
+#[cfg(feature = "rawler")]
 const NEW_SUBFILE_PREVIEW: u32 = 1;
+#[cfg(feature = "rawler")]
 const PHOTOMETRIC_YCBCR: u16 = 6;
+#[cfg(feature = "rawler")]
 const TAG_JPEG_OFFSET: u16 = 0x0201;
+#[cfg(feature = "rawler")]
 const TAG_JPEG_LENGTH: u16 = 0x0202;
+#[cfg(feature = "rawler")]
 const TAG_SOFTWARE: u16 = 0x0131;
 /// DNG `PreviewColorSpace`: sRGB.
+#[cfg(feature = "rawler")]
 const PREVIEW_SRGB: u32 = 2;
 
 /// What goes into a written DNG besides the pixels.
@@ -39,10 +60,12 @@ pub struct DngMeta<'a> {
     pub software: &'a str,
 }
 
+#[cfg(feature = "rawler")]
 fn err(e: impl std::fmt::Display) -> RawError {
     RawError::Decode(format!("DNG write failed: {e}"))
 }
 
+#[cfg(feature = "rawler")]
 fn inverse(m: &[[f32; 3]; 3]) -> Option<[[f64; 3]; 3]> {
     let a = m.map(|r| r.map(f64::from));
     let c =
@@ -72,6 +95,7 @@ fn inverse(m: &[[f32; 3]; 3]) -> Option<[[f64; 3]; 3]> {
 
 /// The Adobe `ColorMatrix` (XYZ → camera, D65) that reads back as `img`'s `cam_to_xyz`
 /// and daylight multipliers: `diag(1 / wb_daylight) · cam_to_xyz⁻¹` (see [`crate::color`]).
+#[cfg(feature = "rawler")]
 fn color_matrix(img: &RawImage) -> Option<Vec<f32>> {
     let inv = inverse(&img.cam_to_xyz)?;
     Some(
@@ -84,6 +108,23 @@ fn color_matrix(img: &RawImage) -> Option<Vec<f32>> {
 /// Write `img` (a [`CfaPattern::LinearRgb`] raw) as a linear DNG to `out`.
 /// Takes the image by value: its samples move into the writer (no copy of a merged
 /// frame that may be hundreds of MB).
+#[cfg(not(feature = "rawler"))]
+pub fn write_linear_dng<W: Write + Seek>(
+    _out: W,
+    _img: RawImage,
+    _meta: &DngMeta<'_>,
+) -> Result<(), RawError> {
+    Err(RawError::Unsupported {
+        make: String::new(),
+        model: String::new(),
+        reason: "writing DNG needs the rawler feature, which this build leaves out".into(),
+    })
+}
+
+/// Write `img` (a [`CfaPattern::LinearRgb`] raw) as a linear DNG to `out`.
+/// Takes the image by value: its samples move into the writer (no copy of a merged
+/// frame that may be hundreds of MB).
+#[cfg(feature = "rawler")]
 pub fn write_linear_dng<W: Write + Seek>(
     out: W,
     img: RawImage,
@@ -173,6 +214,7 @@ pub fn write_linear_dng<W: Write + Seek>(
 }
 
 /// rawler's metadata of the RAW at `path` (`None` when it can't be read).
+#[cfg(feature = "rawler")]
 fn source_metadata(path: &Path) -> Option<rawler::decoders::RawMetadata> {
     // The same header guards as `RawFile::metadata`, before rawler parses it.
     crate::open(path).ok()?.check_header().ok()?;
@@ -185,7 +227,7 @@ fn source_metadata(path: &Path) -> Option<rawler::decoders::RawMetadata> {
     .flatten()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rawler"))]
 mod tests {
     #![allow(clippy::float_cmp)]
 
@@ -196,7 +238,7 @@ mod tests {
 
     fn linear(w: u32, h: u32) -> RawImage {
         // The A9's colour, from rawler's camera DB.
-        let (m, _) = crate::decode::camera_matrix("SONY", "ILCE-9").unwrap();
+        let (m, _) = crate::cameras::matrix("SONY", "ILCE-9").unwrap();
         RawImage {
             size: Size::new(w, h),
             cfa: CfaPattern::LinearRgb,

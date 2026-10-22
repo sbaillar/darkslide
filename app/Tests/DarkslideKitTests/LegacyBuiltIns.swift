@@ -1,5 +1,7 @@
 import Foundation
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The built-in looks and styles exactly as Swift code had them before they moved into
 /// the bundled `darkslide.looks` plug-in: the reference the pack must reproduce field for

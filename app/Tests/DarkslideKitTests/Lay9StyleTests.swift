@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Styles library (M9): non-destructive application, the 20-style pack, the store's
 /// update/duplicate/rename, persistence, and style thumbnails.

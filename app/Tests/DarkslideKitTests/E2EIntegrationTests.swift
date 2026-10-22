@@ -3,7 +3,9 @@ import DarkslideFFI
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Integration A end to end on the live path (real FFI, real disk image, real
 /// rsync): an exFAT "card" with DCIM + sample ARWs + an MP4 → import into a new

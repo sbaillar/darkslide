@@ -102,7 +102,7 @@ public protocol NaturalLanguageEditService: Sendable {
 }
 
 // The offline rule parser is ds-ai's `RuleBasedParser`, reached through the
-// FFI (`DarkslideKit.RulesEditService`): one grammar, in Rust.
+// FFI (`DarkslideCore.RulesEditService`): one grammar, in Rust.
 
 // MARK: - Foundation Models
 

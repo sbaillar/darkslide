@@ -1,4 +1,4 @@
-//! Full sensor decode: a Sony uncompressed fast path, rawler for everything else.
+//! The Sony uncompressed ARW fast path (the native decoders are in `native`).
 
 use ds_core::{CfaPattern, Orientation, RawImage, Size};
 use rayon::prelude::*;
@@ -47,42 +47,6 @@ pub(crate) fn cfa_from_tag(p: &[u32]) -> Option<CfaPattern> {
         [1, 2, 0, 1] => CfaPattern::Gbrg,
         _ => return None,
     })
-}
-
-/// Adobe `ColorMatrix` (XYZ → camera, row-major) from rawler's camera DB,
-/// plus the EXIF `LightSource` code it was calibrated under. The make is
-/// matched as written, then upper-cased (rawler keys Sony as `SONY`), so the
-/// lookup is as case-insensitive as [`Container::is_sony`].
-pub(crate) fn camera_matrix(make: &str, model: &str) -> Option<([f32; 9], u16)> {
-    let cams = rawler::global_loader().get_cameras();
-    let cam = cams
-        .get(&(make.to_string(), model.to_string(), String::new()))
-        .or_else(|| cams.get(&(make.to_ascii_uppercase(), model.to_string(), String::new())))?;
-    matrix_from_map(&cam.color_matrix)
-}
-
-/// Prefer the D65 matrix, else the first available one by illuminant order
-/// (`None` if there is none). The second value is its EXIF `LightSource` code.
-///
-/// A non-D65 matrix is still normalized to D65 white (see [`crate::color`]):
-/// the same approximation dcraw makes for cameras with a single matrix. It
-/// is logged and reported through [`crate::DecodeInfo::matrix_illuminant`].
-pub(crate) fn matrix_from_map(
-    m: &std::collections::HashMap<rawler::imgop::xyz::Illuminant, Vec<f32>>,
-) -> Option<([f32; 9], u16)> {
-    use rawler::imgop::xyz::Illuminant;
-    let (ill, v) = if let Some(v) = m.get(&Illuminant::D65) {
-        (Illuminant::D65, v)
-    } else {
-        let k = *m.keys().min()?;
-        (k, &m[&k])
-    };
-    let arr: [f32; 9] = v.get(..9).map(|s| std::array::from_fn(|i| s[i]))?;
-    let code = u16::from(ill);
-    if code != D65_LIGHT_SOURCE {
-        tracing::warn!(illuminant = ?ill, "no D65 color matrix; using {ill:?} with D65 normalization");
-    }
-    Some((arr, code))
 }
 
 /// Build a fast-path plan for Sony uncompressed ARW: one strip of exactly
@@ -145,8 +109,8 @@ pub(crate) fn sony_plan(src: &dyn Source, c: &Container) -> Result<Option<Plan>,
             "black {black:?} not below white {white}"
         )));
     }
-    let Some((matrix, illuminant)) = camera_matrix(&c.make(src)?, &c.model(src)?) else {
-        return Ok(None); // rawler reports the unsupported camera
+    let Some((matrix, illuminant)) = crate::cameras::matrix(&c.make(src)?, &c.model(src)?) else {
+        return Ok(None); // the general decoders report the unsupported camera
     };
     let cam_to_xyz = color::cam_to_xyz(&matrix)
         .ok_or_else(|| RawError::Malformed("degenerate color matrix".into()))?;
@@ -180,6 +144,7 @@ pub(crate) fn sony_plan(src: &dyn Source, c: &Container) -> Result<Option<Plan>,
 /// 15360 and would clip ~0.09 EV early). `None` for non-Sony files or when
 /// the tag is absent (rawler's own value is kept, e.g. for 12-bit bodies
 /// where it rescales 0x787F itself).
+#[cfg(feature = "rawler")]
 pub(crate) fn sony_white_override(src: &dyn Source, c: &Container) -> Option<f32> {
     if !c.is_sony(src).ok()? {
         return None;
@@ -243,31 +208,6 @@ mod tests {
         assert_eq!(cfa_from_tag(&[1, 2, 0, 1]), Some(CfaPattern::Gbrg));
         assert_eq!(cfa_from_tag(&[0, 1, 2]), None);
         assert_eq!(cfa_from_tag(&[3, 1, 1, 2]), None);
-    }
-
-    #[test]
-    fn a9_matrix_is_in_rawler_db() {
-        let (m, ill) = camera_matrix("SONY", "ILCE-9").unwrap();
-        assert!((m[0] - 0.6389).abs() < 1e-6);
-        assert_eq!(ill, D65_LIGHT_SOURCE);
-        // Make case does not matter (consistent with Container::is_sony).
-        assert_eq!(camera_matrix("Sony", "ILCE-9").unwrap().0, m);
-        assert!(camera_matrix("SONY", "NOPE-1").is_none());
-    }
-
-    #[test]
-    fn matrix_map_prefers_d65_then_any() {
-        use rawler::imgop::xyz::Illuminant;
-        let mut m = std::collections::HashMap::new();
-        assert!(matrix_from_map(&m).is_none());
-        m.insert(Illuminant::D55, vec![3.0; 9]);
-        m.insert(Illuminant::A, vec![2.0; 9]);
-        // Lowest illuminant code wins deterministically: A (17) before D55 (20).
-        assert_eq!(matrix_from_map(&m), Some(([2.0; 9], 17)));
-        m.insert(Illuminant::D65, vec![1.0; 12]);
-        assert_eq!(matrix_from_map(&m), Some(([1.0; 9], D65_LIGHT_SOURCE)));
-        m.insert(Illuminant::D65, vec![1.0; 3]);
-        assert!(matrix_from_map(&m).is_none());
     }
 
     #[test]

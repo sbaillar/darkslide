@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The benchmark kit (bench/, docs/BENCHMARKS.md): stats, results files, the report,
 /// frame diffing, the screen driver (over a scripted screen), the command line, and the

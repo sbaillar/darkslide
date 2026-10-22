@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import Observation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Develop tools that can match a set: records the requests, answers from tables.
 final class FakeMatchTools: DevelopTools, SetMatching, @unchecked Sendable {

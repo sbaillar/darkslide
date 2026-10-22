@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Final-journeys 2: live checks of the fork's adversarial claims and new features.
 @MainActor @Suite(.serialized, .enabled(if: FJ.configured, "SKIP: set FJ_ROOT (scratch) and DS_SUPPORT_ROOT to run the final-journeys scenarios")) struct FJ2AdversarialTests {

@@ -1,7 +1,9 @@
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A minimal little-endian DNG camera profile (`IIRC`): name, camera, one colour matrix.
 private func syntheticDCP(name: String, camera: String = "Sony ILCE-9") -> Data {

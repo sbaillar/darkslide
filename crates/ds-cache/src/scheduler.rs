@@ -112,6 +112,8 @@ pub fn perf_cores() -> usize {
         .unwrap_or_else(|| std::thread::available_parallelism().map_or(4, std::num::NonZero::get))
 }
 
+// iOS can't start processes: there the pool is sized by `available_parallelism` alone.
+#[cfg(target_os = "macos")]
 fn sysctl_perf_cores() -> Option<usize> {
     let out = std::process::Command::new("/usr/sbin/sysctl")
         .args(["-n", "hw.perflevel0.physicalcpu"])
@@ -120,6 +122,12 @@ fn sysctl_perf_cores() -> Option<usize> {
     parse_core_count(&out.stdout)
 }
 
+#[cfg(not(target_os = "macos"))]
+fn sysctl_perf_cores() -> Option<usize> {
+    None
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn parse_core_count(bytes: &[u8]) -> Option<usize> {
     std::str::from_utf8(bytes)
         .ok()?

@@ -3,7 +3,9 @@ import DarkslideAI
 import Foundation
 import SwiftUI
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Fixes from the full review of the app outside App/, Model/, Viewer/: archive settings
 /// that fail to apply, overlapping mirror syncs, and the shared model download helper.

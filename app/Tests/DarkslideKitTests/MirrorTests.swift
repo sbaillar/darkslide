@@ -1,7 +1,9 @@
 import CryptoKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// In-memory file system: `dirs` directories, `files` regular files, `links` symlinks (path → target).
 final class FakeMirrorFS: MirrorFileSystem, @unchecked Sendable {

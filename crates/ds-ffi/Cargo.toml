@@ -19,16 +19,19 @@ path = "src/bin/uniffi-bindgen.rs"
 required-features = ["bindgen"]
 
 [features]
+default = ["rawler"]
 bindgen = ["uniffi/cli"]
+# The LGPL rawler fallback in ds-raw (docs/RAWDEC.md); app builds keep it on for now.
+rawler = ["ds-raw/rawler"]
 
 [dependencies]
 ds-core.workspace = true
-ds-raw = { path = "../ds-raw" }
+ds-raw = { path = "../ds-raw", default-features = false }
 ds-session = { path = "../ds-session" }
 ds-c1 = { path = "../ds-c1" }
 ds-lr = { path = "../ds-lr" }
 ds-ai = { path = "../ds-ai" }
-ds-export = { path = "../ds-export" }
+ds-export = { path = "../ds-export", default-features = false }
 ds-pipeline = { path = "../ds-pipeline" }
 ds-merge = { path = "../ds-merge" }
 bytemuck = "1.25.2"
@@ -37,11 +40,11 @@ half = "2.7.1"
 ds-template = { path = "../ds-template" }
 mozjpeg = "0.10.13"
 ds-archive = { path = "../ds-archive" }
-ds-import = { path = "../ds-import" }
+ds-import = { path = "../ds-import", default-features = false }
 ds-gphotos = { path = "../ds-gphotos" }
 ds-plugin = { path = "../ds-plugin" }
 ds-fsutil = { path = "../ds-fsutil" }
-ds-remote = { path = "../ds-remote" }
+ds-remote = { path = "../ds-remote", default-features = false }
 chrono = { version = "0.4.42", default-features = false, features = ["std", "clock"] }
 serde.workspace = true
 serde_json.workspace = true

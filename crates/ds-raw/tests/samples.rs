@@ -2,7 +2,9 @@
 //! Each test is a no-op when the git-ignored samples are absent.
 #![allow(clippy::float_cmp)] // levels are exact integers stored as f32
 
-use ds_core::{CfaPattern, Size};
+#[cfg(feature = "rawler")]
+use ds_core::CfaPattern;
+use ds_core::Size;
 
 fn samples() -> Vec<std::path::PathBuf> {
     ds_testdata::samples_with_ext("arw")
@@ -49,6 +51,7 @@ fn preview_is_a_full_jpeg_with_raw_orientation() {
     }
 }
 
+#[cfg(feature = "rawler")] // the A9 colour matrix comes from rawler's camera data
 #[test]
 fn decode_levels_wb_and_geometry() {
     for p in samples() {
@@ -89,6 +92,7 @@ fn decode_levels_wb_and_geometry() {
     }
 }
 
+#[cfg(feature = "rawler")]
 #[test]
 fn fast_path_matches_rawler_bit_for_bit() {
     let Some(p) = ds_testdata::sample_arw() else {
@@ -123,6 +127,7 @@ fn is_supported_on_samples() {
 /// Compressed / non-fast-path Sony files go through rawler, which reads the
 /// SR2 0x787F white (15360 on the A9, ~0.09 EV below where the data clips).
 /// Our DNG `WhiteLevel` override must win there too.
+#[cfg(feature = "rawler")]
 #[test]
 fn rawler_path_white_level_matches_fast_path() {
     let Some(p) = ds_testdata::sample_arw() else {
@@ -176,6 +181,7 @@ fn sony_af_point_and_shot_numbers_on_samples() {
     }
 }
 
+#[cfg(feature = "rawler")] // the A9 colour matrix comes from rawler's camera data
 #[test]
 fn bytes_api_on_a_sample() {
     let Some(p) = ds_testdata::sample_arw() else {
@@ -196,6 +202,7 @@ fn bytes_api_on_a_sample() {
 /// The daylight response must survive into `RawImage` so the pipeline can
 /// convert Kelvin ↔ multipliers; the A9's as-shot WB in these (non-daylight)
 /// samples must sit near, but not on, the D65 multipliers.
+#[cfg(feature = "rawler")] // the A9 colour matrix comes from rawler's camera data
 #[test]
 fn sample_daylight_multipliers_present() {
     for path in ds_testdata::samples_with_ext("arw") {

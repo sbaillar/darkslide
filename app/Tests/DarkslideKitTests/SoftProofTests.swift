@@ -5,7 +5,9 @@ import Metal
 import simd
 import Testing
 import DarkslideFFI
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private let srgbProfile = ProofProfile(name: "sRGB IEC61966-2.1", path: "/p/srgb.icc", kind: .display, model: .rgb)
 private let adobeProfile = ProofProfile(name: "Adobe RGB (1998)", path: "/p/adobe.icc", kind: .display, model: .rgb)

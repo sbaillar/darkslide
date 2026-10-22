@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// An in-memory session store that can finish a cull and report folder moves
 /// (the app-side logic of H7 and H1 without files).

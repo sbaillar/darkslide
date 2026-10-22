@@ -4,19 +4,21 @@ import DarkslideFFI
 import Foundation
 import simd
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A renderer that develops the final geometry like ds-pipeline does, cheaply: `.final`
 /// frames are the crop rect (no turns/angle here), with a `FrameMapping`; `.oriented`
 /// frames are the whole image. Records requests and prefetches.
 final class Vw8GeometryRenderer: CapableRenderer, GeometryPrefetching, @unchecked Sendable {
     private let lock = NSLock()
-    private var _requests: [DarkslideKit.RenderRequest] = []
+    private var _requests: [DarkslideCore.RenderRequest] = []
     private var _prefetched: [PhotoID] = []
     private var _prefetchRegions: [CGRect] = []
     var latency: Duration = .zero
 
-    var requests: [DarkslideKit.RenderRequest] { lock.withLock { _requests } }
+    var requests: [DarkslideCore.RenderRequest] { lock.withLock { _requests } }
     var prefetched: [PhotoID] { lock.withLock { _prefetched } }
     var prefetchRegions: [CGRect] { lock.withLock { _prefetchRegions } }
 
@@ -31,7 +33,7 @@ final class Vw8GeometryRenderer: CapableRenderer, GeometryPrefetching, @unchecke
                                                height: CGFloat(photo.meta.pixelHeight) * r.height))
     }
 
-    func render(_ photo: Photo, edit: EditState, request: DarkslideKit.RenderRequest) async throws -> RenderedFrame {
+    func render(_ photo: Photo, edit: EditState, request: DarkslideCore.RenderRequest) async throws -> RenderedFrame {
         lock.withLock { _requests.append(request) }
         if latency > .zero { try await Task.sleep(for: latency) }
         try Task.checkCancellation()
@@ -67,7 +69,7 @@ final class Vw8GeometryRenderer: CapableRenderer, GeometryPrefetching, @unchecke
                              region: request.region, mapping: final ? m : nil, histogram: hist)
     }
 
-    func prefetch(_ photo: Photo, edit: EditState, request: DarkslideKit.RenderRequest) async -> FrameMapping? {
+    func prefetch(_ photo: Photo, edit: EditState, request: DarkslideCore.RenderRequest) async -> FrameMapping? {
         lock.withLock {
             _prefetched.append(photo.id)
             if let r = request.region { _prefetchRegions.append(r) }
@@ -239,21 +241,21 @@ final class Vw8GeometryRenderer: CapableRenderer, GeometryPrefetching, @unchecke
     }
 
     @Test func regionsWidenToWholeTextureRowsNeverNarrow() {
-        let req = DarkslideKit.RenderRequest(maxPixelSize: 6000, scale: 1, region: CGRect(x: 0.2, y: 0.2, width: 0.1001, height: 0.1))
+        let req = DarkslideCore.RenderRequest(maxPixelSize: 6000, scale: 1, region: CGRect(x: 0.2, y: 0.2, width: 0.1001, height: 0.1))
         let s = DevelopRenderer.sized(req, native: CGSize(width: 6000, height: 4000), alignment: 4)
         #expect(s.width % 4 == 0 && s.width >= 601, "\(s)")
         #expect(abs((s.region?.width ?? 0) * 6000 - CGFloat(s.width)) < 1e-6)
         // At the right edge the region shifts left instead of leaving the frame.
-        let edge = DarkslideKit.RenderRequest(maxPixelSize: 6000, scale: 1, region: CGRect(x: 0.9, y: 0, width: 0.1001, height: 0.1))
+        let edge = DarkslideCore.RenderRequest(maxPixelSize: 6000, scale: 1, region: CGRect(x: 0.9, y: 0, width: 0.1001, height: 0.1))
         let e = DevelopRenderer.sized(edge, native: CGSize(width: 6000, height: 4000), alignment: 4)
         #expect((e.region?.maxX ?? 2) <= 1 + 1e-9)
         // Fit renders pass the long edge through.
-        let fit = DevelopRenderer.sized(DarkslideKit.RenderRequest(maxPixelSize: 1234), native: CGSize(width: 6000, height: 4000))
+        let fit = DevelopRenderer.sized(DarkslideCore.RenderRequest(maxPixelSize: 1234), native: CGSize(width: 6000, height: 4000))
         #expect(fit.width == 1234 && fit.region == nil)
     }
 
     @Test func requestsMapOntoTheFFI() {
-        let r = DarkslideKit.RenderRequest(maxPixelSize: 100, format: .rgba8DisplayP3, quality: .draft, priority: .background,
+        let r = DarkslideCore.RenderRequest(maxPixelSize: 100, format: .rgba8DisplayP3, quality: .draft, priority: .background,
                               geometry: .final, histogram: true)
         let f = DevelopRenderer.ffiRequest(r, maxWidth: 100, maxHeight: 80, region: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4),
                                            histogram: true)

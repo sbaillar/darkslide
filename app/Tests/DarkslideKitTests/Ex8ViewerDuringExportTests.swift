@@ -4,7 +4,9 @@ import DarkslideFFI
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The viewer's slider drag (Draft, Interactive, 2560 px, a new exposure every frame)
 /// through the app's own `DevelopRenderer` (FFI → shared GPU renderer → Metal buffer)

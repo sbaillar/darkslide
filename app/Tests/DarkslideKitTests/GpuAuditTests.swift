@@ -5,7 +5,9 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// gpu-audit items on the app side, with before/after timings (printed `GPUAUDIT`).
 @Suite struct GpuAuditTests {

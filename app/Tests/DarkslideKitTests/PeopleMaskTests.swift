@@ -4,7 +4,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// People sub-part masks: Vision → E-frame geometry, face-crop placement, composition on
 /// synthetic people, and the plumbing into the pipeline's mask sources.

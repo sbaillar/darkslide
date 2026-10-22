@@ -5,7 +5,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // Export watermarks: the saved recipe field, the Core Text renderer, the FFI
 // spec, the editor's live preview and the end-to-end export.

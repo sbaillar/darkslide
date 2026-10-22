@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// User request: "when I click the dropper for white balance, change the cursor to look
 /// like a magnifying glass so you can really see the white pixel to choose". A

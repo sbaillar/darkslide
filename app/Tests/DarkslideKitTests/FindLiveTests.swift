@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Find and People end to end on the real stack: A9 samples opened in place
 /// (ds-session through the FFI), faces stored and named, the people store, the

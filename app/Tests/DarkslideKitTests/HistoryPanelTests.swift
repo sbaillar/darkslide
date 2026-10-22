@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// [history] The History panel: rows per photo, jumps, branches, the bound, and ⌘Z.
 @Suite("Edit history list")

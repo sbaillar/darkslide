@@ -4,7 +4,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Two sessions whose photo ids overlap (every real session numbers its photos from 1), and a
 /// store that points bare ids at the session loaded last, like `RustSessionStore` does.

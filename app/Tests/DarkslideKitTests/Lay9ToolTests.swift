@@ -3,7 +3,9 @@ import CoreML
 import Foundation
 import Testing
 @testable import DarkslideAI
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Colour-editor tools, heal/clone, layer tools and brushes, gradient handles, and
 /// the new ds-core fields through the sidecar codec.

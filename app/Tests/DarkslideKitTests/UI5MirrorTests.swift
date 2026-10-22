@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Mirror to Finder on the real file system (R4 review M4): symlinked folders,
 /// case-only clashes, shared names, and only-our-own-links.

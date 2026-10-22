@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Polish pass: the empty states say what happened and offer the next step.
 @MainActor @Suite struct PolishEmptyStateTests {

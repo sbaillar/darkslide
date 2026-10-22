@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func scratch(_ tag: String) throws -> URL {
     let d = FileManager.default.temporaryDirectory.appendingPathComponent("ds-session-\(tag)-\(UUID())", isDirectory: true)

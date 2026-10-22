@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The film-edge filmstrip line and sprocket holes, and the slider ruler's ticks.
 @Suite struct FilmEdgeTests {

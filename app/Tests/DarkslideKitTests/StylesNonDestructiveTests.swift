@@ -3,7 +3,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Final-wave review: every built-in style applied to a corrected photo leaves the groups
 /// it doesn't contain untouched, keeps the photo's EV where it adds to it, and renders.

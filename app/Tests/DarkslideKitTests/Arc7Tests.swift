@@ -1,7 +1,9 @@
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Integration A review fixes for the archive and Amazon hand-off (A-H1…A-L5).
 

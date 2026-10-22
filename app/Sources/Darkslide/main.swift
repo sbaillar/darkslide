@@ -1,5 +1,6 @@
 import AppKit
-import DarkslideKit
+import DarkslideCore
+import DarkslideMac
 
 // `Darkslide --self-test` renders one frame through Rust + Metal and exits.
 if CommandLine.arguments.contains("--self-test") {

@@ -1,7 +1,9 @@
 import CryptoKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Final-journeys review harness. Everything lives under $FJ_ROOT (scratch); the
 /// app's support root is $DS_SUPPORT_ROOT; preferences are path suites inside FJ_ROOT.

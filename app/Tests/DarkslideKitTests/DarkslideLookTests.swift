@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Darkslide's own look: faint warmth on the chrome only, the clipboard chip, the
 /// familiar-layout status line.

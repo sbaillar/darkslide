@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// In-memory `FindBackend`: records what it was asked, returns canned results.
 final class FakeFindBackend: FindBackend, @unchecked Sendable {

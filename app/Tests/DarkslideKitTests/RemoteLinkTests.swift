@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// [remote] Settings ▸ Devices and the link server's life, on fakes; plus the
 /// live FFI backend on loopback and the DNS-SD advertiser on this Mac only.

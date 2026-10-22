@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Keyboard sets that match Lightroom Classic and Capture One (Settings › Familiar layout).
 @Suite struct KeyPresetTests {

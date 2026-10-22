@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Keyboard culling latency on the live path (final-journeys M4): the real app
 /// wiring (ds-session, embedded previews through ds-raw, the develop renderer) over

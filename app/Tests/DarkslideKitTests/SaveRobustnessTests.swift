@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Forwards to a RustSessionStore; the first rating write fails (a drive hiccup).
 private actor FailOnce: SessionStore {

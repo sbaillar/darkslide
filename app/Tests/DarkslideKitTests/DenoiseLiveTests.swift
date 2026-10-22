@@ -4,7 +4,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 extension DenoiseGlobalStore {
     /// AI Denoise end to end: the real model (`$DS_DENOISE_MODEL_DIR`: the package

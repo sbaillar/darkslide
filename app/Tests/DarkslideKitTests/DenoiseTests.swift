@@ -2,7 +2,9 @@ import CoreML
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Every suite that touches AI Denoise's process-wide state (the Rust store's model,
 /// cache and export provider, `AppDenoiseProvider`) runs under this one serialized

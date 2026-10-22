@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Live path: a real exFAT card image with the sample ARWs and an MP4, the real
 /// FFI (ds-import + ds-session), the real session store. The card must be

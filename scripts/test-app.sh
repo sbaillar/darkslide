@@ -12,6 +12,9 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 SCRATCH="${SCRATCH:-$ROOT/app/.build}"
 
+# The shared targets stay iPad-ready: no SwiftUI in Core, AppKit only in Platform/ seams.
+scripts/check-core-platform.sh
+
 scripts/ffi.sh >/dev/null
 
 # With only the Command Line Tools, SwiftPM runs swift-testing tests only when

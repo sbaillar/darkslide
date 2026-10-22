@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// One-touch looks: structure, intensity, undo, the AI pick, and the effects' codec.
 @Suite("Looks and effects")

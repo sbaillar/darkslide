@@ -2,7 +2,9 @@ import CryptoKit
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Journeys 2 + 3: card day, then return day, on the live services.
 @MainActor @Suite(.serialized, .enabled(if: FJ.configured, "SKIP: set FJ_ROOT (scratch) and DS_SUPPORT_ROOT to run the final-journeys scenarios")) struct FJCardDayTests {

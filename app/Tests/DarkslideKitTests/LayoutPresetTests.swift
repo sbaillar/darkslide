@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Familiar layouts and names (Settings › Familiar layout): placement and words only.
 @Suite struct LayoutPresetTests {

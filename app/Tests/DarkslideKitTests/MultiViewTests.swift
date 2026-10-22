@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// [multiview] Grid choice, tile frames and hit-testing for several photos in the viewer.
 @Suite struct MultiViewLayoutTests {

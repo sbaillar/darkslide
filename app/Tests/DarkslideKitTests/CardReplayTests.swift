@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Like DiskArbitration: replays every already-mounted volume as "appeared"
 /// synchronously inside `start()` (N16).

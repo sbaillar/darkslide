@@ -1,7 +1,9 @@
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Final-journeys 2: a whole card day on main, every UI claim checked on disk.
 @MainActor @Suite(.serialized, .enabled(if: FJ.configured, "SKIP: set FJ_ROOT (scratch) and DS_SUPPORT_ROOT to run the final-journeys scenarios")) struct FJ2CardDayTests {

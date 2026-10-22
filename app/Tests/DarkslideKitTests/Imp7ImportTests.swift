@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // Integration A review fixes on the import side: C1, H1–H4, M1–M5, L1–L5.
 

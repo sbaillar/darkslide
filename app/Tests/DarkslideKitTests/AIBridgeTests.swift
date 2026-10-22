@@ -3,7 +3,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func result(_ id: Int64, _ score: Float, _ s: PickSuggestionKind, group: UInt32 = 0,
                     reasons: [ReasonRecord] = []) -> CullResultRecord {

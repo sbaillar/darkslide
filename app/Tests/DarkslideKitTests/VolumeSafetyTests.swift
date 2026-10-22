@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A NAS or card that only dropped off must never cost ratings and edits: Remove is
 /// offered only for a photo the store verified missing on a connected drive, and asks

@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Dev and screenshot runs never write the real Application Support folder
 /// (a snapshot run had put its imports into the real global index).

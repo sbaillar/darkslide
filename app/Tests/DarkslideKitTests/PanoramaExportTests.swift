@@ -5,7 +5,9 @@ import ImageIO
 import Metal
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Review H4 (critical): Metal aborts the process when asked for a texture past the
 /// device limit (16384). Originals that large (phone panoramas) must take the CPU path

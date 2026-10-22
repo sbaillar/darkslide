@@ -1,7 +1,9 @@
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A model that asks for every control at the maximum, whatever the words (final review M1).
 struct GreedyModel: NaturalLanguageEditService {

@@ -2,7 +2,9 @@ import Foundation
 import Metal
 import CoreGraphics
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 import DarkslideFFI
 
 @Suite(.serialized) struct ZFFI {

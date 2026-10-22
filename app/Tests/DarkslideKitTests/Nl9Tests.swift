@@ -2,7 +2,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A model backend that over-edits like Foundation Models did in the review (H2):
 /// every control moves, whatever the text says.

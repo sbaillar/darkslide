@@ -4181,7 +4181,7 @@ mod tests {
 /// image, made with `hdiutil`. Every hdiutil call has a timeout; a test whose
 /// image can't be made or mounted in time is skipped (reported), and images
 /// are always detached.
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod volume_tests {
     use super::*;
     use futures_executor::block_on;

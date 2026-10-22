@@ -3,7 +3,9 @@ import DarkslideAI
 import Foundation
 import Metal
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // MARK: - L9: AI mask overlays
 

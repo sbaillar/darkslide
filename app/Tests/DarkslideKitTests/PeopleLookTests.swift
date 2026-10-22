@@ -5,7 +5,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Visual checks (LOOK) of people masks and LaMa on real photos. Runs only when
 /// `DS_LOOK_DIR` names an output folder; `DS_LOOK_IMAGES` lists photos (`:`-separated,

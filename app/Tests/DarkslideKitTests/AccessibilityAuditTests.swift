@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// N17 audit: every data-driven control list the views render has a non-empty,
 /// unique label in every state the views can be in.

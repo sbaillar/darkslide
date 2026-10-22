@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Instant renderer that fills frames with a solid color derived from the edit,
 /// counts calls, and can be gated to test render coalescing.

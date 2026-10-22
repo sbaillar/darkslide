@@ -1,6 +1,6 @@
 [package]
 name = "ds-raw"
-description = "RAW decode (rawler + Sony ARW fast paths), embedded previews, EXIF metadata"
+description = "RAW decode (native decoders, optional rawler fallback), embedded previews, EXIF metadata"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -13,13 +13,25 @@ thiserror.workspace = true
 serde.workspace = true
 rayon.workspace = true
 tracing.workspace = true
-rawler = "0.8.0"
+rawler = { version = "0.8.0", optional = true }
+# DNG Deflate and lossy-JPEG tiles (both already in the tree; MIT/Apache/Zlib).
+miniz_oxide = "0.9"
+zune-core = "0.5"
+zune-jpeg = "0.5"
+
+[features]
+default = ["rawler"]
+# LGPL-2.1 fallback for formats and cameras the native decoders don't cover yet
+# (docs/RAWDEC.md). Without it those files return `RawError::Unsupported`.
+rawler = ["dep:rawler"]
 
 [dev-dependencies]
 ds-testdata = { path = "../ds-testdata" }
 criterion.workspace = true
 tempfile.workspace = true
 proptest.workspace = true
+# Lossy DNG test tiles (MIT OR Apache-2.0).
+jpeg-encoder = "0.7"
 
 [[bench]]
 name = "raw"

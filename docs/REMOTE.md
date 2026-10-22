@@ -8,7 +8,7 @@ The link lets a paired device (the planned iPad app, or today the `ds-remote` CL
 |---|---|
 | `crates/ds-remote` | server, client library, `ds-remote` CLI (`src/bin/ds-remote.rs`, logic in `cli.rs`) |
 | `crates/ds-ffi/src/remote.rs` | `RemoteServer` (start/stop, pairing, status, sessions changed) and `remote_devices` / `remote_revoke` / `remote_set_write` |
-| `app/Sources/DarkslideKit/Remote/` | `RemoteLinkModel` (Settings ▸ Devices, the toolbar indicator), `DNSSDAdvertiser` (Bonjour), `QRCode` |
+| `app/Sources/DarkslideCore/Remote/` | `RemoteLinkModel` (Settings ▸ Devices, the toolbar indicator), `DNSSDAdvertiser` (Bonjour), `QRCode` |
 
 The server is **off by default**. It binds only when the user turns on "Allow iPad connections" and stops when it is turned off or the app quits. The app serves the open session; when a device changes it, the app lists it again.
 

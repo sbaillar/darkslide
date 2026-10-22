@@ -3,7 +3,9 @@ import DarkslideFFI
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A tiny little-endian linear DNG (`w`×`h`, 3 × 16-bit, a gradient with texture, the
 /// A9's colour matrix): a RAW ds-raw decodes, for the Rust side of AI Upscale.

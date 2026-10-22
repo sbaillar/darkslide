@@ -2,7 +2,9 @@ import DarkslideFFI
 import Foundation
 import Network
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // MARK: - Doubles
 

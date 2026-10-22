@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Capture One–style Copy and Apply: one-click Copy of the edited groups (or the Custom
 /// ticks), the clipboard kept across photos, Apply onto the selection but the copied photo

@@ -1,7 +1,9 @@
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Journeys 1, 3 (open in place), 5 (keyboard culling), 7 (AI).
 @MainActor @Suite(.serialized, .enabled(if: FJ.configured, "SKIP: set FJ_ROOT (scratch) and DS_SUPPORT_ROOT to run the final-journeys scenarios")) struct FJMiscTests {

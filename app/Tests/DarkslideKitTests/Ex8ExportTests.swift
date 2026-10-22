@@ -4,7 +4,9 @@ import DarkslideFFI
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // Integration B, export: RAWs are full develops through ds-pipeline (every
 // edit, crop, straighten and turn), at each recipe's size.

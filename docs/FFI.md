@@ -24,13 +24,13 @@ scripts/test-app.sh     ffi.sh → swift test --enable-code-coverage → coverag
 
 ## What is exported today (contract 38)
 
-| Rust module | Exports | Swift wrapper (`app/Sources/DarkslideKit/Rust/`) |
+| Rust module | Exports | Swift wrapper (`app/Sources/DarkslideCore/Rust/`) |
 |---|---|---|
 | `lib` | `version()`, `ffi_contract()` | `RustCore` |
 | `error` | `DsError { InvalidArgument, Cancelled, Io, Unsupported, FolderMoved, Internal }` | `RenderError` (`.kind` + message) |
 | `jobs` | `CancelToken` object: `new()`, `cancel()`, `is_cancelled()` | used by every wrapper |
 | `events` | `ProgressEvent`, `TaskPhase`, `ProgressListener` (foreign trait) | `ProgressStream` (AsyncStream) |
-| `frame` | `RenderRequest`, `FrameFormat`, `NormRect`, `FrameInfo`, `plan_frame(src_w, src_h, request)` | `RustRenderer` maps `DarkslideKit.RenderRequest` |
+| `frame` | `RenderRequest`, `FrameFormat`, `NormRect`, `FrameInfo`, `plan_frame(src_w, src_h, request)` | `RustRenderer` maps `DarkslideCore.RenderRequest` |
 | `engine` | `Engine`: `new()`, `set_progress_listener`, `flush_progress`, `dropped_progress_events`, `async render_test_pattern_into(src_w, src_h, params, request, dest_ptr, dest_len, token)` | `RustRenderer: Renderer` |
 | `raw` | `async raw_metadata(path, token) -> RawMetadata`, `async embedded_preview(path, token) -> EmbeddedPreviewData`, `is_supported_raw(path)`, `raw_extensions()` | `RustRaw.photo(at:id:)`, `RustRaw.isSupported(_:)`, `RustRaw.extensions`, `RustPreviewProvider: PreviewProvider` |
 | `clipboard` | `AdjustGroup`, `AdjustGroupInfo`, `adjust_groups()` | `RustCore.groups` |

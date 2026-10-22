@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Final-wave review (golden): for crop, straighten, turns, keystone and lens edits, the
 /// export's pixels match the viewer's settled frame (same edit) far better than a 3 px

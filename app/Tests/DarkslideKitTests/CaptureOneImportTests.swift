@@ -2,7 +2,9 @@ import CryptoKit
 import Foundation
 import SQLite3
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A scripted importer: dry runs return `preview`, real runs `result`; records each call.
 private actor FakeImporter: CaptureOneImporting {

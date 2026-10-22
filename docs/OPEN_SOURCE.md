@@ -143,6 +143,11 @@ For contributions, use the **DCO** (a `Signed-off-by` line, checked in CI) rathe
   - Darkslide is also not sandboxed (PLAN D9), and the App Store requires that.
   - Ship through **Developer ID and notarisation only**.
   - If the App Store becomes a goal, either replace rawler (for example with a permissive decoder plus the existing Sony ARW fast paths in `ds-raw`), or get a written exception from the dnglab authors.
+- **Status (native decoders, [RAWDEC.md](RAWDEC.md)):**
+  - `ds-raw` now decodes DNG, Sony ARW (uncompressed, cRAW, lossless), Canon CR2, Nikon NEF (14-bit lossless) and Pentax PEF with its own Apache-2.0 code, written clean-room from public specifications and the corpus files, and matching rawler's sensor data on the corpus.
+  - rawler is the optional cargo feature `rawler` (on by default; `ds-ffi` keeps it on for app builds). `cargo build --workspace --no-default-features` links no LGPL code.
+  - Still on rawler: ORF, RW2, RAF, CR3 decoding, metadata of those containers, the DNG writer (HDR/panorama output), and the colour matrices of non-DNG cameras.
+  - Open owner decision: where colour matrices for non-DNG cameras may legally come from (RAWDEC.md, "Camera data"). Until then a rawler-free build develops DNGs (and the K-3 Mark III PEF) only.
 - **Fix:**
   - State the above in `NOTICE`.
   - Ship rawler's licence in the app (B7).
@@ -180,7 +185,7 @@ For contributions, use the **DCO** (a `Signed-off-by` line, checked in CI) rathe
 - **What the bundle contains:**
   - Bundled in the `.app`: NAFNet and Real-ESRGAN (`scripts/build-app.sh` → `Contents/Resources/Models/`).
   - Downloaded on first use from upstream Hugging Face repos, so Darkslide does not redistribute them:
-    - LaMa (`app/Sources/DarkslideKit/AI/Models/DownloadableModel.swift:40`);
+    - LaMa (`app/Sources/DarkslideCore/AI/Models/DownloadableModel.swift:40`);
     - face parsing (`:65`);
     - Depth Anything V2 Small, Apache-2.0 (`:83`);
     - DETR sky, Apache-2.0 (`AI/Segmentation/SkySegmentation.swift:38`);
@@ -253,7 +258,7 @@ For contributions, use the **DCO** (a `Signed-off-by` line, checked in CI) rathe
 - **Evidence:**
   - `scripts/build-app.sh:15` `BUNDLE_ID="casa.baillargeon.darkslide"`, plus the UTType ids at `:101-111`.
   - The logging subsystem `casa.baillargeon.darkslide`.
-  - The Keychain services `casa.baillargeon.darkslide.jev` (`app/Sources/DarkslideKit/AI/JevEditService.swift:117`) and `.plugin`.
+  - The Keychain services `casa.baillargeon.darkslide.jev` (`app/Sources/DarkslideCore/AI/JevEditService.swift:117`) and `.plugin`.
   - The prefs domain.
 - **Fix:**
   - Keep these as the canonical ids; they are the owner's public domain and harmless. Changing them would orphan existing prefs and Keychain items.
@@ -261,7 +266,7 @@ For contributions, use the **DCO** (a `Signed-off-by` line, checked in CI) rathe
 
 ### S6. Assumptions about a single user's home setup
 - **Evidence:**
-  - `app/Sources/DarkslideKit/Model/AppSettings.swift:17-18` `defaultArchiveTarget` suggests the owner's NAS share.
+  - `app/Sources/DarkslideCore/Model/AppSettings.swift:17-18` `defaultArchiveTarget` suggests the owner's NAS share.
   - The onboarding suggests it (`Onboarding/OnboardingModel.swift:106,130`; `Tools/ArchiveSettingsModel.swift:26,194`).
   - The doc comments in `crates/ds-archive/src/lib.rs:1` and `crates/ds-ffi/src/archive.rs:1,221` name the same share.
   - `crates/ds-archive/src/rsync.rs:15` looks for Homebrew rsync at `/opt/homebrew/bin/rsync`. That is reasonable, but say in the README that macOS's openrsync is a fallback with fewer features.
@@ -294,7 +299,7 @@ For contributions, use the **DCO** (a `Signed-off-by` line, checked in CI) rathe
 ### S9. Privacy claims must match behaviour
 - **Evidence:**
   - `README.md:19` says "Nothing leaves your Mac unless you ask. All AI features run on device."
-  - But: optional TypeSafe Jev calls `https://api.typesafe.ai/v1/systemone` (`app/Sources/DarkslideKit/AI/JevEditService.swift:14`; off by default, user-supplied key, text only), the models download from Hugging Face on first use (B8), and the map tiles come from Apple.
+  - But: optional TypeSafe Jev calls `https://api.typesafe.ai/v1/systemone` (`app/Sources/DarkslideCore/AI/JevEditService.swift:14`; off by default, user-supplied key, text only), the models download from Hugging Face on first use (B8), and the map tiles come from Apple.
 - **Fix:** add a "Network use" section that lists each of these (the map tiles are already explained under Map), so the claim stays true and is checkable.
 
 ### S10. Name check

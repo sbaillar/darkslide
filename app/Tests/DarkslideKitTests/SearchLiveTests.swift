@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Natural-language search end to end on the real stack: a folder of A9 samples
 /// opened in place (ds-session through the FFI), the global index, and — when

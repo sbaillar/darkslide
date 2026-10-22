@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Plug-ins: the bundled looks and styles reproduce the old built-in code exactly, the
 /// store's decisions reach the host, and recipe post-process steps.

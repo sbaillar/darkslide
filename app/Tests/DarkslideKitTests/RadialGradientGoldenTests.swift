@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// H2: a radial gradient renders where the canvas draws it. ds-core/ds-pipeline measure
 /// radii in long-edge units on both axes; the overlay, the handles and a new drag use

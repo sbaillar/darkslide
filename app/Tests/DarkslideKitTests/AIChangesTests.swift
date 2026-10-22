@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The AI Changes list: its texts, undoing one or every AI change, and keeping the changes
 /// in the sidecar across a relaunch.

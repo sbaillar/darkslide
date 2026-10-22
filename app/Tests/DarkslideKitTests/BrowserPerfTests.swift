@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// M4: culling keypress cost on a 2,000-photo session. Prints the numbers so a
 /// before/after comparison is visible in the test log.

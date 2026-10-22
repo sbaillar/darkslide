@@ -3,7 +3,9 @@ import CryptoKit
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// `EditState` ↔ ds-core JSON, checked against the real Rust schema via the FFI.
 @Suite struct AdjustmentsCodecTests {

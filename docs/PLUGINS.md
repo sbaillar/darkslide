@@ -1,6 +1,6 @@
 # Plug-ins and extensions
 
-Status: **v1 built** (2026-10-10), revised after the design review (`H1`–`H9` and the v1 MEDs are folded in; the rest is the v2 list at the end). "What v1 ships" lists what works today; the rest is the plan the contracts are shaped for. The code is `crates/ds-plugin` (host, runtime, CLI), `crates/ds-core/src/edit_keys.rs` (the edit vocabulary), the `PostProcess` seam in `crates/ds-export/src/post.rs`, `crates/ds-ffi/src/plugins.rs` (FFI contract 34) and `app/Sources/DarkslideKit/Plugins/`. The reference plug-ins are in `plugins/`.
+Status: **v1 built** (2026-10-10), revised after the design review (`H1`–`H9` and the v1 MEDs are folded in; the rest is the v2 list at the end). "What v1 ships" lists what works today; the rest is the plan the contracts are shaped for. The code is `crates/ds-plugin` (host, runtime, CLI), `crates/ds-core/src/edit_keys.rs` (the edit vocabulary), the `PostProcess` seam in `crates/ds-export/src/post.rs`, `crates/ds-ffi/src/plugins.rs` (FFI contract 34) and `app/Sources/DarkslideCore/Plugins/`. The reference plug-ins are in `plugins/`.
 
 Darkslide is extended with **plug-ins**: packages named `*.dsplugin` that declare what they add in a manifest. A plug-in can be pure data (looks, styles, voice phrases, later export recipes, profiles, Core ML models) or carry code (a WebAssembly module; later, on macOS, a helper program). The app's own optional features are packaged the same way, so the core stays small and every extension point has at least one real user.
 

@@ -4,7 +4,9 @@ import Foundation
 import ImageIO
 import SwiftUI
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Before/after measurements for the GPU/accelerator work. Prints `GPUMEASURE …`
 /// lines; bounds are loose (they catch regressions, the printed numbers are the report).

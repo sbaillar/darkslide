@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Round 5 (R4 review M6, L6, L7, L8, L12, test hygiene).
 @Suite struct UI5ModelTests {

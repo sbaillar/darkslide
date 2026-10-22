@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 @Suite struct EditHistoryTests {
     func step(_ label: String, key: String? = nil, ev: Double, time: Date = Date()) -> HistoryStep {

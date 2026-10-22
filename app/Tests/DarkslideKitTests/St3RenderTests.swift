@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Pipeline step 3 through the app: each new tool, set the way the app's panels set it
 /// (EditState → AdjustmentsCodec → ds-ffi → ds-pipeline), renders a sample RAW and

@@ -1,7 +1,9 @@
 import CryptoKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func sha(_ url: URL) throws -> String {
     SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()

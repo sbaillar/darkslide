@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// The Library on the real stack: a folder opened in place (A9 samples when
 /// present, else empty), synced into a scratch global index through the FFI,

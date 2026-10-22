@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import Synchronization
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 @MainActor
 @Suite struct AppModelTests {

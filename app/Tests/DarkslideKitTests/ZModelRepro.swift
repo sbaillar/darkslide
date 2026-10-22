@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Ported from the re-review's rr-model repros; each asserts the correct behaviour.
 @MainActor @Suite(.serialized) struct ZModelRepro {

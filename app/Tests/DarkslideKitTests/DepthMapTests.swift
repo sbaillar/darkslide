@@ -5,7 +5,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A depth model stand-in: the left half near (1), the right half far (0).
 struct HalfDepth: DepthEstimator {

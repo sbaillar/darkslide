@@ -3,7 +3,9 @@ import DarkslideAI
 import DarkslideFFI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Mean R, G, B (0...255) of an 8-bit frame.
 func vw8Mean(_ f: RenderedFrame) -> SIMD3<Double> {

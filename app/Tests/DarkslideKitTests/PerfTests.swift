@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Culling cost on a 2,000-photo session (M4). Prints numbers. The bounds are on the
 /// main thread's **CPU time** (a keypress's own work), so a loaded machine preempting

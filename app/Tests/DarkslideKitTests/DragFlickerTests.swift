@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import Metal
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// User bug: "when I adjust the slider, the picture flashes crazy". During an edit
 /// gesture the viewer must keep the last good developed frame until a newer one is

@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Finishing a cull, from the adversarial review (H1, M6, M7, M8, L1): a picked
 /// variant never goes to the Trash with a rejected sibling, Delete Rejected counts

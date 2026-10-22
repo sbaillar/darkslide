@@ -4,6 +4,7 @@
 use std::ffi::OsString;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "macos")]
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -87,6 +88,26 @@ pub trait CommandRunner: Send + Sync {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SystemRunner;
 
+/// iOS can't start processes, so there is no rsync to run: archiving stays a Mac job.
+#[cfg(not(target_os = "macos"))]
+impl CommandRunner for SystemRunner {
+    fn run(
+        &self,
+        cmd: &CommandSpec,
+        _on_line: &mut dyn FnMut(&str),
+        _cancel: &AtomicBool,
+    ) -> io::Result<CommandOutput> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!(
+                "{} can't run here: archiving needs macOS",
+                cmd.program.display()
+            ),
+        ))
+    }
+}
+
+#[cfg(target_os = "macos")]
 impl CommandRunner for SystemRunner {
     fn run(
         &self,

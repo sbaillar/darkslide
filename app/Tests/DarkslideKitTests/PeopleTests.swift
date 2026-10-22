@@ -3,7 +3,9 @@ import DarkslideFFI
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Faces by image width: width 2 has one face, 3 has two, anything else none.
 struct FakeFaceEmbedder: FaceEmbedding {

@@ -2,7 +2,9 @@ import AVFoundation
 import CoreVideo
 import CryptoKit
 import Foundation
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// An exFAT "memory card" backed by a disk image (`hdiutil`, no root). Every
 /// call has a deadline; on a timeout the test skips (returns nil) and the

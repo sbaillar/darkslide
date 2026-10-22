@@ -4,7 +4,9 @@ import DarkslideFFI
 import Foundation
 import Metal
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Develop tools whose as-shot white balance differs per photo (H4).
 final class Rnd9AsShotTools: DevelopTools, @unchecked Sendable {

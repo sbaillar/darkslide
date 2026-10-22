@@ -4,7 +4,9 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// A merger whose timing and results the test controls.
 private actor FakeMerger: PhotoMerging {

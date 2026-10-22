@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private let utc = TimeZone(identifier: "UTC")!
 // 2026-09-25 14:03:07 UTC

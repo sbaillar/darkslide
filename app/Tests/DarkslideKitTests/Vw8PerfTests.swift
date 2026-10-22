@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// `DS_PERF=1` runs the full harness (30 steps per drag, both display sizes); in the
 /// normal suite a short version runs so the heavy GPU load doesn't skew the timing

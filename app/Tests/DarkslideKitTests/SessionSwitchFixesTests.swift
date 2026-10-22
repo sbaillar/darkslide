@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private func fixPhoto(_ n: Int64, name: String? = nil) -> Photo {
     let meta = PhotoMeta(camera: "Cam", lens: "", iso: 100, shutter: 0.01, aperture: 2.8, focalLength: 35,

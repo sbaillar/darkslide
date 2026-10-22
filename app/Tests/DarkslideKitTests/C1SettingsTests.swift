@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import Testing
 import DarkslideFFI
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private let adobe = ProofProfile(name: "Adobe RGB (1998)", path: "/p/AdobeRGB1998.icc", kind: .display, model: .rgb)
 private let srgb = ProofProfile(name: "sRGB IEC61966-2.1", path: "/p/srgb.icc", kind: .display, model: .rgb)

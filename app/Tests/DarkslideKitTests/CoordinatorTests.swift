@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Regression tests for the review round: storage (M4), filter anchoring (H2),
 /// auto-advance/sort (UX4), saves (M6/M7), keyboard (M5/L6/UX9/M10), live mode (C1).

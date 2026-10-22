@@ -12,8 +12,8 @@ use rawler::rawsource::RawSource;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use crate::RawError;
+use crate::cameras::matrix_from_map;
 use crate::color;
-use crate::decode::matrix_from_map;
 use crate::meta::{CaptureTime, ImageMeta, Rational, pick_iso};
 
 fn guarded<T>(what: &str, f: impl FnOnce() -> Result<T, RawlerError>) -> Result<T, RawError> {

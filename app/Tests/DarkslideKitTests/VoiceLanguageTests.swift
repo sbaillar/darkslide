@@ -1,6 +1,8 @@
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 private let next = VoiceAction.key(.move(.right, extend: false))
 private let previous = VoiceAction.key(.move(.left, extend: false))

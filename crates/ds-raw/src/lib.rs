@@ -1,14 +1,17 @@
 //! RAW decoding for Darkslide: metadata, embedded previews, and full sensor
 //! decode into [`ds_core::RawImage`].
 //!
-//! Sony ARW (the reference camera is the ILCE-9) takes hand-written fast
-//! paths: a bounded TIFF/EXIF walker for metadata and previews, and a
-//! parallel positional-read unpack for uncompressed sensor data. Everything
-//! else goes through [`rawler`], after its declared dimensions have been
-//! bounded (see `guard`). All header values are validated against the file
-//! size before use, and malformed input yields a [`RawError`]; the rawler
-//! paths additionally rely on `catch_unwind` (so the workspace must keep
-//! `panic = "unwind"`).
+//! TIFF-based RAWs are read by our own code: a bounded TIFF/EXIF walker for
+//! metadata and previews, and native sensor decoders (`native`, see
+//! `docs/RAWDEC.md`) for DNG, Sony ARW, Canon CR2, Nikon NEF and Pentax PEF,
+//! with a parallel positional-read fast path for Sony uncompressed ARW (the
+//! reference camera is the ILCE-9). With the `rawler` feature (on by
+//! default), everything the native decoders don't cover goes through
+//! `rawler`, after its declared dimensions have been bounded (see `guard`);
+//! without it those files return [`RawError::Unsupported`]. All header values
+//! are validated against the file size before use, and malformed input
+//! yields a [`RawError`]; the rawler paths additionally rely on
+//! `catch_unwind` (so the workspace must keep `panic = "unwind"`).
 //!
 //! Open a file once with [`open`] (or [`RawFile::from_bytes`] when the bytes
 //! are already in memory, e.g. while hashing on import) and ask it for
@@ -18,15 +21,18 @@
 //!
 //! See [`color`] for the exact `cam_to_xyz` / white-balance convention.
 
+mod cameras;
 pub mod color;
 mod container;
 mod cr3;
 mod decode;
 mod dng;
 mod error;
+#[cfg(feature = "rawler")]
 mod fallback;
 mod guard;
 mod meta;
+mod native;
 mod preview;
 mod raf;
 mod sony;
@@ -38,7 +44,10 @@ mod tiff;
 use std::io::Read;
 use std::path::Path;
 
-use ds_core::{Orientation, RawImage};
+#[cfg(feature = "rawler")]
+use ds_core::Orientation;
+use ds_core::RawImage;
+#[cfg(feature = "rawler")]
 use rawler::rawsource::RawSource;
 
 pub use dng::{DngMeta, write_linear_dng};
@@ -59,7 +68,9 @@ const MAX_DATA_BLOCKS: u64 = 1 << 16;
 pub enum DecodePath {
     /// Built-in parallel unpack of Sony uncompressed ARW.
     SonyUncompressed,
-    /// rawler (every other format / compression).
+    /// One of the native decoders (`docs/RAWDEC.md`).
+    Native,
+    /// rawler (formats and cameras the native decoders don't cover).
     Rawler,
 }
 
@@ -69,7 +80,7 @@ pub struct DecodeInfo {
     pub path: DecodePath,
     /// EXIF `LightSource` code of the camera `ColorMatrix` behind
     /// `cam_to_xyz`: 21 = D65 (the normal case). Any other value means the
-    /// camera DB had no D65 matrix and one calibrated under that illuminant
+    /// file or camera table had no D65 matrix and one calibrated under that illuminant
     /// was normalized to D65 white instead (the dcraw-style approximation,
     /// see [`color`]); colors are then less accurate away from that illuminant.
     pub matrix_illuminant: u16,
@@ -109,6 +120,7 @@ impl std::fmt::Debug for RawFile<'_> {
 }
 
 /// Largest file read whole for rawler.
+#[cfg(feature = "rawler")]
 const MAX_RAWLER_BYTES: u64 = 2 << 30;
 
 /// Read the whole source once with bounded positional reads and hand rawler
@@ -116,6 +128,7 @@ const MAX_RAWLER_BYTES: u64 = 2 << 30;
 /// re-opens it by path: a card pulled or a share dropped mid-decode would
 /// then raise SIGBUS (uncatchable), and a file swapped after our guard ran
 /// would be decoded unchecked.
+#[cfg(feature = "rawler")]
 pub(crate) fn rawler_source_from(src: &dyn Source) -> Result<RawSource, RawError> {
     let len = src.end();
     if len > MAX_RAWLER_BYTES {
@@ -131,12 +144,14 @@ pub(crate) fn rawler_source_from(src: &dyn Source) -> Result<RawSource, RawError
 /// How much of each end of a big file a metadata read hands rawler. Header
 /// parsers of the non-TIFF containers look at the start (CR3 `moov`, RAF,
 /// ARRI, MRW) or the end (X3F, CRW directories).
+#[cfg(feature = "rawler")]
 const METADATA_WINDOW: u64 = 8 << 20;
 
 /// Like [`rawler_source_from`] but only the first and last `window` bytes
 /// are read; the middle stays zero-filled (lazily allocated, never touched).
 /// Files that fit in two windows are read whole. Only for header parsing:
 /// rawler sees zeros, not file contents, in the middle.
+#[cfg(feature = "rawler")]
 pub(crate) fn rawler_source_window(src: &dyn Source, window: u64) -> Result<RawSource, RawError> {
     let len = src.end();
     if len <= window.saturating_mul(2) {
@@ -155,6 +170,7 @@ pub(crate) fn rawler_source_window(src: &dyn Source, window: u64) -> Result<RawS
 }
 
 /// [`rawler_source_from`] for the file at `path`.
+#[cfg(feature = "rawler")]
 pub(crate) fn rawler_source_at(path: &Path) -> Result<RawSource, RawError> {
     rawler_source_from(&FileSource::open(path)?)
 }
@@ -166,7 +182,7 @@ pub fn open(path: &Path) -> Result<RawFile<'static>, RawError> {
 
 impl<'a> RawFile<'a> {
     /// Parse a RAW already in memory. Nothing is copied except by the rawler
-    /// fallback (non-Sony-uncompressed decodes), which needs its own buffer.
+    /// fallback, which needs its own buffer.
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, RawError> {
         Self::new(Backing::Bytes(SliceSource::new(bytes)))
     }
@@ -203,6 +219,7 @@ impl<'a> RawFile<'a> {
         }
     }
 
+    #[cfg(feature = "rawler")]
     fn rawler_source(&self) -> Result<RawSource, RawError> {
         Ok(match &self.backing {
             Backing::File(src) => rawler_source_from(src)?,
@@ -212,6 +229,7 @@ impl<'a> RawFile<'a> {
 
     /// Header-only rawler read: both ends of the file first; the whole file
     /// only when rawler could not parse what the windows hold.
+    #[cfg(feature = "rawler")]
     fn rawler_metadata(&self) -> Result<ImageMeta, RawError> {
         let src = self.src();
         let windowed = rawler_source_window(src, METADATA_WINDOW)?;
@@ -229,13 +247,16 @@ impl<'a> RawFile<'a> {
     ///
     /// Classic TIFF RAWs are read with the built-in IFD walker (no pixel data
     /// touched); other containers (CR3, RAF, ORF, RW2, …) go through rawler's
-    /// header parsers.
+    /// header parsers (`rawler` feature; without it they are unsupported).
     pub fn metadata(&self) -> Result<ImageMeta, RawError> {
         if let (Some(c), Format::Tiff) = (&self.container, self.format) {
             return Ok(meta::from_container(self.src(), c));
         }
         self.check_header()?;
-        self.rawler_metadata()
+        #[cfg(feature = "rawler")]
+        return self.rawler_metadata();
+        #[cfg(not(feature = "rawler"))]
+        Err(without_rawler(self.format, "metadata"))
     }
 
     /// Bound what rawler's header parsers load before they see the file (the
@@ -368,18 +389,50 @@ impl<'a> RawFile<'a> {
     }
 
     /// [`RawFile::decode`] plus which decoder ran and which color matrix it used.
+    ///
+    /// The native decoders go first; their result (or error) is final, so a
+    /// file they cover decodes the same with or without the `rawler`
+    /// feature. Files they don't cover go to rawler when the feature is on,
+    /// and are [`RawError::Unsupported`] otherwise.
     pub fn decode_with_info(&self) -> Result<(RawImage, DecodeInfo), RawError> {
+        if let Some(done) = self.decode_native()? {
+            return Ok(done);
+        }
+        #[cfg(feature = "rawler")]
+        return self.decode_rawler();
+        #[cfg(not(feature = "rawler"))]
+        Err(without_rawler(self.format, "decoding"))
+    }
+
+    /// The native decoders only: `Ok(None)` when none of them covers the
+    /// file (format, compression or camera). For tests and benchmarks that
+    /// compare decoders; [`RawFile::decode_with_info`] is the API.
+    #[doc(hidden)]
+    pub fn decode_native(&self) -> Result<Option<(RawImage, DecodeInfo)>, RawError> {
+        let src = self.src();
+        let (Some(c), Format::Tiff) = (&self.container, self.format) else {
+            return Ok(None);
+        };
+        if let Some(plan) = decode::sony_plan(src, c)? {
+            let img = decode::run_plan(src, &plan)?;
+            let info = DecodeInfo {
+                path: DecodePath::SonyUncompressed,
+                matrix_illuminant: plan.illuminant,
+            };
+            return Ok(Some((img, info)));
+        }
+        guard::check_tiff(src, c)?;
+        native::decode(src, c)
+    }
+
+    /// rawler only (the `rawler` feature), after the same header guards as
+    /// [`RawFile::decode`]. For tests and benchmarks that compare decoders.
+    #[cfg(feature = "rawler")]
+    #[doc(hidden)]
+    pub fn decode_rawler(&self) -> Result<(RawImage, DecodeInfo), RawError> {
         let src = self.src();
         let (orientation, white) = match (&self.container, self.format) {
             (Some(c), Format::Tiff) => {
-                if let Some(plan) = decode::sony_plan(src, c)? {
-                    let img = decode::run_plan(src, &plan)?;
-                    let info = DecodeInfo {
-                        path: DecodePath::SonyUncompressed,
-                        matrix_illuminant: plan.illuminant,
-                    };
-                    return Ok((img, info));
-                }
                 guard::check_tiff(src, c)?;
                 (
                     ifd0_orientation(src, c),
@@ -430,7 +483,22 @@ impl<'a> RawFile<'a> {
     }
 }
 
+/// What a build without the `rawler` feature says about a file the native
+/// readers don't cover.
+#[cfg(not(feature = "rawler"))]
+fn without_rawler(fmt: Format, what: &str) -> RawError {
+    RawError::Unsupported {
+        make: String::new(),
+        model: String::new(),
+        reason: format!(
+            "{what} of {} files needs the rawler fallback, which this build leaves out",
+            fmt.name()
+        ),
+    }
+}
+
 /// [`fallback::decode`] with its [`DecodeInfo`].
+#[cfg(feature = "rawler")]
 fn rawler_decode(
     rs: &RawSource,
     orientation: Option<Orientation>,
@@ -444,6 +512,7 @@ fn rawler_decode(
     Ok((img, info))
 }
 
+#[cfg(feature = "rawler")]
 fn ifd0_orientation(src: &dyn Source, c: &Container) -> Option<Orientation> {
     c.ifd0()
         .uint(src, tiff::tag::ORIENTATION)
@@ -493,26 +562,31 @@ pub fn decode_bytes(bytes: &[u8]) -> Result<RawImage, RawError> {
     RawFile::from_bytes(bytes)?.decode()
 }
 
-/// `true` when the file name has a RAW extension rawler knows (the file is
-/// not opened).
+/// File extensions of the RAW formats Darkslide recognizes (upper case): the
+/// formats it reads metadata and previews from, plus those it hands to rawler.
+const RAW_EXTENSIONS: [&str; 29] = [
+    "ARI", "ARW", "CR2", "CR3", "CRM", "CRW", "DCR", "DCS", "DNG", "ERF", "IIQ", "KDC", "MEF",
+    "MOS", "MRW", "NEF", "NRW", "ORF", "ORI", "PEF", "RAF", "RAW", "RW2", "RWL", "SRW", "3FR",
+    "FFF", "X3F", "QTK",
+];
+
+/// `true` when the file name has a RAW extension (the file is not opened).
 pub fn has_raw_extension(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
-        rawler::decoders::supported_extensions()
-            .iter()
-            .any(|s| s.eq_ignore_ascii_case(e))
-    })
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| RAW_EXTENSIONS.iter().any(|s| s.eq_ignore_ascii_case(e)))
 }
 
-/// The RAW extensions rawler knows, lowercase (what [`has_raw_extension`] accepts).
+/// The RAW extensions, lowercase (what [`has_raw_extension`] accepts).
 pub fn raw_extensions() -> Vec<String> {
-    rawler::decoders::supported_extensions()
+    RAW_EXTENSIONS
         .iter()
         .map(|e| e.to_ascii_lowercase())
         .collect()
 }
 
-/// `true` when the extension is a RAW type rawler knows *and* the file
-/// starts with a matching container signature. Never errors.
+/// `true` when the extension is a RAW type *and* the file starts with a
+/// matching container signature. Never errors.
 pub fn is_supported(path: &Path) -> bool {
     if !has_raw_extension(path) {
         return false;
@@ -525,7 +599,7 @@ pub fn is_supported(path: &Path) -> bool {
     Format::sniff(&h[..n]).is_raw()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rawler"))]
 mod source_tests {
     use super::*;
 

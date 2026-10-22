@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 // [cmp9] C2/C3/L5: the crop and straighten tools, aspect presets, keys.
 

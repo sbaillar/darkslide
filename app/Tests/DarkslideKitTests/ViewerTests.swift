@@ -4,7 +4,9 @@ import Foundation
 import Metal
 import simd
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 @Suite struct ViewerGeometryTests {
     let image = CGSize(width: 6000, height: 4000)

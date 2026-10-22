@@ -1,7 +1,9 @@
 import Foundation
 import OSLog
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// User bug: sliders didn't change the picture. The app had reopened a recent folder
 /// whose ARWs were gone (only `.ds/session` was left): it showed cached previews, saved

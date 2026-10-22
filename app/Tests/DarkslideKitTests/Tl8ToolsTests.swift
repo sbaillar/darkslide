@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Develop tools double: records what the app asks for.
 final class FakeDevelopTools: DevelopTools, @unchecked Sendable {

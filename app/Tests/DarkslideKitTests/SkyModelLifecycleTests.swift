@@ -2,7 +2,9 @@ import CoreGraphics
 import DarkslideAI
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// M9: the sky model's lifecycle. Pinned files, a download that can be cancelled, a
 /// compiled model that doesn't load is fetched again (never "ready" forever), and an

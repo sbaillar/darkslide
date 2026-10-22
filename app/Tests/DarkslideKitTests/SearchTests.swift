@@ -2,7 +2,9 @@ import CoreGraphics
 import CoreML
 import Foundation
 import Testing
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 final class SearchLocked<T>: @unchecked Sendable {
     private var value: T

@@ -13,14 +13,18 @@
 //! before it decodes one, [`check_decodable`] bounds the sizes rawler itself
 //! parsed.
 
+#[cfg(feature = "rawler")]
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use ds_core::Orientation;
+#[cfg(feature = "rawler")]
 use rawler::formats::bmff::FileBox;
+#[cfg(feature = "rawler")]
 use rawler::rawsource::RawSource;
 
 use crate::RawError;
 use crate::container::Container;
+#[cfg(feature = "rawler")]
 use crate::guard::{COMPRESSED_PER_BYTE, check};
 use crate::preview::{EmbeddedPreview, ifd0_orientation, largest};
 use crate::source::{Shifted, Source};
@@ -355,6 +359,7 @@ fn ifd_next(
 }
 
 /// Parse the box tree with rawler's own reader (after [`validate`]).
+#[cfg(feature = "rawler")]
 fn filebox(rs: &RawSource) -> Result<FileBox, RawError> {
     match catch_unwind(AssertUnwindSafe(|| FileBox::parse(rs.reader()))) {
         Ok(Ok(fb)) => Ok(fb),
@@ -366,6 +371,7 @@ fn filebox(rs: &RawSource) -> Result<FileBox, RawError> {
 /// Bound every `CMP1` rawler parsed (frame and tile size) before it sizes CRX
 /// buffers from them. The values come from rawler's own `FileBox` (which keeps
 /// the last `moov`), so no other parse can disagree with them.
+#[cfg(feature = "rawler")]
 fn bound_cmp1(fb: &FileBox, len: u64) -> Result<(), RawError> {
     let mut found = false;
     for t in &fb.moov.traks {
@@ -395,6 +401,7 @@ fn bound_cmp1(fb: &FileBox, len: u64) -> Result<(), RawError> {
 
 /// Everything rawler's CR3 decode sizes from the header is bounded. Call
 /// after [`validate`].
+#[cfg(feature = "rawler")]
 pub(crate) fn check_decodable(rs: &RawSource) -> Result<(), RawError> {
     bound_cmp1(&filebox(rs)?, rs.buf().len() as u64)
 }
@@ -512,6 +519,7 @@ pub(crate) mod tests {
         cr3_traks(orientation, &[frame], pad)
     }
 
+    #[cfg(feature = "rawler")]
     fn decodable(f: &[u8]) -> Result<(), RawError> {
         validate(&SliceSource::new(f))?;
         check_decodable(&RawSource::new_from_slice(f))
@@ -589,6 +597,7 @@ pub(crate) mod tests {
         assert!(jpeg_in(&SliceSource::new(&[0; 16]), &b).is_none());
     }
 
+    #[cfg(feature = "rawler")]
     #[test]
     fn cmp1_sizes_come_from_rawlers_parse_and_are_bounded() {
         let ok = cr3(1, (64, 48), 64 * 48);
@@ -624,6 +633,7 @@ pub(crate) mod tests {
     /// The review's case: a benign moov in the first 64 boxes, a second one
     /// with a hostile CMP1 after them. rawler keeps the last moov, and so do
     /// the bounds (they're read from rawler's own parse).
+    #[cfg(feature = "rawler")]
     #[test]
     fn a_later_moov_is_bounded() {
         let mut f = cr3(1, (64, 48), 64 * 48);

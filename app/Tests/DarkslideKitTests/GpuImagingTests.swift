@@ -5,7 +5,9 @@ import ImageIO
 import Metal
 import Testing
 import UniformTypeIdentifiers
-@testable import DarkslideKit
+@testable import DarkslideCore
+@testable import DarkslideMac
+@testable import DarkslideUI
 
 /// Test images and pixel readback for the GPU paths.
 enum GpuFixtures {
