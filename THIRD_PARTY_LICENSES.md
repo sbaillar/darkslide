@@ -3570,7 +3570,7 @@ Used by:
 - rustc-demangle 0.1.28 (https://github.com/rust-lang/rustc-demangle)
 - rustc-hash 1.1.0 (https://github.com/rust-lang-nursery/rustc-hash)
 - rustix 1.1.5 (https://github.com/bytecodealliance/rustix)
-- rustls 0.23.45 (https://github.com/rustls/rustls)
+- rustls 0.23.46 (https://github.com/rustls/rustls)
 - scopeguard 1.2.0 (https://github.com/bluss/scopeguard)
 - smallvec 1.16.2 (https://github.com/servo/rust-smallvec)
 - tempfile 3.27.0 (https://github.com/Stebalien/tempfile)
@@ -7079,7 +7079,7 @@ THIS SOFTWARE.
 ## ISC License
 
 Used by:
-- rustls-webpki 0.103.15 (https://github.com/rustls/webpki)
+- rustls-webpki 0.103.16 (https://github.com/rustls/webpki)
 
 ```text
 Except as otherwise noted, this project is licensed under the following

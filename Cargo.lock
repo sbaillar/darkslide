@@ -739,7 +739,7 @@ dependencies = [
 
 [[package]]
 name = "ds-ai"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "bytemuck",
  "criterion",
@@ -757,7 +757,7 @@ dependencies = [
 
 [[package]]
 name = "ds-archive"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "chrono",
@@ -775,7 +775,7 @@ dependencies = [
 
 [[package]]
 name = "ds-c1"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "ds-core",
@@ -794,7 +794,7 @@ dependencies = [
 
 [[package]]
 name = "ds-cache"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "criterion",
@@ -807,7 +807,7 @@ dependencies = [
 
 [[package]]
 name = "ds-core"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "half",
  "proptest",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "ds-export"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "chrono",
  "criterion",
@@ -842,7 +842,7 @@ dependencies = [
 
 [[package]]
 name = "ds-ffi"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -885,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "ds-fsutil"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "rustix",
  "tempfile",
@@ -894,7 +894,7 @@ dependencies = [
 
 [[package]]
 name = "ds-gphotos"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "percent-encoding",
  "serde",
@@ -905,7 +905,7 @@ dependencies = [
 
 [[package]]
 name = "ds-import"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "chrono",
@@ -926,7 +926,7 @@ dependencies = [
 
 [[package]]
 name = "ds-lr"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "ds-core",
@@ -943,7 +943,7 @@ dependencies = [
 
 [[package]]
 name = "ds-merge"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "criterion",
  "ds-core",
@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "ds-pipeline"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -976,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "ds-plugin"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "ds-raw"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "criterion",
  "ds-core",
@@ -1017,7 +1017,7 @@ dependencies = [
 
 [[package]]
 name = "ds-remote"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "ds-core",
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "ds-session"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "blake3",
  "criterion",
@@ -1057,7 +1057,7 @@ dependencies = [
 
 [[package]]
 name = "ds-template"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "chrono",
  "thiserror",
@@ -1066,7 +1066,7 @@ dependencies = [
 
 [[package]]
 name = "ds-testdata"
-version = "0.1.11"
+version = "0.1.12"
 
 [[package]]
 name = "dunce"
@@ -2772,9 +2772,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "log",
  "once_cell",
@@ -2796,9 +2796,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -3087,7 +3087,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

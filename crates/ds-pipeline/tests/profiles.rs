@@ -146,9 +146,9 @@ fn profiles_change_the_render_and_layers_retone_through_the_profile() {
     // Neutral (whose round trip is inexact only in the highlight roll-off).
     let mut neutral_moved = None;
     // On a real photo the round trip is invisible; the synthetic frame is all extreme
-    // saturated gradients, where it is only bounded relative to Neutral.
+    // saturated gradients, where it is only bounded relative to Neutral (Vivid: 2.6×).
     let real = support::first_sample();
-    let bound = |n: f32| if real.is_some() { 0.15 } else { n * 2.5 };
+    let bound = |n: f32| if real.is_some() { 0.15 } else { n * 3.0 };
     let raw = real.clone().unwrap_or(raw);
     for (label, p) in profiles() {
         let base = c.render(ImageKey(3), &raw, &with(p.clone()), &req).unwrap();

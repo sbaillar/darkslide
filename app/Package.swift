@@ -13,11 +13,18 @@ let rustLibDir = "\(appDir)/.rust/lib"
 // With only the Command Line Tools installed, swift-testing lives outside the
 // default framework search path, and its Foundation cross-import overlay
 // (_Testing_Foundation) ships without a module, so overlays are disabled.
-// Harmless when Xcode.app is present.
+// Only when the Command Line Tools are the active developer directory: with Xcode
+// selected (CI), Xcode's own swift-testing must win, or its macros and the CLT
+// framework disagree.
 let cltFrameworks = "/Library/Developer/CommandLineTools/Library/Developer/Frameworks"
-let testingFlags: [SwiftSetting] = FileManager.default.fileExists(atPath: cltFrameworks)
+let developerDir = ProcessInfo.processInfo.environment["DEVELOPER_DIR"]
+    ?? (try? FileManager.default.destinationOfSymbolicLink(atPath: "/var/db/xcode_select_link"))
+    ?? "/Library/Developer/CommandLineTools"
+let useCLTTesting = developerDir.hasPrefix("/Library/Developer/CommandLineTools")
+    && FileManager.default.fileExists(atPath: cltFrameworks)
+let testingFlags: [SwiftSetting] = useCLTTesting
     ? [.unsafeFlags(["-F", cltFrameworks, "-Xfrontend", "-disable-cross-import-overlays"])] : []
-let testingLinker: [LinkerSetting] = FileManager.default.fileExists(atPath: cltFrameworks)
+let testingLinker: [LinkerSetting] = useCLTTesting
     ? [.unsafeFlags(["-F", cltFrameworks, "-Xlinker", "-rpath", "-Xlinker", cltFrameworks])] : []
 
 let package = Package(
