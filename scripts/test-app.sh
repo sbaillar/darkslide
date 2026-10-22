@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Swift tests with coverage for the app (links the real Rust library).
+#
+#   scripts/test-app.sh                 all tests + coverage report (non-View code)
+#   scripts/test-app.sh --filter X      pass-through to `swift test`
+#
+# Coverage counts view models, services, formatters, and glue. It excludes
+# SwiftUI views (app/Sources/*/Views/), the generated bindings, and the
+# executable's main.swift. Fails under COVERAGE_MIN (default 90).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+ROOT="$PWD"
+SCRATCH="${SCRATCH:-$ROOT/app/.build}"
+
+scripts/ffi.sh >/dev/null
+
+# With only the Command Line Tools, SwiftPM runs swift-testing tests only when
+# the Testing framework dir is passed on the command line (Package.swift flags
+# alone compile the tests but the runner then silently finds none).
+CLT_FW=/Library/Developer/CommandLineTools/Library/Developer/Frameworks
+TEST_FLAGS=()
+if [[ -d "$CLT_FW" ]]; then
+  TEST_FLAGS=(-Xswiftc -F -Xswiftc "$CLT_FW" -Xlinker -rpath -Xlinker "$CLT_FW")
+fi
+
+# Force a relink of the test bundle when the Rust archive changed.
+BIN_DIR="$(swift build --package-path app --scratch-path "$SCRATCH" --show-bin-path)"
+LIB_HASH="$(shasum -a 256 app/.rust/lib/libds_ffi.a | awk '{print $1}')"
+if [[ "$(cat "$BIN_DIR/.libds_ffi.linked" 2>/dev/null)" != "$LIB_HASH" ]]; then
+  /bin/rm -rf "$BIN_DIR/DarkslidePackageTests.xctest"
+fi
+
+# Tests never touch the real ~/Library/Application Support/Darkslide (AppPaths).
+export DS_SUPPORT_ROOT="${DS_SUPPORT_ROOT:-$(mktemp -d -t darkslide-test-support)}"
+swift test --package-path app --scratch-path "$SCRATCH" --enable-code-coverage "${TEST_FLAGS[@]}" "$@"
+mkdir -p "$BIN_DIR" && echo "$LIB_HASH" >"$BIN_DIR/.libds_ffi.linked"
+
+PROFDATA="$BIN_DIR/codecov/default.profdata"
+XCTEST="$BIN_DIR/DarkslidePackageTests.xctest/Contents/MacOS/DarkslidePackageTests"
+IGNORE='(/\.build|/Tests/|/Views/|/DarkslideFFI/|/Sources/Darkslide/main\.swift|/App/DarkslideApp\.swift)'
+
+echo
+xcrun llvm-cov report "$XCTEST" -instr-profile "$PROFDATA" -ignore-filename-regex "$IGNORE" \
+  | /usr/bin/sed "s#$ROOT/app/Sources/##"
+TOTAL="$(xcrun llvm-cov export -summary-only "$XCTEST" -instr-profile "$PROFDATA" -ignore-filename-regex "$IGNORE" \
+  | python3 -c 'import json,sys; print("%.2f" % json.load(sys.stdin)["data"][0]["totals"]["lines"]["percent"])')"
+echo "Swift line coverage (non-View): ${TOTAL}%"
+awk -v t="$TOTAL" -v m="${COVERAGE_MIN:-90}" 'BEGIN { exit (t + 0 >= m) ? 0 : 1 }' \
+  || { echo "coverage ${TOTAL}% < ${COVERAGE_MIN:-90}%"; exit 1; }

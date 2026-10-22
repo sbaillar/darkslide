@@ -1,0 +1,62 @@
+{
+  "app": "Capture One",
+  "process": "Capture One",
+  "viewer": {
+    "x": 0.28,
+    "y": 0.1,
+    "w": 0.5,
+    "h": 0.62
+  },
+  "settle": 0.5,
+  "steps": [
+    {
+      "firstChange": "first-preview",
+      "settled": "full-render",
+      "prepare": [],
+      "stimuli": [
+        {
+          "key": {
+            "code": 124,
+            "modifiers": []
+          }
+        }
+      ],
+      "count": 20,
+      "interval": 2.0
+    },
+    {
+      "firstChange": "next-photo",
+      "prepare": [],
+      "stimuli": [
+        {
+          "key": {
+            "code": 124,
+            "modifiers": []
+          }
+        }
+      ],
+      "count": 100,
+      "interval": 0.1,
+      "sequence": true
+    },
+    {
+      "firstChange": "exposure",
+      "prepare": [],
+      "stimuli": [
+        {
+          "script": {
+            "source": "tell application \"{app}\" to set exposure of adjustments of primary variant to 0.3"
+          }
+        },
+        {
+          "script": {
+            "source": "tell application \"{app}\" to set exposure of adjustments of primary variant to 0"
+          }
+        }
+      ],
+      "count": 20,
+      "interval": 1.5
+    }
+  ],
+  "documentCheck": "tell application \"{app}\" to get name of current document"
+}

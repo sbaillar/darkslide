@@ -1,0 +1,12 @@
+# A looks pack: one-touch looks in Styles ▸ Looks. No code; works on every platform.
+manifest = 1
+id = "{{id}}"
+name = "{{name}}"
+version = "1.0.0"
+api = 1
+summary = "My looks."
+
+[[contributes.looks]]
+id = "looks"
+file = "looks.json"
+contract = 1

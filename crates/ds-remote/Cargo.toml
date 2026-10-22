@@ -1,0 +1,34 @@
+[package]
+name = "ds-remote"
+description = "The Mac side of the Darkslide link: paired mutual-TLS server, client library and CLI test client"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ds-core.workspace = true
+ds-session = { path = "../ds-session" }
+ds-import = { path = "../ds-import" }
+ds-fsutil = { path = "../ds-fsutil" }
+ds-raw = { path = "../ds-raw" }
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+# TLS 1.3 only, ring provider (no C toolchain beyond cc; no aws-lc cmake build).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging"] }
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
+ring = "0.17"
+# Parses device certificates for their key (already in the tree via rustls).
+webpki = { package = "rustls-webpki", version = "0.103", default-features = false, features = ["std"] }
+spake2 = "0.4"
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

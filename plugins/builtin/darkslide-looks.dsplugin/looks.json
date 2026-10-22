@@ -1,0 +1,280 @@
+[
+  {
+    "id": "look.portrait",
+    "name": "Portrait",
+    "summary": "Background softened by depth, gentle skin tones",
+    "uuid": "00000000-0000-0000-0000-00000000B001",
+    "values": {
+      "ce.1.lightness": 5,
+      "ce.1.saturation": -6,
+      "detail.clarity": -8,
+      "exposure.contrast": -5,
+      "fx.blur.amount": 45,
+      "fx.blur.focalRange": 25,
+      "hdr.shadows": 8,
+      "presence.vibrance": 6
+    }
+  },
+  {
+    "id": "look.cinematic",
+    "name": "Cinematic",
+    "summary": "Teal shadows, warm highlights, soft contrast",
+    "uuid": "00000000-0000-0000-0000-00000000B002",
+    "values": {
+      "cb.highlights.hue": 35,
+      "cb.highlights.saturation": 0.14,
+      "cb.shadows.hue": 190,
+      "cb.shadows.saturation": 0.16,
+      "ce.5.hueShift": -8,
+      "exposure.contrast": 10,
+      "exposure.saturation": -8,
+      "hdr.blacks": 6,
+      "hdr.highlights": -15,
+      "vignette.amountEV": -0.3
+    }
+  },
+  {
+    "id": "look.warm-negative",
+    "name": "Warm Negative",
+    "summary": "Warm colour-negative film: gentle contrast, lifted blacks, grain",
+    "uuid": "00000000-0000-0000-0000-00000000B003",
+    "values": {
+      "cb.highlights.hue": 45,
+      "cb.highlights.saturation": 0.1,
+      "cb.master.hue": 40,
+      "cb.master.saturation": 0.08,
+      "exposure.contrast": -8,
+      "exposure.saturation": -6,
+      "fx.grain.amount": 12,
+      "hdr.blacks": 12,
+      "levels.outBlack": 0.03
+    }
+  },
+  {
+    "id": "look.cool-slide",
+    "name": "Cool Slide",
+    "summary": "Crisp slide film: deep contrast, cool shadows, rich blues",
+    "uuid": "00000000-0000-0000-0000-00000000B004",
+    "values": {
+      "cb.highlights.hue": 200,
+      "cb.highlights.saturation": 0.04,
+      "cb.shadows.hue": 220,
+      "cb.shadows.saturation": 0.1,
+      "ce.5.saturation": 10,
+      "exposure.contrast": 18,
+      "exposure.saturation": 12
+    }
+  },
+  {
+    "id": "look.faded-matte",
+    "name": "Faded Matte",
+    "summary": "Milky blacks, softer whites, muted colour",
+    "uuid": "00000000-0000-0000-0000-00000000B005",
+    "values": {
+      "cb.shadows.hue": 215,
+      "cb.shadows.saturation": 0.06,
+      "exposure.contrast": -12,
+      "exposure.saturation": -15,
+      "levels.outBlack": 0.08,
+      "levels.outWhite": 0.95
+    }
+  },
+  {
+    "id": "look.cross-processed",
+    "name": "Cross-Processed",
+    "summary": "Blue shadows, yellow-green highlights, punchy",
+    "uuid": "00000000-0000-0000-0000-00000000B006",
+    "values": {
+      "cb.highlights.hue": 60,
+      "cb.highlights.saturation": 0.18,
+      "cb.midtones.hue": 120,
+      "cb.midtones.saturation": 0.05,
+      "cb.shadows.hue": 230,
+      "cb.shadows.saturation": 0.18,
+      "exposure.contrast": 20,
+      "exposure.saturation": 15
+    }
+  },
+  {
+    "id": "look.vintage",
+    "name": "Vintage",
+    "summary": "Faded, warm and grainy with a slight vignette",
+    "uuid": "00000000-0000-0000-0000-00000000B007",
+    "values": {
+      "cb.master.hue": 35,
+      "cb.master.saturation": 0.12,
+      "exposure.contrast": -6,
+      "exposure.saturation": -20,
+      "fx.grain.amount": 30,
+      "fx.grain.size": 40,
+      "levels.outBlack": 0.06,
+      "vignette.amountEV": -0.5
+    }
+  },
+  {
+    "exact": [
+      "exposure.saturation"
+    ],
+    "id": "look.bw-high-contrast",
+    "name": "B&W High Contrast",
+    "summary": "Black and white with deep blacks and bright whites",
+    "uuid": "00000000-0000-0000-0000-00000000B008",
+    "values": {
+      "detail.clarity": 10,
+      "exposure.contrast": 35,
+      "exposure.saturation": -100,
+      "hdr.blacks": -10,
+      "hdr.whites": 10
+    }
+  },
+  {
+    "exact": [
+      "exposure.saturation"
+    ],
+    "id": "look.bw-soft",
+    "name": "B&W Soft",
+    "summary": "Gentle black and white with a soft glow",
+    "uuid": "00000000-0000-0000-0000-00000000B009",
+    "values": {
+      "exposure.contrast": -12,
+      "exposure.saturation": -100,
+      "fx.glow.amount": 15,
+      "fx.glow.size": 40,
+      "hdr.blacks": 10
+    }
+  },
+  {
+    "exact": [
+      "exposure.saturation"
+    ],
+    "id": "look.noir",
+    "name": "Noir",
+    "summary": "Hard black and white, heavy vignette and grain",
+    "uuid": "00000000-0000-0000-0000-00000000B00A",
+    "values": {
+      "exposure.contrast": 40,
+      "exposure.ev": -0.3,
+      "exposure.saturation": -100,
+      "fx.grain.amount": 35,
+      "fx.grain.roughness": 60,
+      "fx.grain.size": 35,
+      "hdr.blacks": -15,
+      "vignette.amountEV": -1.2,
+      "vignette.midpoint": 0.35
+    }
+  },
+  {
+    "id": "look.moody",
+    "name": "Moody",
+    "summary": "Darker, muted and cool, highlights held back",
+    "uuid": "00000000-0000-0000-0000-00000000B00B",
+    "values": {
+      "cb.shadows.hue": 210,
+      "cb.shadows.saturation": 0.08,
+      "detail.clarity": 6,
+      "exposure.contrast": 12,
+      "exposure.ev": -0.35,
+      "exposure.saturation": -18,
+      "hdr.blacks": -8,
+      "hdr.highlights": -25,
+      "vignette.amountEV": -0.4
+    }
+  },
+  {
+    "id": "look.bright-airy",
+    "name": "Bright & Airy",
+    "summary": "Lighter and softer, open shadows, clean colour",
+    "uuid": "00000000-0000-0000-0000-00000000B00C",
+    "values": {
+      "exposure.contrast": -15,
+      "exposure.ev": 0.35,
+      "exposure.saturation": -6,
+      "hdr.highlights": -10,
+      "hdr.shadows": 25,
+      "levels.outBlack": 0.02,
+      "presence.vibrance": 10
+    }
+  },
+  {
+    "id": "look.golden-hour",
+    "name": "Golden Hour",
+    "summary": "Warm, glowing late-day light",
+    "uuid": "00000000-0000-0000-0000-00000000B00D",
+    "values": {
+      "cb.highlights.hue": 45,
+      "cb.highlights.saturation": 0.14,
+      "cb.midtones.hue": 38,
+      "cb.midtones.saturation": 0.12,
+      "exposure.saturation": 8,
+      "fx.glow.amount": 12,
+      "fx.glow.size": 60,
+      "hdr.highlights": -10,
+      "presence.vibrance": 10
+    }
+  },
+  {
+    "id": "look.dreamy-glow",
+    "name": "Dreamy Glow",
+    "summary": "A soft glow over the highlights, gentle contrast",
+    "uuid": "00000000-0000-0000-0000-00000000B00E",
+    "values": {
+      "detail.clarity": -15,
+      "exposure.contrast": -10,
+      "exposure.saturation": -5,
+      "fx.glow.amount": 45,
+      "fx.glow.size": 60,
+      "hdr.highlights": -10
+    }
+  },
+  {
+    "id": "look.pop",
+    "name": "Pop",
+    "summary": "Vivid colour and crisp contrast",
+    "uuid": "00000000-0000-0000-0000-00000000B00F",
+    "values": {
+      "detail.clarity": 12,
+      "exposure.contrast": 15,
+      "exposure.saturation": 20,
+      "presence.vibrance": 20
+    }
+  },
+  {
+    "id": "look.hdr-detail",
+    "name": "HDR Detail",
+    "summary": "Bright skies held, shadows opened, local detail",
+    "uuid": "00000000-0000-0000-0000-00000000B010",
+    "values": {
+      "detail.clarity": 25,
+      "detail.structure": 20,
+      "hdr.highlights": -40,
+      "hdr.shadows": 40,
+      "presence.vibrance": 10
+    }
+  },
+  {
+    "id": "look.tilt-shift",
+    "name": "Tilt-Shift Miniature",
+    "summary": "A sharp band, blurred above and below: a model-sized world",
+    "uuid": "00000000-0000-0000-0000-00000000B011",
+    "values": {
+      "exposure.contrast": 15,
+      "exposure.saturation": 20,
+      "fx.blur.amount": 60,
+      "fx.blur.highlightBoost": 20,
+      "fx.blur.mode": 1
+    }
+  },
+  {
+    "id": "look.halation-film",
+    "name": "Halation Film",
+    "summary": "Red glow around highlights, fine grain",
+    "uuid": "00000000-0000-0000-0000-00000000B012",
+    "values": {
+      "cb.highlights.hue": 30,
+      "cb.highlights.saturation": 0.06,
+      "exposure.contrast": 6,
+      "fx.grain.amount": 20,
+      "fx.halation.amount": 45
+    }
+  }
+]

@@ -1,0 +1,20 @@
+# Film Border: Darkslide's reference code plug-in (an export post-processor in WebAssembly).
+manifest = 1
+id = "com.example.film-border"
+name = "Film Border"
+version = "1.1.0"
+api = 1
+authors = ["Darkslide example"]
+summary = "A plain border around each exported photo, like a print's margin."
+
+[[contributes.export_post_process]]
+id = "border"
+name = "Film Border"
+module = "border.wat"
+entry = "ds_post_process"
+contract = 1
+params = [
+  { key = "width", label = "Width", type = "float", min = 0.0, max = 0.2, default = 0.03 },
+  { key = "color", label = "Colour", type = "color", default = "#000000" },
+  { key = "outside", label = "Around the photo", type = "bool", default = true },
+]

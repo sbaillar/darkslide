@@ -1,0 +1,8 @@
+flowchart LR
+    Card["Memory card"] -->|"parallel copy"| Verify{"BLAKE3<br/>verified?"}
+    Verify -->|"yes"| Session["Session folder<br/>Capture + sidecars"]
+    Verify -->|"no"| Retry["Reported, never<br/>counted as done"]
+    Session --> Cull["Cull<br/>rate, label, pick"]
+    Cull --> Develop["Develop<br/>GPU pipeline"]
+    Develop --> Export["Export<br/>files, Google Photos"]
+    Session --> Archive["Archive<br/>rsync, Amazon Photos"]

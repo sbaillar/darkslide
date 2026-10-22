@@ -1,0 +1,37 @@
+    // The flag is uniform, so the barriers below are in uniform control flow.
+    if (ups.w > 0.5) {
+        if (inside) {
+            atomicAdd(&local_hist[codes.x], 1u);
+            atomicAdd(&local_hist[256u + codes.y], 1u);
+            atomicAdd(&local_hist[512u + codes.z], 1u);
+            // Integer luma, bit-identical to Histogram::add.
+            let l = min((2126u * codes.x + 7152u * codes.y + 722u * codes.z + 5000u) / 10000u, 255u);
+            atomicAdd(&local_hist[768u + l], 1u);
+            var low = false;
+            var high = false;
+            for (var k = 0u; k < 3u; k++) {
+                if (codes[k] == 0u) {
+                    atomicAdd(&local_hist[1024u + k], 1u);
+                    low = true;
+                }
+                if (codes[k] == 255u) {
+                    atomicAdd(&local_hist[1027u + k], 1u);
+                    high = true;
+                }
+            }
+            if (low) {
+                atomicAdd(&local_hist[1030u], 1u);
+            }
+            if (high) {
+                atomicAdd(&local_hist[1031u], 1u);
+            }
+            atomicAdd(&local_hist[1032u], 1u);
+        }
+        workgroupBarrier();
+        for (var k = lid; k < HIST_N; k += WG_N) {
+            let v = atomicLoad(&local_hist[k]);
+            if (v > 0u) {
+                atomicAdd(&hist[k], v);
+            }
+        }
+    }

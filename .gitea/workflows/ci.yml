@@ -1,0 +1,34 @@
+# Rust core CI on the Gitea Linux runner. The macOS app (SwiftUI/Metal) is
+# built and tested locally with scripts/build-app.sh and scripts/test-app.sh;
+# GPU tests skip without an adapter and real-sample tests skip without samples/.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --component clippy,rustfmt,llvm-tools-preview
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: System deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rsync pkg-config
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      # Informational on Linux: no GPU adapter and no samples/, so GPU and
+      # real-sample paths don't run here. The enforced 90% gate is
+      # scripts/coverage.sh on the Mac (GPU + samples).
+      - name: Coverage (informational)
+        continue-on-error: true
+        run: |
+          cargo install cargo-llvm-cov --locked
+          cargo llvm-cov --workspace --all-features --summary-only

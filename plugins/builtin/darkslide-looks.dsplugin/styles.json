@@ -1,0 +1,530 @@
+[
+  {
+    "absolute": [
+      "exposure.saturation"
+    ],
+    "groups": [
+      "exposure"
+    ],
+    "name": "B&W Neutral",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Black & White",
+    "uuid": "00000000-0000-0000-0000-00000000A010",
+    "values": {
+      "exposure.saturation": -100
+    }
+  },
+  {
+    "absolute": [
+      "exposure.saturation"
+    ],
+    "curves": {
+      "Luma": [
+        [
+          0.25,
+          0.18
+        ],
+        [
+          0.75,
+          0.84
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "curve"
+    ],
+    "name": "B&W High Contrast",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Black & White",
+    "uuid": "00000000-0000-0000-0000-00000000A004",
+    "values": {
+      "exposure.contrast": 35,
+      "exposure.saturation": -100
+    }
+  },
+  {
+    "absolute": [
+      "exposure.saturation"
+    ],
+    "curves": {
+      "Luma": [
+        [
+          0,
+          0.08
+        ],
+        [
+          0.5,
+          0.5
+        ],
+        [
+          1,
+          0.95
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "hdr",
+      "curve"
+    ],
+    "name": "B&W Soft Matte",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Black & White",
+    "uuid": "00000000-0000-0000-0000-00000000A011",
+    "values": {
+      "exposure.contrast": -12,
+      "exposure.saturation": -100,
+      "hdr.blacks": 10
+    }
+  },
+  {
+    "absolute": [
+      "exposure.saturation"
+    ],
+    "curves": {
+      "Luma": [
+        [
+          0.2,
+          0.17
+        ],
+        [
+          0.8,
+          0.83
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "curve",
+      "colorBalance"
+    ],
+    "name": "B&W Selenium",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Black & White",
+    "uuid": "00000000-0000-0000-0000-00000000A012",
+    "values": {
+      "cb.highlights.hue": 35,
+      "cb.highlights.saturation": 0.05,
+      "cb.shadows.hue": 265,
+      "cb.shadows.saturation": 0.1,
+      "exposure.contrast": 15,
+      "exposure.saturation": -100
+    }
+  },
+  {
+    "absolute": [
+      "exposure.saturation"
+    ],
+    "groups": [
+      "exposure",
+      "hdr",
+      "colorEditor"
+    ],
+    "name": "B&W Infrared Glow",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Black & White",
+    "uuid": "00000000-0000-0000-0000-00000000A013",
+    "values": {
+      "ce.2.lightness": 30,
+      "ce.3.lightness": 60,
+      "ce.5.lightness": -40,
+      "exposure.saturation": -100,
+      "hdr.highlights": 15
+    }
+  },
+  {
+    "curves": {
+      "RGB": [
+        [
+          0,
+          0.05
+        ],
+        [
+          0.5,
+          0.52
+        ],
+        [
+          1,
+          0.96
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "hdr",
+      "curve",
+      "colorBalance"
+    ],
+    "name": "Warm Film",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Film",
+    "uuid": "00000000-0000-0000-0000-00000000A002",
+    "values": {
+      "cb.highlights.hue": 40,
+      "cb.highlights.saturation": 0.18,
+      "cb.shadows.hue": 200,
+      "cb.shadows.saturation": 0.12,
+      "exposure.contrast": -8,
+      "exposure.saturation": -10,
+      "hdr.blacks": 12
+    }
+  },
+  {
+    "curves": {
+      "RGB": [
+        [
+          0,
+          0.03
+        ],
+        [
+          0.3,
+          0.29
+        ],
+        [
+          0.7,
+          0.72
+        ],
+        [
+          1,
+          0.97
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "curve",
+      "colorBalance",
+      "colorEditor"
+    ],
+    "name": "Portrait Film",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Film",
+    "uuid": "00000000-0000-0000-0000-00000000A020",
+    "values": {
+      "cb.highlights.hue": 35,
+      "cb.highlights.saturation": 0.08,
+      "ce.1.lightness": 6,
+      "ce.1.saturation": -8,
+      "exposure.contrast": -6,
+      "exposure.saturation": -8
+    }
+  },
+  {
+    "curves": {
+      "RGB": [
+        [
+          0.25,
+          0.22
+        ],
+        [
+          0.75,
+          0.78
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "curve",
+      "colorBalance",
+      "colorEditor"
+    ],
+    "name": "Chrome",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Film",
+    "uuid": "00000000-0000-0000-0000-00000000A021",
+    "values": {
+      "cb.shadows.hue": 190,
+      "cb.shadows.saturation": 0.06,
+      "ce.5.lightness": -8,
+      "ce.5.saturation": -10,
+      "exposure.contrast": 12,
+      "exposure.saturation": -18
+    }
+  },
+  {
+    "curves": {
+      "RGB": [
+        [
+          0,
+          0.1
+        ],
+        [
+          0.5,
+          0.5
+        ],
+        [
+          1,
+          0.92
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "hdr",
+      "curve",
+      "colorBalance"
+    ],
+    "name": "Faded Film",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Film",
+    "uuid": "00000000-0000-0000-0000-00000000A022",
+    "values": {
+      "cb.shadows.hue": 215,
+      "cb.shadows.saturation": 0.08,
+      "exposure.saturation": -15,
+      "hdr.blacks": 20
+    }
+  },
+  {
+    "curves": {
+      "RGB": [
+        [
+          0.2,
+          0.15
+        ],
+        [
+          0.8,
+          0.86
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "curve",
+      "colorEditor"
+    ],
+    "name": "Slide Film",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Film",
+    "uuid": "00000000-0000-0000-0000-00000000A023",
+    "values": {
+      "ce.3.saturation": 8,
+      "ce.5.saturation": 12,
+      "exposure.contrast": 20,
+      "exposure.saturation": 18
+    }
+  },
+  {
+    "groups": [
+      "colorBalance"
+    ],
+    "name": "Warm",
+    "relative": [],
+    "section": "Color",
+    "uuid": "00000000-0000-0000-0000-00000000A030",
+    "values": {
+      "cb.master.hue": 40,
+      "cb.master.saturation": 0.1
+    }
+  },
+  {
+    "groups": [
+      "colorBalance"
+    ],
+    "name": "Cool",
+    "relative": [],
+    "section": "Color",
+    "uuid": "00000000-0000-0000-0000-00000000A031",
+    "values": {
+      "cb.master.hue": 210,
+      "cb.master.saturation": 0.1
+    }
+  },
+  {
+    "groups": [
+      "colorBalance",
+      "colorEditor"
+    ],
+    "name": "Teal & Orange",
+    "relative": [],
+    "section": "Color",
+    "uuid": "00000000-0000-0000-0000-00000000A032",
+    "values": {
+      "cb.highlights.hue": 35,
+      "cb.highlights.saturation": 0.15,
+      "cb.shadows.hue": 190,
+      "cb.shadows.saturation": 0.15,
+      "ce.1.saturation": 10,
+      "ce.5.hueShift": -10
+    }
+  },
+  {
+    "groups": [
+      "exposure",
+      "hdr",
+      "colorBalance"
+    ],
+    "name": "Golden Hour",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Color",
+    "uuid": "00000000-0000-0000-0000-00000000A033",
+    "values": {
+      "cb.highlights.hue": 45,
+      "cb.highlights.saturation": 0.12,
+      "cb.midtones.hue": 38,
+      "cb.midtones.saturation": 0.1,
+      "exposure.saturation": 8,
+      "hdr.highlights": -10
+    }
+  },
+  {
+    "groups": [
+      "exposure",
+      "hdr",
+      "detail"
+    ],
+    "name": "Punchy",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Color",
+    "uuid": "00000000-0000-0000-0000-00000000A003",
+    "values": {
+      "detail.clarity": 20,
+      "exposure.contrast": 22,
+      "exposure.saturation": 15,
+      "hdr.highlights": -20,
+      "hdr.shadows": 15
+    }
+  },
+  {
+    "groups": [
+      "exposure",
+      "detail"
+    ],
+    "name": "Vivid",
+    "relative": [
+      "exposure"
+    ],
+    "section": "Color",
+    "uuid": "00000000-0000-0000-0000-00000000A034",
+    "values": {
+      "detail.clarity": 10,
+      "exposure.contrast": 12,
+      "exposure.saturation": 25
+    }
+  },
+  {
+    "groups": [
+      "exposure",
+      "hdr"
+    ],
+    "name": "High-Key",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Tone",
+    "uuid": "00000000-0000-0000-0000-00000000A040",
+    "values": {
+      "exposure.contrast": -15,
+      "exposure.ev": 0.5,
+      "hdr.blacks": 10,
+      "hdr.highlights": -15,
+      "hdr.shadows": 30
+    }
+  },
+  {
+    "groups": [
+      "exposure",
+      "hdr"
+    ],
+    "name": "Low-Key",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Tone",
+    "uuid": "00000000-0000-0000-0000-00000000A041",
+    "values": {
+      "exposure.contrast": 20,
+      "exposure.ev": -0.4,
+      "hdr.blacks": -15,
+      "hdr.highlights": -20
+    }
+  },
+  {
+    "curves": {
+      "RGB": [
+        [
+          0,
+          0.08
+        ],
+        [
+          0.25,
+          0.27
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    "groups": [
+      "exposure",
+      "hdr",
+      "curve"
+    ],
+    "name": "Matte",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Tone",
+    "uuid": "00000000-0000-0000-0000-00000000A042",
+    "values": {
+      "exposure.contrast": -10,
+      "hdr.blacks": 15
+    }
+  },
+  {
+    "groups": [
+      "exposure",
+      "hdr",
+      "detail"
+    ],
+    "name": "Landscape Clarity",
+    "relative": [
+      "exposure",
+      "hdr"
+    ],
+    "section": "Detail",
+    "uuid": "00000000-0000-0000-0000-00000000A050",
+    "values": {
+      "detail.clarity": 25,
+      "detail.structure": 15,
+      "exposure.saturation": 10,
+      "hdr.highlights": -25,
+      "hdr.shadows": 20
+    }
+  }
+]

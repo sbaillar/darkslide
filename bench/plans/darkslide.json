@@ -1,0 +1,63 @@
+{
+  "app": "Darkslide",
+  "process": "Darkslide",
+  "viewer": {
+    "x": 0.22,
+    "y": 0.08,
+    "w": 0.54,
+    "h": 0.7
+  },
+  "settle": 0.5,
+  "steps": [
+    {
+      "firstChange": "first-preview",
+      "settled": "full-render",
+      "prepare": [],
+      "stimuli": [
+        {
+          "key": {
+            "code": 124,
+            "modifiers": []
+          }
+        }
+      ],
+      "count": 20,
+      "interval": 2.0
+    },
+    {
+      "firstChange": "next-photo",
+      "prepare": [],
+      "stimuli": [
+        {
+          "key": {
+            "code": 124,
+            "modifiers": []
+          }
+        }
+      ],
+      "count": 100,
+      "interval": 0.1,
+      "sequence": true
+    },
+    {
+      "firstChange": "exposure",
+      "prepare": [],
+      "stimuli": [
+        {
+          "click": {
+            "x": 0.91,
+            "y": 0.22
+          }
+        },
+        {
+          "click": {
+            "x": 0.87,
+            "y": 0.22
+          }
+        }
+      ],
+      "count": 20,
+      "interval": 1.5
+    }
+  ]
+}

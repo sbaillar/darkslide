@@ -1,0 +1,68 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.10"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.90"
+
+[workspace.dependencies]
+ds-core = { path = "crates/ds-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+rayon = "1.11"
+tracing = "0.1"
+blake3 = "1.8"
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "metal", "wgsl", "parking_lot"] }
+pollster = "1.0.1"
+bytemuck = "1.25.2"
+tempfile = "3"
+proptest = "1"
+criterion = { version = "0.7", features = ["html_reports"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+# cargo-llvm-cov builds with `--cfg coverage` (tests shrink their images under it).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+many_single_char_names = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = 1
+
+# These crates do header/offset arithmetic on untrusted input: a wrap must
+# panic (caught) rather than silently pass a size guard.
+[profile.release.package.ds-raw]
+overflow-checks = true
+[profile.release.package.ds-import]
+overflow-checks = true
+[profile.release.package.ds-fsutil]
+overflow-checks = true
+[profile.release.package.ds-cache]
+overflow-checks = true
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.bench]
+debug = 1

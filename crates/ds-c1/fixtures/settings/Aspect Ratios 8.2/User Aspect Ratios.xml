@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AspectRatios</key>
+	<array>
+		<dict>
+			<key>Height</key>
+			<real>1.0</real>
+			<key>Name</key>
+			<string>Cinema</string>
+			<key>UID</key>
+			<string>C1-CINEMA</string>
+			<key>Width</key>
+			<real>2.39</real>
+		</dict>
+		<dict>
+			<key>Height</key>
+			<integer>1</integer>
+			<key>Name</key>
+			<string>Square</string>
+			<key>UID</key>
+			<string>C1-SQUARE</string>
+			<key>Width</key>
+			<integer>1</integer>
+		</dict>
+		<string>oops</string>
+	</array>
+	<key>SelectedAspectRatioUID</key>
+	<string>OriginalID</string>
+</dict>
+</plist>

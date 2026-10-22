@@ -1,0 +1,29 @@
+[package]
+name = "ds-raw"
+description = "RAW decode (rawler + Sony ARW fast paths), embedded previews, EXIF metadata"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ds-core.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+rayon.workspace = true
+tracing.workspace = true
+rawler = "0.8.0"
+
+[dev-dependencies]
+ds-testdata = { path = "../ds-testdata" }
+criterion.workspace = true
+tempfile.workspace = true
+proptest.workspace = true
+
+[[bench]]
+name = "raw"
+harness = false
+
+[lints]
+workspace = true

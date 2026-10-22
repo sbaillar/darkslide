@@ -1,0 +1,5 @@
+flowchart LR
+    Edit["Your edit or rating"] -->|"atomic write"| Sidecar["Sidecar<br/>one per photo"]
+    Sidecar -->|"indexed"| Index["Session index<br/>SQLite"]
+    Index -->|"synced"| Global["Global index<br/>Library, Find, Map"]
+    Sidecar -.->|"rebuild any time"| Index

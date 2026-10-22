@@ -1,0 +1,92 @@
+# Public CI for GitHub Actions (planned: the repository isn't on GitHub yet, and Gitea
+# doesn't run this file). No secrets, no sample photos, no models: the app builds with
+# DS_SKIP_MODELS=1, real-sample tests skip without samples/, and GPU tests skip without
+# a usable Metal device. The 90 % coverage gates are enforced on a maintainer's Mac.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1" # weekly: new advisories appear without any commit here
+
+# Bump together with rust-version in Cargo.toml when raising the minimum.
+env:
+  RUST_TOOLCHAIN: "1.98.1"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    if: github.event_name != 'schedule'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component clippy,rustfmt
+          rustup default "$RUST_TOOLCHAIN"
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked --workspace
+
+  app:
+    if: github.event_name != 'schedule'
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+      - name: Swift tests
+        run: DS_SUPPORT_ROOT="$(mktemp -d)" scripts/test-app.sh
+      - name: Build and self-test the app
+        run: DS_SKIP_MODELS=1 scripts/build-app.sh --test
+
+  licenses:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # Pinned: --check compares the generated file byte for byte. cargo-about's binary
+      # needs its `cli` feature.
+      - name: cargo-about and cargo-deny
+        run: |
+          cargo install --locked cargo-about@0.9.2 --features cli
+          cargo install --locked cargo-deny@0.20.2
+      - name: Licences, bans, sources; THIRD_PARTY_LICENSES.md current
+        if: github.event_name != 'schedule'
+        run: scripts/licenses.sh --check
+      # New advisories appear without any change here: reported on pull requests, enforced on main.
+      - name: Advisories
+        continue-on-error: ${{ github.event_name == 'pull_request' }} # scheduled and main runs fail loudly
+        run: cargo deny check advisories
+
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Every commit is signed off
+        run: |
+          missing=0
+          for c in $(git rev-list "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"); do
+            if ! git log -1 --format=%B "$c" | grep -q '^Signed-off-by: '; then
+              echo "::error::commit $c has no Signed-off-by line (git commit -s)"
+              missing=1
+            fi
+          done
+          exit "$missing"

@@ -1,0 +1,18 @@
+[package]
+name = "ds-fsutil"
+description = "Safe filesystem primitives shared by import/archive/export: no-replace rename, atomic writes, durability, locks, volume identity"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rustix = { version = "1.1.2", features = ["fs", "process"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

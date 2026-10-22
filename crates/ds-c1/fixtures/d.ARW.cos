@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<IMG>
+	<E K="UUID" V="IMG-D" />
+	<VAR Engine="1300">
+		<E K="UUID" V="VAR-D1" />
+		<DL>
+			<E K="Basic_Rating" V="0" />
+		</DL>
+		<AL>
+			<E K="Basic_Rating" V="5" />
+		</AL>
+	</VAR>
+</IMG>

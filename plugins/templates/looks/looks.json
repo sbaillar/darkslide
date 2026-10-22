@@ -1,0 +1,13 @@
+[
+  {
+    "id": "warm-fade",
+    "name": "Warm Fade",
+    "summary": "Lifted blacks and a warm cast",
+    "values": {
+      "exposure.contrast": -10,
+      "levels.outBlack": 0.05,
+      "cb.master.hue": 40,
+      "cb.master.saturation": 0.08
+    }
+  }
+]

@@ -1,0 +1,6 @@
+[Places]
+	Coast
+		Harbour
+		{Port}
+beach
+sunset

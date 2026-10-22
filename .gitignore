@@ -1,0 +1,34 @@
+/target
+/samples
+*.profraw
+/app/.build/
+/dist/
+.DS_Store
+/coverage/
+/.claude/
+/app/.rust/
+/app/Sources/DarkslideFFI/ds_ffi.swift
+/app/Sources/ds_ffiFFI/ds_ffiFFI.h
+/app/Sources/ds_ffiFFI/module.modulemap
+/app/.build-*/
+# Build-time secrets (the Google OAuth client for release builds; docs/GOOGLE_PHOTOS.md).
+/secrets/
+
+# Plug-in signing keys (ds-plugin keygen): never committed.
+*.key.json
+
+# Owner-only notes with the personal evidence from the open-source audit (docs/OPEN_SOURCE.md).
+docs/OPEN_SOURCE.private.md
+
+# Secrets, signing material and private notes: never commit these.
+secrets/
+*.private.md
+.env*
+*.p12
+*.pem
+*.key
+*.key.json
+*.cer
+*.mobileprovision
+*.keychain*
+AuthKey_*.p8

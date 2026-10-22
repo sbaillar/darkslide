@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bench-result-v1.schema.json",
+  "title": "Darkslide benchmark result, version 1",
+  "description": "One benchmark run on one Mac: apps, machine, cameras, test pack, settings and per-operation summaries. Never contains serial numbers, file names, paths, GPS, user or host names, or photos (docs/BENCHMARKS.md, Sharing results).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "date",
+    "machine",
+    "cameras",
+    "testPack",
+    "settings",
+    "apps"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "darkslide-bench-result"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "date": {
+      "type": "string",
+      "description": "Day of the run, YYYY-MM-DD (no time of day).",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "machine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modelID",
+        "chip",
+        "cpuCores",
+        "performanceCores",
+        "efficiencyCores",
+        "memoryGB",
+        "macOS",
+        "macOSBuild"
+      ],
+      "properties": {
+        "modelID": {
+          "type": "string",
+          "description": "e.g. Mac16,8",
+          "pattern": "^[A-Za-z]+[0-9]+,[0-9]+$"
+        },
+        "chip": {
+          "type": "string",
+          "description": "e.g. Apple M4 Pro",
+          "maxLength": 80
+        },
+        "cpuCores": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "performanceCores": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "efficiencyCores": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "memoryGB": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "macOS": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+        },
+        "macOSBuild": {
+          "type": "string",
+          "pattern": "^[0-9A-Za-z]+$"
+        }
+      }
+    },
+    "cameras": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "make",
+          "model",
+          "megapixels",
+          "files"
+        ],
+        "properties": {
+          "make": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "megapixels": {
+            "type": "number",
+            "minimum": 0
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Distinct files of this camera in the set."
+          }
+        }
+      }
+    },
+    "testPack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "hash",
+        "ranked"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "standard-v1 etc., or custom",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "hash": {
+          "type": "string",
+          "description": "SHA-256 over the sorted SHA-256 digests of the distinct files.",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "ranked": {
+          "type": "boolean",
+          "description": "Only a verified standard pack with enough photos is ranked."
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "photos",
+        "runs",
+        "fileCachePurged",
+        "importMode",
+        "gpu",
+        "exportFormat",
+        "exportSize",
+        "exportColorSpace",
+        "jpegQuality",
+        "outputSharpening",
+        "selectDwellMs",
+        "pressIntervalMs",
+        "settleMs"
+      ],
+      "properties": {
+        "photos": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fileCachePurged": {
+          "type": "boolean"
+        },
+        "importMode": {
+          "type": "string",
+          "enum": [
+            "in-place"
+          ]
+        },
+        "gpu": {
+          "type": "boolean"
+        },
+        "exportFormat": {
+          "type": "string",
+          "enum": [
+            "jpeg"
+          ]
+        },
+        "exportSize": {
+          "type": "string",
+          "enum": [
+            "original"
+          ]
+        },
+        "exportColorSpace": {
+          "type": "string",
+          "enum": [
+            "sRGB"
+          ]
+        },
+        "jpegQuality": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "outputSharpening": {
+          "type": "boolean"
+        },
+        "selectDwellMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pressIntervalMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settleMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "build",
+          "operations"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "build": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "previewSizePx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Long edge of the previews the app built at import."
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation",
+                "mode",
+                "method",
+                "comparable",
+                "n",
+                "missed",
+                "medianMs",
+                "p90Ms"
+              ],
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "import",
+                    "open",
+                    "first-preview",
+                    "full-render",
+                    "next-photo",
+                    "exposure",
+                    "export"
+                  ]
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "cold",
+                    "warm"
+                  ]
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "in-app",
+                    "screen",
+                    "screen-invalid",
+                    "applescript",
+                    "manual"
+                  ],
+                  "description": "One timing method per entry: samples of different methods are never pooled. screen-invalid: a held-arrow step whose press matching failed its check (never comparable)."
+                },
+                "comparable": {
+                  "type": "boolean",
+                  "description": "Comparable across apps: viewer operations timed on screen, batch operations by wall clock."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "medianMs": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "p90Ms": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "perPhotoMs": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Batch operations only."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

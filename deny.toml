@@ -1,0 +1,46 @@
+# cargo-deny: licences, advisories and sources of every dependency (scripts/licenses.sh, CI).
+# A new licence that isn't listed here fails the check; keep about.toml's list in step.
+
+[graph]
+targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu"]
+all-features = true
+
+[licenses]
+confidence-threshold = 0.9
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "IJG",
+    "MPL-2.0",
+]
+# LGPL-2.1 only for rawler: statically linked; relinking is documented (NOTICE,
+# CONTRIBUTING.md). Any other LGPL or GPL crate fails.
+exceptions = [{ crate = "rawler", allow = ["LGPL-2.1"] }]
+
+# Darkslide's own crates are Apache-2.0 but unpublished.
+[licenses.private]
+ignore = true
+
+[advisories]
+# Advisories are reported; unmaintained-crate notices don't fail the build.
+unmaintained = "none"
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

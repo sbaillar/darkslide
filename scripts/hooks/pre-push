@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Refuse a push to main that does not raise the app version; scripts/release.sh does the bump.
+# Enabled with: git config core.hooksPath scripts/hooks
+set -euo pipefail
+
+version_at() { git show "$1:Cargo.toml" 2>/dev/null | /usr/bin/sed -n 's/^version = "\(.*\)"/\1/p' | head -1 || true; }
+
+zero=0000000000000000000000000000000000000000
+while read -r _ local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = refs/heads/main ] || continue
+  [ "$local_sha" != "$zero" ] && [ "$remote_sha" != "$zero" ] || continue
+  git cat-file -e "$remote_sha" 2>/dev/null || continue
+  now="$(version_at "$local_sha")"
+  was="$(version_at "$remote_sha")"
+  if [ "$now" = "$was" ]; then
+    echo "pre-push: main is still v$now. Push with scripts/release.sh, which bumps the version." >&2
+    exit 1
+  fi
+done

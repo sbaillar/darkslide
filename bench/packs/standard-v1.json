@@ -1,0 +1,89 @@
+{
+  "id": "standard-v1",
+  "schemaVersion": 1,
+  "description": "Six full-resolution RAWs from six cameras (Nikon, Pentax, Sony; 24-61 MP), all CC0 from raw.pixls.us, in formats every app under test reads. Cycled to the run's photo count.",
+  "source": "https://raw.pixls.us",
+  "licence": "CC0-1.0",
+  "minimumPhotos": 121,
+  "hash": "5980dba7dd8a1a3223b4f5f5f0299ca9365a1637ed1eb576c63c17b888a37807",
+  "files": [
+    {
+      "name": "nikon-z-6-2.nef",
+      "url": "https://raw.pixls.us/getfile.php/4160/nice/Nikon%20-%20Z%206_2%20-%2014bit%2014bit%20compressed%20%28Lossless%29%20%283%3A2%29.NEF",
+      "bytes": 36988625,
+      "blake3": "3adebaa264d75d6d4a8f29236a4cf444a0b6ee3a96cb6309d8fc903a8885c61f",
+      "sha256": "1b67d15817dbd4143a1f1089e2f09e319a2a2327c124e2643284509dd7621030",
+      "make": "Nikon",
+      "model": "Z 6_2",
+      "megapixels": 24.5,
+      "mode": "14bit 14bit compressed (Lossless) (3:2)",
+      "licence": "CC0-1.0",
+      "uploaded": "2020-11-14"
+    },
+    {
+      "name": "nikon-z-7-2.nef",
+      "url": "https://raw.pixls.us/getfile.php/4213/nice/Nikon%20-%20Z%207_2%20-%2014bit%2014bit%20compressed%20%28Lossless%29%20%283%3A2%29.NEF",
+      "bytes": 54112772,
+      "blake3": "27d9d51ef32b9179f07728baf751d65188a5c8950f33624286a8353257072c04",
+      "sha256": "dc83d3e49db54ca9c3a1e41dc847afd213c822d482c40158e42d01ee8968f33b",
+      "make": "Nikon",
+      "model": "Z 7_2",
+      "megapixels": 45.75,
+      "mode": "14bit 14bit compressed (Lossless) (3:2)",
+      "licence": "CC0-1.0",
+      "uploaded": "2020-12-12"
+    },
+    {
+      "name": "pentax-k-1-mark-ii.pef",
+      "url": "https://raw.pixls.us/getfile.php/3346/nice/Pentax%20-%20K-1%20Mark%20II%20-%2014bit%20%283%3A2%29.PEF",
+      "bytes": 45700859,
+      "blake3": "4b1dc1d398ad6e1442dad216272723a8fc913f7c1b4b28a47194c64a86f28653",
+      "sha256": "c52a0c841dda9ce1e28c7dbb3176d1f00f1799d8b70bc2e642cff2a2f0a41580",
+      "make": "Pentax",
+      "model": "K-1 Mark II",
+      "megapixels": 36.59,
+      "mode": "14bit (3:2)",
+      "licence": "CC0-1.0",
+      "uploaded": "2019-08-20"
+    },
+    {
+      "name": "sony-ilce-1.arw",
+      "url": "https://raw.pixls.us/getfile.php/4465/nice/Sony%20-%20ILCE-1%20-%2014bit%2014bit%20compressed%20%283%3A2%29.ARW",
+      "bytes": 63216896,
+      "blake3": "fb5fcd18ec2503207097793b286aafd6cb7c65ae67023671e45138cc122a6b27",
+      "sha256": "ddb72880da333b46a4c13286f78473dacc11377ea874bc3656e64e30a8122a88",
+      "make": "Sony",
+      "model": "ILCE-1",
+      "megapixels": 50.16,
+      "mode": "14bit 14bit compressed (3:2)",
+      "licence": "CC0-1.0",
+      "uploaded": "2021-04-05"
+    },
+    {
+      "name": "sony-ilce-7m3.arw",
+      "url": "https://raw.pixls.us/getfile.php/2414/nice/Sony%20-%20ILCE-7M3%20-%2014bit%2014bit%20compressed%20%283%3A2%29.ARW",
+      "bytes": 25639680,
+      "blake3": "a0e9d44eb6e9020ac076a5130206e1f0f9d514c6a55fd20075cb0450439f36b6",
+      "sha256": "250784580ea527442c09004417bb0eead484f2bf3ee8f9121a776ac65bb50d0f",
+      "make": "Sony",
+      "model": "ILCE-7M3",
+      "megapixels": 24.34,
+      "mode": "14bit 14bit compressed (3:2)",
+      "licence": "CC0-1.0",
+      "uploaded": "2018-03-14"
+    },
+    {
+      "name": "sony-ilce-7rm4.arw",
+      "url": "https://raw.pixls.us/getfile.php/3480/nice/Sony%20-%20ILCE-7RM4%20-%2014bit%2014bit%20compressed%20%283%3A2%29.ARW",
+      "bytes": 61983744,
+      "blake3": "cf2e8cd348a9e3759c4eb6dd4968ef52fff843b7fdd895efaa00b47a9a4b193b",
+      "sha256": "e6dafe42643f69ab9d1fd00414b7a1f5104df354bb589201600ac934b29b5e4a",
+      "make": "Sony",
+      "model": "ILCE-7RM4",
+      "megapixels": 61.21,
+      "mode": "14bit 14bit compressed (3:2)",
+      "licence": "CC0-1.0",
+      "uploaded": "2019-10-13"
+    }
+  ]
+}
