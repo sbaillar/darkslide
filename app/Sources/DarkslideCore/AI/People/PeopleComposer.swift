@@ -232,8 +232,10 @@ enum PeopleComposer {
     /// One person's parts.
     static func person(image: PixelImage, matte: [Float], face: FaceHint?, parse: FaceParse?, head: HeadHint?) -> PersonParts {
         let w = image.width, h = image.height, n = w * h
-        let ycc: [SIMD3<Float>] = (0..<n).map { i in
-            ColorModel.ycc(SIMD3(Float(image.rgba[i * 4]), Float(image.rgba[i * 4 + 1]), Float(image.rgba[i * 4 + 2])))
+        let rgba = image.rgba
+        let ycc: [SIMD3<Float>] = (0..<n).map { (i: Int) -> SIMD3<Float> in
+            let r = Float(rgba[i * 4]), g = Float(rgba[i * 4 + 1]), b = Float(rgba[i * 4 + 2])
+            return ColorModel.ycc(SIMD3<Float>(r, g, b))
         }
         let maps = parse.map { project($0, width: w, height: h) }
         var pFace = maps?.face ?? [Float](repeating: 0, count: n)

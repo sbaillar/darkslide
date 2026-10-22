@@ -321,13 +321,15 @@ pub(crate) mod tests {
 
     #[test]
     fn floats_decode_specials() {
-        assert_eq!(decode_float(&[0x3C, 0x00]), 1.0);
-        assert_eq!(decode_float(&[0xC0, 0x00]), -2.0);
-        assert_eq!(decode_float(&[0x7C, 0x00]), f32::INFINITY);
+        // Exact decodes: compare bit patterns.
+        let bits = |b: &[u8]| decode_float(b).to_bits();
+        assert_eq!(bits(&[0x3C, 0x00]), 1.0f32.to_bits());
+        assert_eq!(bits(&[0xC0, 0x00]), (-2.0f32).to_bits());
+        assert_eq!(bits(&[0x7C, 0x00]), f32::INFINITY.to_bits());
         assert!(decode_float(&[0x7C, 0x01]).is_nan());
-        assert_eq!(decode_float(&[0x00, 0x01]), 2f32.powi(-24)); // subnormal
-        assert_eq!(decode_float(&[0x3F, 0x00, 0x00]), 1.0);
-        assert_eq!(decode_float(&1.5f32.to_be_bytes()), 1.5);
+        assert_eq!(bits(&[0x00, 0x01]), 2f32.powi(-24).to_bits()); // subnormal
+        assert_eq!(bits(&[0x3F, 0x00, 0x00]), 1.0f32.to_bits());
+        assert_eq!(bits(&1.5f32.to_be_bytes()), 1.5f32.to_bits());
         assert_eq!(to_u16(-1.0, 65535.0), 0);
         assert_eq!(to_u16(2.0, 65535.0), 65535);
     }

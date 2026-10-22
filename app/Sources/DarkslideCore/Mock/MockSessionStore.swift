@@ -48,7 +48,11 @@ public actor MockSessionStore: SessionStore, SessionCreating, SessionClosing {
         let lenses = ["FE 24-70mm F2.8 GM", "FE 85mm F1.4 GM", "FE 70-200mm F2.8 GM OSS", "FE 16-35mm F2.8 GM"]
         for i in 0..<count {
             let id = firstID + Int64(i)
-            t += rng.next() % 6 == 0 ? Double(rng.next() % 600) : 0.1 + Double(rng.next() % 10) / 20
+            if rng.next() % 6 == 0 {
+                t += Double(rng.next() % 600)
+            } else {
+                t += 0.1 + Double(rng.next() % 10) / 20
+            }
             let portrait = rng.next() % 5 == 0
             let lens = lenses[Int(rng.next() % UInt64(lenses.count))]
             let shutters = [1.0 / 4000, 1.0 / 1000, 1.0 / 500, 1.0 / 250, 1.0 / 125, 1.0 / 60, 1.0 / 30]

@@ -58,8 +58,9 @@ public enum ExportPartials {
 
     /// The launch sweep over remembered folders (off the main thread). Folders swept clean
     /// are forgotten; one that is unreachable or still holds a temp is kept for next time.
+    /// Runs on the caller's actor so `defaults` is never sent; only the folder paths are.
     @discardableResult
-    public static func sweepRemembered(defaults: UserDefaults) async -> Int {
+    nonisolated(nonsending) public static func sweepRemembered(defaults: UserDefaults) async -> Int {
         let remembered = defaults.stringArray(forKey: foldersKey) ?? []
         guard !remembered.isEmpty else { return 0 }
         let (removed, keep) = await Task.detached(priority: .utility) { () -> (Int, [String]) in
