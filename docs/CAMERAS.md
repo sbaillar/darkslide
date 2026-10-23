@@ -9,7 +9,7 @@ What Darkslide does with RAWs from each maker, measured by the opt-in compatibil
   the viewer says "Darkslide can't develop this file yet" instead of developing it.
 
 The **Decoder** column says which decoder develops the format: Darkslide's own (native,
-[RAWDEC.md](RAWDEC.md)) or rawler (the optional `rawler` feature, on in app builds). Native
+[RAWDEC.md](RAWDEC.md)) or rawler (in the separate RAW helper the app downloads on request; see RAWDEC.md). Native
 decodes of the corpus match rawler's sensor data; RAWDEC.md lists the few understood
 differences (rawler dithers some value mappings).
 

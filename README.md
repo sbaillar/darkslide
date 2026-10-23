@@ -266,7 +266,54 @@ Darkslide can also open an existing folder of photos in place, without moving an
 
 ## Supported cameras
 
-The reference camera is the Sony A9 (ILCE-9). Sony ARW, Nikon NEF, Canon CR2 and CR3, Bayer Fujifilm RAF (GFX), OM System / Olympus ORF, Panasonic RW2, Pentax PEF and DNG, Leica DNG, phone DNGs and Apple ProRAW are tested and develop fully. Fujifilm X-Trans RAFs and Nikon High Efficiency NEFs import and cull from their embedded previews but don't develop yet. [docs/CAMERAS.md](docs/CAMERAS.md) has the details, and most other cameras supported by [rawler](https://github.com/dnglab/dnglab) should work.
+The reference camera is the Sony A9 (ILCE-9). Sony ARW, Nikon NEF, Canon CR2 and CR3, Bayer Fujifilm RAF (GFX), OM System / Olympus ORF, Panasonic RW2, Pentax PEF and DNG, Leica DNG, phone DNGs and Apple ProRAW are tested and develop fully. Most of them need the free [RAW helper](#raw-decoding-and-the-raw-helper) (below). Fujifilm X-Trans RAFs and Nikon High Efficiency NEFs import and cull from their embedded previews but don't develop yet. [docs/CAMERAS.md](docs/CAMERAS.md) has the details, and with the RAW helper most other cameras supported by [rawler](https://github.com/dnglab/dnglab) should work.
+
+### RAW decoding and the RAW helper
+
+Darkslide decodes RAW files with its own decoders, written for this project under Apache-2.0 ([docs/RAWDEC.md](docs/RAWDEC.md)): DNG (including iPhone ProRAW, Pixel and Leica), Sony ARW, Canon CR2, Nikon NEF and Pentax PEF. They produce exactly the same sensor data as the [rawler](https://github.com/dnglab/dnglab) library Darkslide used before, or more exact values where rawler adds dither, and they're faster on every file tested:
+
+| File | Format | Darkslide (ms) | rawler (ms) | Faster by |
+|---|---|---:|---:|---:|
+| Sony A9 | ARW uncompressed | 1.25 | 3.22 | 2.6× |
+| Sony A7 III | ARW compressed | 4.9 | 8.5 | 1.7× |
+| Sony A7 IV | ARW compressed | 7.0 | 11.9 | 1.7× |
+| Canon EOS 5D Mark IV | CR2 | 152 | 206 | 1.4× |
+| Canon EOS 6D Mark II | CR2 | 161 | 189 | 1.2× |
+| Nikon D850 | NEF 14-bit lossless | 122 | 237 | 1.9× |
+| Nikon Z 6II | NEF 14-bit lossless | 87 | 156 | 1.8× |
+| Pentax K-3 Mark III | PEF | 74 | 137 | 1.8× |
+| Pentax K-3 Mark III | DNG | 81 | 170 | 2.1× |
+| Leica M10-R | DNG | 155 | 301 | 1.9× |
+| Leica Q2 | DNG uncompressed | 4.0 | 11.2 | 2.8× |
+| iPhone 12 Pro | ProRAW DNG | 17.8 | 35.8 | 2.0× |
+| iPhone XS | DNG | 4.9 | 9.9 | 2.0× |
+| Google Pixel 7 Pro | DNG | 7.0 | 12.4 | 1.8× |
+
+*Full decode of one file to sensor data, release build, Apple M4 Pro, file in the page cache, median of 10 runs (`cargo bench -p ds-raw --bench raw -- decode/`, with the compatibility corpus from `scripts/fetch-rawcompat.sh`).*
+
+**What rawler still does better:**
+
+- **More formats:** Canon CR3, Fujifilm RAF, Olympus/OM ORF, Panasonic RW2, Minolta MRW and other older formats. Darkslide's own decoders don't read these yet.
+- **More variants of the formats Darkslide does read:** lossy and 12-bit Nikon NEF, Canon CR2s from more bodies, and the older Pentax PEF code.
+- **A camera database:** a non-DNG RAW file doesn't carry its colour matrix (and sometimes its crop and white level), so a decoder needs per-camera data. rawler has it for hundreds of cameras. Darkslide's own table has only data it may redistribute, which today is one camera (the Pentax K-3 Mark III).
+- **Writing DNG:** HDR merges and panoramas are saved with rawler's DNG writer.
+
+rawler is licensed under the LGPL-2.1, so it isn't built into Darkslide. It lives in a separate program, the **RAW helper** (`darkslide-rawler`), that you install only if you need it. Darkslide runs the helper for whatever its own decoders don't cover.
+
+**Do you need it?**
+
+| You shoot | Without the helper | With it |
+|---|---|---|
+| DNG (any camera, iPhone ProRAW, Pixel, Leica), Pentax K-3 Mark III | Develops | Develops |
+| Sony ARW, Nikon NEF, Canon CR2 | Culling from the embedded preview: these need rawler's camera data | Develops |
+| Canon CR3, Fujifilm RAF, Olympus/OM ORF, Panasonic RW2 and other formats | Culling from the embedded preview | Develops |
+| HDR and panorama merges | Not available | Available |
+
+**Getting it:**
+
+- **In the app:** open **Settings ▸ RAW ▸ Download RAW Helper**, or click **Get RAW Helper** on a photo that needs it. Darkslide downloads it from this repository's [GitHub releases](https://github.com/sbaillar/darkslide/releases), checks it against the SHA-256 fingerprint built into the app, and installs it in `~/Library/Application Support/Darkslide/Helpers/`. Remove it in the same place.
+- **From source:** `scripts/build-rawler-helper.sh --install`.
+- **Licence:** the helper is distributed under the LGPL-2.1's terms. Its README, [crates/ds-rawler](crates/ds-rawler/README.md), explains how it works and how to rebuild it with a modified rawler.
 
 ## Install and build from source
 
@@ -296,6 +343,7 @@ Darkslide has no accounts, analytics or telemetry. Your photos stay on your Mac 
 |---|---|---|
 | On-device AI models (remove, sky and people masks, lens blur depth, photo search) | Downloaded once from pinned upstream revisions on Hugging Face, the first time you use the feature; each file is checked against its SHA-256 | Download requests only; no photos |
 | AI Upscale model | When you choose Download AI Upscale Model… and agree to its terms (builds that set a download location) | Download requests only |
+| RAW helper | When you choose Download RAW Helper (Settings ▸ RAW, or on a photo that needs it); checked against its SHA-256 | Download requests to GitHub only |
 | Map tiles | In Map mode; asked once, and Settings ▸ General turns it off | The map areas you view are requested from Apple Maps; photos and their locations are never uploaded |
 | Google Photos | Only with a Google Photos export recipe, after you sign in | The exported files, to your own account |
 | Jev (TypeSafe) for Edit with words | Off by default; Settings ▸ AI with your own API key | The text you type, not the photo |
@@ -314,7 +362,7 @@ Amazon Photos backup is a hand-off: Darkslide copies originals into a local fold
 ## Roadmap
 
 - **iPad app:** touch culling and light editing over the Mac ↔ iPad link ([docs/IPAD_PLAN.md](docs/IPAD_PLAN.md)).
-- **Native RAW decoder:** RAW decoding in `ds-raw` itself, so fewer formats depend on rawler and more of them develop (X-Trans among them).
+- **Native RAW decoder:** more formats and cameras in `ds-raw` itself (CR3, RAF, ORF, RW2, X-Trans, camera data, a DNG writer), so fewer photos need the RAW helper.
 - **Signed releases:** a Developer ID–signed, notarized build ([docs/RELEASING.md](docs/RELEASING.md)).
 
 The product plan and its decisions are in [PLAN.md](PLAN.md).
@@ -327,4 +375,4 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the toolc
 
 Darkslide is licensed under the [Apache License 2.0](LICENSE); see also [NOTICE](NOTICE). Third-party licences are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
-Darkslide statically links [rawler](https://github.com/dnglab/dnglab), which is licensed under the LGPL-2.1. You can rebuild and relink the app against a modified rawler; [CONTRIBUTING.md](CONTRIBUTING.md#relinking-rawler) shows how.
+Darkslide itself contains no LGPL code. The optional [RAW helper](crates/ds-rawler/README.md) is a separate program that statically links [rawler](https://github.com/dnglab/dnglab) (LGPL-2.1) and is distributed under the LGPL's terms; [CONTRIBUTING.md](CONTRIBUTING.md#relinking-rawler) shows how to rebuild it against a modified rawler.

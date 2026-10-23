@@ -56,14 +56,16 @@ It certifies that you wrote the change, or otherwise have the right to submit it
 
 ## Relinking rawler
 
-Darkslide statically links [rawler](https://github.com/dnglab/dnglab), which is licensed under the LGPL-2.1. To build the app with a modified rawler, add to the workspace `Cargo.toml`:
+The optional RAW helper (`darkslide-rawler`, [crates/ds-rawler](crates/ds-rawler/README.md)) statically links [rawler](https://github.com/dnglab/dnglab), which is licensed under the LGPL-2.1. Darkslide.app itself doesn't link it. To build the helper with a modified rawler, add to the workspace `Cargo.toml`:
 
 ```toml
 [patch.crates-io]
 rawler = { path = "../dnglab/rawler" }
 ```
 
-then run `scripts/build-app.sh`. The whole app is rebuilt and relinked against your rawler.
+then run `scripts/build-rawler-helper.sh --install`. The helper is rebuilt and relinked against your rawler and installed where Darkslide looks for it.
+
+Tests that need rawler's camera data (most decode tests use synthetic Sony files) turn on `ds-raw`'s `rawler` feature through dev-dependencies; `scripts/test-app.sh` builds the helper and points the Swift tests at it with `DS_RAWLER_HELPER`.
 
 ## Releases (maintainers)
 

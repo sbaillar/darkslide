@@ -91,58 +91,114 @@ import Testing
 
 /// [multiview] Line snapping along each position's axis, the double-click toggle and the remembered layout.
 @Suite struct FilmstripSizingTests {
+    /// The size the strip always had.
+    let c = FilmstripSizing.defaultCellHeight
+
     @Test func oneRowKeepsTheOldHeight() {
-        #expect(FilmstripSizing.extent(lines: 1, at: .bottom) == 152, "the strip's height before it could grow")
-        #expect(FilmstripSizing.extent(lines: 0, at: .bottom) == 0)
-        #expect(FilmstripSizing.extent(lines: 3, at: .bottom) == 368, "two more rows of 108")
+        #expect(FilmstripSizing.extent(lines: 1, at: .bottom, cell: c) == 152, "the strip's height before it could grow")
+        #expect(FilmstripSizing.extent(lines: 0, at: .bottom, cell: c) == 0)
+        #expect(FilmstripSizing.extent(lines: 3, at: .bottom, cell: c) == 368, "two more rows of 108")
         // At the side: one column of 120-point cells plus side padding; each more is 124.
-        #expect(FilmstripSizing.extent(lines: 1, at: .left) == 136)
-        #expect(FilmstripSizing.extent(lines: 2, at: .right) == 260, "one more column of 124")
-        #expect(FilmstripSizing.extent(lines: 0, at: .right) == 0)
+        #expect(FilmstripSizing.extent(lines: 1, at: .left, cell: c) == 136)
+        #expect(FilmstripSizing.extent(lines: 2, at: .right, cell: c) == 260, "one more column of 124")
+        #expect(FilmstripSizing.extent(lines: 0, at: .right, cell: c) == 0)
     }
 
     @Test func dragsSnapToWholeRows() {
         let avail: CGFloat = 1000
-        #expect(FilmstripSizing.lines(forExtent: 152, available: avail, at: .bottom) == 1)
-        #expect(FilmstripSizing.lines(forExtent: 152 + 50, available: avail, at: .bottom) == 1, "under half a row: stays")
-        #expect(FilmstripSizing.lines(forExtent: 152 + 60, available: avail, at: .bottom) == 2)
-        #expect(FilmstripSizing.lines(forExtent: 152 + 216, available: avail, at: .bottom) == 3)
-        #expect(FilmstripSizing.lines(forExtent: 80, available: avail, at: .bottom) == 1)
-        #expect(FilmstripSizing.lines(forExtent: 70, available: avail, at: .bottom) == 0, "below half a row: collapsed")
-        #expect(FilmstripSizing.lines(forExtent: -20, available: avail, at: .bottom) == 0)
+        #expect(FilmstripSizing.lines(forExtent: 152, available: avail, at: .bottom, cell: c) == 1)
+        #expect(FilmstripSizing.lines(forExtent: 152 + 50, available: avail, at: .bottom, cell: c) == 1, "under half a row: stays")
+        #expect(FilmstripSizing.lines(forExtent: 152 + 60, available: avail, at: .bottom, cell: c) == 2)
+        #expect(FilmstripSizing.lines(forExtent: 152 + 216, available: avail, at: .bottom, cell: c) == 3)
+        #expect(FilmstripSizing.lines(forExtent: 80, available: avail, at: .bottom, cell: c) == 1)
+        #expect(FilmstripSizing.lines(forExtent: 70, available: avail, at: .bottom, cell: c) == 0, "below half a row: collapsed")
+        #expect(FilmstripSizing.lines(forExtent: -20, available: avail, at: .bottom, cell: c) == 0)
     }
 
     @Test func sideDragsSnapToWholeColumns() {
         let avail: CGFloat = 1400
-        #expect(FilmstripSizing.lines(forExtent: 136 + 60, available: avail, at: .left) == 1)
-        #expect(FilmstripSizing.lines(forExtent: 136 + 64, available: avail, at: .right) == 2)
-        #expect(FilmstripSizing.lines(forExtent: 60, available: avail, at: .left) == 0, "below half a column: collapsed")
+        #expect(FilmstripSizing.lines(forExtent: 136 + 60, available: avail, at: .left, cell: c) == 1)
+        #expect(FilmstripSizing.lines(forExtent: 136 + 64, available: avail, at: .right, cell: c) == 2)
+        #expect(FilmstripSizing.lines(forExtent: 60, available: avail, at: .left, cell: c) == 0, "below half a column: collapsed")
         // 1400 − 320 viewer − 136 first column = 944 → 7 more columns of 124.
-        #expect(FilmstripSizing.maxLines(available: avail, at: .left) == 8)
-        #expect(FilmstripSizing.extent(lines: 8, at: .left) <= avail - FilmstripSizing.minViewerWidth)
-        #expect(FilmstripSizing.extent(lines: 9, at: .left) > avail - FilmstripSizing.minViewerWidth)
-        #expect(FilmstripSizing.lines(forExtent: 5000, available: avail, at: .right) == 8)
+        #expect(FilmstripSizing.maxLines(available: avail, at: .left, cell: c) == 8)
+        #expect(FilmstripSizing.extent(lines: 8, at: .left, cell: c) <= avail - FilmstripSizing.minViewerWidth)
+        #expect(FilmstripSizing.extent(lines: 9, at: .left, cell: c) > avail - FilmstripSizing.minViewerWidth)
+        #expect(FilmstripSizing.lines(forExtent: 5000, available: avail, at: .right, cell: c) == 8)
     }
 
     @Test func theViewerKeepsItsMinimumHeight() {
         // 1000 − 240 viewer − 152 first row = 608 → 5 more rows of 108.
-        #expect(FilmstripSizing.maxLines(available: 1000, at: .bottom) == 6)
-        #expect(FilmstripSizing.extent(lines: 6, at: .bottom) <= 1000 - FilmstripSizing.minViewerHeight)
-        #expect(FilmstripSizing.extent(lines: 7, at: .bottom) > 1000 - FilmstripSizing.minViewerHeight)
-        #expect(FilmstripSizing.lines(forExtent: 5000, available: 1000, at: .bottom) == 6)
-        #expect(FilmstripSizing.maxLines(available: 200, at: .bottom) == 1, "a tiny window still shows a row")
-        #expect(FilmstripSizing.clamped(9, available: 1000, at: .bottom) == 6)
-        #expect(FilmstripSizing.clamped(0, available: 1000, at: .bottom) == 0)
+        #expect(FilmstripSizing.maxLines(available: 1000, at: .bottom, cell: c) == 6)
+        #expect(FilmstripSizing.extent(lines: 6, at: .bottom, cell: c) <= 1000 - FilmstripSizing.minViewerHeight)
+        #expect(FilmstripSizing.extent(lines: 7, at: .bottom, cell: c) > 1000 - FilmstripSizing.minViewerHeight)
+        #expect(FilmstripSizing.lines(forExtent: 5000, available: 1000, at: .bottom, cell: c) == 6)
+        #expect(FilmstripSizing.maxLines(available: 200, at: .bottom, cell: c) == 1, "a tiny window still shows a row")
+        #expect(FilmstripSizing.clamped(9, available: 1000, at: .bottom, cell: c) == 6)
+        #expect(FilmstripSizing.clamped(0, available: 1000, at: .bottom, cell: c) == 0)
     }
 
     @Test func columnsReflowToTheWidth() {
-        let w = FilmstripSizing.cellWidth
+        let w = FilmstripSizing.cellWidth(c)
         #expect(w == 120)
-        #expect(FilmstripSizing.columns(width: 16 + 3 * w + 2 * 4) == 3)
-        #expect(FilmstripSizing.columns(width: 16 + 3 * w + 2 * 4 - 1) == 2)
-        #expect(FilmstripSizing.columns(width: 10) == 1)
+        #expect(FilmstripSizing.columns(width: 16 + 3 * w + 2 * 4, cell: c) == 3)
+        #expect(FilmstripSizing.columns(width: 16 + 3 * w + 2 * 4 - 1, cell: c) == 2)
+        #expect(FilmstripSizing.columns(width: 10, cell: c) == 1)
         // A side strip of n columns is exactly wide enough for n.
-        for n in 1...4 { #expect(FilmstripSizing.columns(width: FilmstripSizing.extent(lines: n, at: .left)) == n) }
+        for n in 1...4 { #expect(FilmstripSizing.columns(width: FilmstripSizing.extent(lines: n, at: .left, cell: c), cell: c) == n) }
+    }
+
+    @Test func largeThumbnailsSnapToWholeLargeLines() {
+        let big: CGFloat = 208 // twice the default
+        // Bottom: 40 bar + 208 + 8 padding; each more row 212.
+        #expect(FilmstripSizing.extent(lines: 1, at: .bottom, cell: big) == 256)
+        #expect(FilmstripSizing.extent(lines: 3, at: .bottom, cell: big) == 680)
+        #expect(FilmstripSizing.lines(forExtent: 256 + 105, available: 1000, at: .bottom, cell: big) == 1, "under half a large row")
+        #expect(FilmstripSizing.lines(forExtent: 256 + 107, available: 1000, at: .bottom, cell: big) == 2)
+        // 1000 − 240 viewer − 256 = 504 → 2 more rows of 212.
+        #expect(FilmstripSizing.maxLines(available: 1000, at: .bottom, cell: big) == 3)
+        #expect(FilmstripSizing.extent(lines: 3, at: .bottom, cell: big) <= 1000 - FilmstripSizing.minViewerHeight)
+        #expect(FilmstripSizing.extent(lines: 4, at: .bottom, cell: big) > 1000 - FilmstripSizing.minViewerHeight)
+        #expect(FilmstripSizing.clamped(6, available: 1000, at: .bottom, cell: big) == 3)
+        // Side: columns 239 wide (208 × 1.15), each more 243.
+        #expect(FilmstripSizing.cellWidth(big) == 239)
+        #expect(FilmstripSizing.extent(lines: 1, at: .left, cell: big) == 255)
+        #expect(FilmstripSizing.extent(lines: 2, at: .right, cell: big) == 498)
+        #expect(FilmstripSizing.lines(forExtent: 255 + 120, available: 1400, at: .right, cell: big) == 1)
+        #expect(FilmstripSizing.lines(forExtent: 255 + 125, available: 1400, at: .left, cell: big) == 2)
+        // 1400 − 320 viewer − 255 = 825 → 3 more columns of 243.
+        #expect(FilmstripSizing.maxLines(available: 1400, at: .left, cell: big) == 4)
+        #expect(FilmstripSizing.lines(forExtent: 5000, available: 1400, at: .right, cell: big) == 4)
+        for n in 1...4 {
+            #expect(FilmstripSizing.columns(width: FilmstripSizing.extent(lines: n, at: .left, cell: big), cell: big) == n)
+        }
+        // 16 side padding + 3 × 239 + 2 × 4 spacing.
+        let three: CGFloat = 741
+        #expect(FilmstripSizing.columns(width: three, cell: big) == 3, "fewer, larger thumbnails per row")
+        #expect(FilmstripSizing.columns(width: three - 1, cell: big) == 2)
+    }
+
+    @Test func aSizeThatDoesNotFitShrinksInsteadOfTheViewer() {
+        let most = FilmstripSizing.cellHeights.upperBound
+        #expect(most == 416 && FilmstripSizing.cellHeights.lowerBound == c)
+        // 600 − 240 viewer − 40 bar − 8 padding: 312-point cells fit.
+        #expect(FilmstripSizing.fitted(most, available: 600, at: .bottom) == 312)
+        #expect(FilmstripSizing.fitted(208, available: 600, at: .bottom) == 208, "a size that fits stays")
+        #expect(FilmstripSizing.fitted(most, available: 2000, at: .left) == most)
+        #expect(FilmstripSizing.fitted(most, available: 300, at: .bottom) == c, "never below the default")
+        for p in FilmstripPosition.allCases {
+            for available in stride(from: CGFloat(300), through: 1500, by: 7) {
+                let cell = FilmstripSizing.fitted(most, available: available, at: p)
+                let room = available - (p.isVertical ? FilmstripSizing.minViewerWidth : FilmstripSizing.minViewerHeight)
+                if cell > c {
+                    #expect(FilmstripSizing.extent(lines: 1, at: p, cell: cell) <= room, "\(p) \(available): the viewer keeps its minimum")
+                }
+                if cell < most {
+                    #expect(FilmstripSizing.extent(lines: 1, at: p, cell: cell + 2) > room || cell == c,
+                            "\(p) \(available): as large as fits")
+                }
+            }
+        }
     }
 
     @Test func doubleClickTogglesOneLineAndTheLastSize() {
@@ -177,6 +233,25 @@ import Testing
         #expect(try JSONDecoder().decode(FilmstripLayout.self, from: bad) == FilmstripLayout(position: .left, lines: 0, last: 2))
         let unknown = Data(#"{"position":"top","lines":2,"last":3}"#.utf8)
         #expect(try JSONDecoder().decode(FilmstripLayout.self, from: unknown).position == .bottom, "an unknown place: the bottom")
+    }
+
+    @Test func thumbnailSizeIsSavedClampedAndKeptByTheOtherChanges() throws {
+        let old = Data(#"{"position":"right","lines":2,"last":4}"#.utf8)
+        #expect(try JSONDecoder().decode(FilmstripLayout.self, from: old) == FilmstripLayout(position: .right, lines: 2, last: 4),
+                "a layout saved before the size slider")
+        #expect(try JSONDecoder().decode(FilmstripLayout.self, from: old).cell == 104)
+        let big = Data(#"{"position":"bottom","lines":1,"last":3,"cell":9999}"#.utf8)
+        #expect(try JSONDecoder().decode(FilmstripLayout.self, from: big).cell == 416, "clamped")
+        let layout = FilmstripLayout(position: .left, lines: 3, last: 3, cell: 250.4)
+        #expect(layout.cell == 250, "whole points")
+        #expect(try JSONDecoder().decode(FilmstripLayout.self, from: JSONEncoder().encode(layout)) == layout, "round trip")
+        #expect(FilmstripLayout(cell: 10).cell == 104)
+        #expect(layout.dragged(to: 5).cell == 250 && layout.toggled.cell == 250 && layout.moved(to: .bottom).cell == 250)
+        #expect(layout.sized(300) == FilmstripLayout(position: .left, lines: 3, last: 3, cell: 300), "the lines stay")
+        #expect(FilmstripLayout().stepped(1).cell == 156)
+        #expect(FilmstripLayout().stepped(-1).cell == 104)
+        #expect(FilmstripLayout().stepped(6).cell == 416, "six notches span the range")
+        #expect(FilmstripLayout().stepped(9).cell == 416)
     }
 }
 
@@ -297,6 +372,33 @@ import Testing
         #expect(m.filmstrip.position == .left)
         CommandCatalog.perform(.filmstripBottom, model: m)
         #expect(m.filmstrip.position == .bottom)
+    }
+
+    @Test func filmstripThumbnailSizeCommands() async {
+        let m = await started()
+        let larger = MenuCommand.largerFilmstripThumbnails, smaller = MenuCommand.smallerFilmstripThumbnails
+        #expect(CommandCatalog.filmstripSizeMenu.map { CommandCatalog.title($0, model: m) }
+            == ["Larger Filmstrip Thumbnails", "Smaller Filmstrip Thumbnails"])
+        #expect(larger.shortcut == .init(key: "=", modifiers: [.command, .control]))
+        #expect(smaller.shortcut == .init(key: "-", modifiers: [.command, .control]))
+        m.browserMode = .filmstrip
+        #expect(CommandCatalog.isEnabled(larger, model: m) && !CommandCatalog.isEnabled(smaller, model: m), "starts smallest")
+        m.resizeFilmstrip(to: 2, ended: true)
+        CommandCatalog.perform(larger, model: m)
+        CommandCatalog.perform(larger, model: m)
+        #expect(m.filmstrip == FilmstripLayout(lines: 2, last: 2, cell: 208), "two notches; the rows stay")
+        #expect(CommandCatalog.isEnabled(smaller, model: m))
+        m.resizeFilmstrip(to: 3, ended: false)
+        #expect(m.filmstrip.cell == 208, "dragging the separator keeps the size")
+        m.sizeFilmstripThumbnails(5000)
+        #expect(m.filmstrip.cell == 416 && !CommandCatalog.isEnabled(larger, model: m), "the largest")
+        CommandCatalog.perform(smaller, model: m)
+        #expect(m.filmstrip.cell == 364)
+        let reread = AppSettings(defaults: m.settings.userDefaults)
+        #expect(reread.filmstripLayout(window: AppWindows.main).cell == 364, "remembered")
+        m.browserMode = .grid
+        #expect(!CommandCatalog.isEnabled(larger, model: m) && !CommandCatalog.isEnabled(smaller, model: m),
+                "only the viewer's filmstrip")
     }
 
     @Test func showSelectionCommandAndControl() async {

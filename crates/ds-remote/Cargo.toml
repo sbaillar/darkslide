@@ -27,7 +27,9 @@ webpki = { package = "rustls-webpki", version = "0.103", default-features = fals
 spake2 = "0.4"
 
 [features]
-default = ["rawler"]
+default = []
+# Links rawler in (LGPL-2.1). Without it the `ds-remote` CLI uses the rawler helper
+# named by DS_RAWLER_HELPER, if any (docs/RAWDEC.md).
 rawler = ["ds-raw/rawler"]
 
 [dev-dependencies]

@@ -59,7 +59,9 @@ extension AppModel {
             let plan = AICullApplication.plan(targets.compactMap { photo($0.id) }, suggestions: cullSuggestions)
             if !plan.changes.isEmpty {
                 updatePhotos(Array(plan.changes.keys), label: "AI Cull") { p in
-                    if let pick = plan.changes[p.id] { p.pick = pick }
+                    if let pick = plan.changes[p.id] {
+                        AICullApplication.apply(pick, note: cullSuggestions[p.id]?.rejectNote, to: &p)
+                    }
                 }
             }
             show(Toast(plan.message, symbol: "sparkles"))

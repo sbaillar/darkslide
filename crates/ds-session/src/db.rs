@@ -10,7 +10,7 @@ use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
 use crate::error::{IoContext, Result, SessionError};
 
 /// Bump whenever the index schema changes; older indexes are rebuilt from sidecars.
-pub const INDEX_SCHEMA_VERSION: i64 = 8;
+pub const INDEX_SCHEMA_VERSION: i64 = 9;
 
 const SCHEMA: &str = "
 CREATE TABLE images(
@@ -61,6 +61,7 @@ CREATE TABLE variants(
     geo_lat REAL,
     geo_lon REAL,
     geo_alt REAL,
+    cull_note TEXT,
     UNIQUE(image_id, ordinal)
 );
 CREATE INDEX variants_image ON variants(image_id);
@@ -211,6 +212,19 @@ fn to_v7(conn: &Connection) -> Result<()> {
 fn to_v8(conn: &Connection) -> Result<()> {
     let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)?;
     add_geo_columns(&tx)?;
+    tx.execute_batch("PRAGMA user_version=8")?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// v9 (cull notes): why AI Cull rejected a variant (sidecar `cull_note`).
+/// Only builds that know the column write the note, so no sidecar has one
+/// yet and none needs reading again. Idempotent: two openers racing both run it.
+fn to_v9(conn: &Connection) -> Result<()> {
+    let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)?;
+    if !has_column(&tx, "variants", "cull_note")? {
+        tx.execute_batch("ALTER TABLE variants ADD COLUMN cull_note TEXT;")?;
+    }
     tx.execute_batch(&format!("PRAGMA user_version={INDEX_SCHEMA_VERSION}"))?;
     tx.commit()?;
     Ok(())
@@ -354,11 +368,11 @@ pub fn open_or_recreate(path: &Path) -> Result<(Connection, Option<Recovery>)> {
             ensure_geo_columns(&conn)?;
             Ok((conn, None))
         }
-        // v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8 only add columns, tables and
-        // an index: keep the verified file stats (no re-hash). v4 is
+        // v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8 -> v9 only add columns, tables
+        // and an index: keep the verified file stats (no re-hash). v4 is
         // look-and-match's, v5 search's, v6 Find's (people, faces, places), v7
-        // metadata's (IPTC), v8 the map's (geotags).
-        Checked::Ok(conn, v @ 2..=7) => {
+        // metadata's (IPTC), v8 the map's (geotags), v9 AI Cull's notes.
+        Checked::Ok(conn, v @ 2..=8) => {
             if v == 2 {
                 conn.execute_batch(V2_TO_V3)?;
             }
@@ -372,7 +386,10 @@ pub fn open_or_recreate(path: &Path) -> Result<(Connection, Option<Recovery>)> {
             if v <= 6 {
                 to_v7(&conn)?;
             }
-            to_v8(&conn)?;
+            if v <= 7 {
+                to_v8(&conn)?;
+            }
+            to_v9(&conn)?;
             Ok((conn, None))
         }
         // A newer build may be using it right now; don't pull it away.
@@ -478,14 +495,59 @@ mod tests {
         )
     }
 
-    /// The v7 schema (metadata): today's without the geotag columns (v8).
+    /// The v7 schema (metadata): v8's without the geotag columns.
     fn v7_schema() -> String {
-        let v7 = SCHEMA.replace(
+        let v8 = v8_schema();
+        let v7 = v8.replace(
             "\n    geo_lat REAL,\n    geo_lon REAL,\n    geo_alt REAL,",
             "",
         );
-        assert_ne!(v7, SCHEMA);
+        assert_ne!(v7, v8);
         v7
+    }
+
+    /// The v8 schema (map): today's without `variants.cull_note` (v9).
+    fn v8_schema() -> String {
+        let v8 = SCHEMA.replace("\n    cull_note TEXT,", "");
+        assert_ne!(v8, SCHEMA);
+        v8
+    }
+
+    /// A v8 index (the map's builds) is kept and gains the AI Cull note column
+    /// without re-reading sidecars (no sidecar has a note before v9).
+    #[test]
+    fn a_v8_index_gains_the_cull_note_column() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("x.dsession");
+        let c = Connection::open(&p).unwrap();
+        c.execute_batch(&format!(
+            "{} {PEOPLE_SCHEMA} PRAGMA user_version=8; {ONE_PHOTO}
+             INSERT INTO variants(id, image_id, ordinal, name, rating, color_tag, pick, edited, custom,
+                keywords, search, sidecar, sidecar_mtime, sidecar_size, read_only, geo_lat, geo_lon)
+                VALUES (5, 1, 1, '', 3, 0, 0, 0, 0, '[]', '', 'Capture/.ds/a.json', 1234, 10, 0, 1.5, 2.5);",
+            v8_schema()
+        ))
+        .unwrap();
+        assert!(!has_column(&c, "variants", "cull_note").unwrap());
+        drop(c);
+        let (c, r) = open_or_recreate(&p).unwrap();
+        assert_eq!((r, version(&c)), (None, INDEX_SCHEMA_VERSION));
+        let row: (i64, i64, Option<f64>, Option<String>) = c
+            .query_row(
+                "SELECT rating, sidecar_mtime, geo_lat, cull_note FROM variants",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(row, (3, 1234, Some(1.5), None), "kept as it was");
+        drop(c);
+        // A second opener that read v8 before the first upgraded it: no duplicate column.
+        let c = Connection::open(&p).unwrap();
+        c.execute_batch("PRAGMA user_version=8").unwrap();
+        drop(c);
+        let (c, r) = open_or_recreate(&p).unwrap();
+        assert_eq!((r, version(&c)), (None, INDEX_SCHEMA_VERSION));
+        assert_eq!(count(&c, "variants"), 1);
     }
 
     /// The v4 schema (look and match): v6's without the search tables (v5).

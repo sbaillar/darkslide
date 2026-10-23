@@ -3,7 +3,7 @@ import DarkslideCore
 import DarkslideUI
 import SwiftUI
 
-/// ⌘, window: General, Familiar, Shortcuts, Archive, Google Photos, AI, Voice, Devices, Plugins.
+/// ⌘, window: General, Familiar, Shortcuts, RAW, Archive, Google Photos, AI, Voice, Devices, Plugins.
 struct PreferencesView: View {
     @Bindable var settings: AppSettings
     let voice: VoiceController
@@ -18,6 +18,8 @@ struct PreferencesView: View {
                 .tabItem { Label("Familiar", systemImage: "rectangle.split.3x1") }
             ShortcutsSettingsView(settings: settings)
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+            RawSettingsView(helper: RawlerHelper.shared)
+                .tabItem { Label("RAW", systemImage: "camera.aperture") }
             ArchiveSettingsView(model: ArchiveSettingsModel(settings: settings))
                 .tabItem { Label("Archive", systemImage: "externaldrive.badge.icloud") }
             if let googlePhotos {

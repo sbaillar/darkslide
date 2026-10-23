@@ -79,6 +79,12 @@ impl FileSource {
         let len = file.metadata()?.len();
         Ok(Self { file, len })
     }
+
+    /// The open file (read positionally only, so its offset is free for others).
+    #[cfg_attr(feature = "rawler", allow(dead_code))]
+    pub fn file(&self) -> &File {
+        &self.file
+    }
 }
 
 impl Source for FileSource {

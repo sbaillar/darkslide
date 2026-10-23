@@ -79,6 +79,9 @@ pub struct CullInput {
     /// Camera identity (make + model + serial); frames of different bodies never group.
     pub camera: Option<String>,
     pub vision: Option<VisionSignalsRecord>,
+    /// File name, for reject notes that point at a group's better frame.
+    #[uniffi(default = None)]
+    pub name: Option<String>,
 }
 
 /// What one analysis measured (for diagnostics and the UI).
@@ -154,6 +157,14 @@ pub struct CullResultRecord {
     /// Index into [`CullReport::groups`].
     pub group: u32,
     pub suggestion: PickSuggestionKind,
+    /// Why this frame would be rejected (ds-ai `explain_reject`), most important
+    /// first; never empty. `kind` is the stable code (`out_of_focus`,
+    /// `duplicate`, `low_score`, …).
+    #[uniffi(default)]
+    pub reject_reasons: Vec<ReasonRecord>,
+    /// `reject_reasons` as one line for the app (ds-ai `reject_note`).
+    #[uniffi(default = "")]
+    pub reject_note: String,
 }
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
@@ -303,6 +314,18 @@ fn reasons(score: &CullScore) -> Vec<ReasonRecord> {
         .collect()
 }
 
+fn reject_reasons(reasons: &[ds_ai::RejectReason]) -> Vec<ReasonRecord> {
+    reasons
+        .iter()
+        .map(|r| ReasonRecord {
+            kind: r.code().to_owned(),
+            text: r.to_string(),
+            hard: r.is_hard(),
+            negative: true,
+        })
+        .collect()
+}
+
 fn band_name(b: ds_ai::ColorBand) -> String {
     serde_json::to_value(b)
         .ok()
@@ -360,6 +383,7 @@ struct Frame {
     capture_ms: Option<i64>,
     seq: Option<u64>,
     camera: Option<u64>,
+    name: Option<String>,
     analysis: ImageAnalysis,
     vision: Option<VisionSignals>,
 }
@@ -405,6 +429,7 @@ impl CullSession {
                 capture_ms: input.capture_ms,
                 seq: input.seq,
                 camera: camera_key(input.camera.as_deref()),
+                name: input.name.clone(),
                 analysis,
                 vision: input.vision.as_ref().map(VisionSignalsRecord::signals),
             });
@@ -539,7 +564,9 @@ fn cull(frames: &[Frame]) -> CullReport {
             .collect();
         let scores = ds_ai::score_group(&analyses, &vision, &w, &t);
         let pick = ds_ai::suggest_picks(&scores, &t);
+        let best_name = pick.best.and_then(|b| frames[g.members[b]].name.as_deref());
         for (k, (&i, s)) in g.members.iter().zip(&scores).enumerate() {
+            let why = ds_ai::explain_reject(&scores, k, pick.best, best_name, &t);
             let suggestion = if pick.best == Some(k) {
                 PickSuggestionKind::Best
             } else if pick.rejects.contains(&k) {
@@ -556,6 +583,8 @@ fn cull(frames: &[Frame]) -> CullReport {
                 reasons: reasons(s),
                 group: gi as u32,
                 suggestion,
+                reject_reasons: reject_reasons(&why),
+                reject_note: ds_ai::reject_note(&why),
             });
         }
     }
@@ -675,6 +704,7 @@ mod tests {
             seq: Some(seq),
             camera: Some("SONY ILCE-9 123".into()),
             vision: None,
+            name: Some(format!("DSC{id:05}.ARW")),
         }
     }
 
@@ -789,6 +819,41 @@ mod tests {
                 .iter()
                 .any(|x| x.negative && !x.text.is_empty())
         );
+        // The soft frame's reject note: its sharpness failure first, named
+        // against the group's best frame, kinds and text in the same order.
+        let soft = by(2);
+        let best = r
+            .results
+            .iter()
+            .find(|x| x.suggestion == PickSuggestionKind::Best)
+            .unwrap();
+        assert!(
+            matches!(
+                soft.reject_reasons[0].kind.as_str(),
+                "out_of_focus" | "motion_blur" | "softer_than_best"
+            ),
+            "{:?}",
+            soft.reject_reasons
+        );
+        let texts: Vec<_> = soft
+            .reject_reasons
+            .iter()
+            .map(|x| x.text.as_str())
+            .collect();
+        assert_eq!(soft.reject_note, texts.join("; "));
+        assert!(
+            soft.reject_note.contains(&format!("{:.2}", soft.sharpness)),
+            "{}",
+            soft.reject_note
+        );
+        if soft.score < best.score - CullThresholds::default().reject_margin {
+            assert!(
+                soft.reject_note
+                    .contains(&format!("Duplicate of DSC{:05}.ARW", best.id)),
+                "{}",
+                soft.reject_note
+            );
+        }
     }
 
     #[test]
@@ -851,6 +916,15 @@ mod tests {
         assert!(kinds.contains(&"utility_image"), "{kinds:?}");
         assert!(kinds.contains(&"low_aesthetics"), "{kinds:?}");
         assert!(kinds.contains(&"eyes_closed"), "{kinds:?}");
+        // A lone frame: its own hard failure leads the note.
+        let why: Vec<_> = r.results[0]
+            .reject_reasons
+            .iter()
+            .map(|x| (x.kind.as_str(), x.hard))
+            .collect();
+        assert_eq!(why.first(), Some(&("eyes_closed", true)), "{why:?}");
+        assert!(why.contains(&("utility_image", false)), "{why:?}");
+        assert!(r.results[0].reject_note.starts_with("Eyes closed"));
     }
 
     #[test]
@@ -976,6 +1050,7 @@ mod tests {
                 seq: meta.shot_number.map(u64::from),
                 camera: Some(meta.model.clone()),
                 vision: None,
+                name: None,
             };
             block_on(s.clone().add(inp, CancelToken::new())).unwrap();
             burst.push(BurstItem {

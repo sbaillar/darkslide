@@ -3,9 +3,10 @@
 //! matrix and as-shot neutral, so the file reads back through [`crate::decode`] as the
 //! same [`RawImage`] and develops like any RAW.
 //!
-//! The writer is rawler's (the `rawler` feature); without it
-//! [`write_linear_dng`] returns [`RawError::Unsupported`]. Replacing it is
-//! phase 2 of the native decoder work (`docs/RAWDEC.md`).
+//! The writer is rawler's: in process with the `rawler` feature, else the rawler
+//! helper's ([`crate::helper`]); without either [`write_linear_dng`] returns
+//! [`RawError::Unsupported`]. Replacing it is phase 2 of the native decoder work
+//! (`docs/RAWDEC.md`).
 
 #[cfg(feature = "rawler")]
 use std::collections::HashMap;
@@ -108,17 +109,26 @@ fn color_matrix(img: &RawImage) -> Option<Vec<f32>> {
 /// Write `img` (a [`CfaPattern::LinearRgb`] raw) as a linear DNG to `out`.
 /// Takes the image by value: its samples move into the writer (no copy of a merged
 /// frame that may be hundreds of MB).
+///
+/// Without the `rawler` feature the rawler helper writes it (and the file is copied
+/// to `out`); without a helper either, this is [`RawError::Unsupported`].
 #[cfg(not(feature = "rawler"))]
+#[allow(clippy::needless_pass_by_value)] // the rawler build's signature, which moves the samples
 pub fn write_linear_dng<W: Write + Seek>(
-    _out: W,
-    _img: RawImage,
-    _meta: &DngMeta<'_>,
+    mut out: W,
+    img: RawImage,
+    meta: &DngMeta<'_>,
 ) -> Result<(), RawError> {
-    Err(RawError::Unsupported {
-        make: String::new(),
-        model: String::new(),
-        reason: "writing DNG needs the rawler feature, which this build leaves out".into(),
-    })
+    let Some(h) = crate::helper::client()? else {
+        return Err(RawError::Unsupported {
+            make: String::new(),
+            model: String::new(),
+            reason: format!("writing DNG {}", crate::helper::NOT_INSTALLED),
+        });
+    };
+    img.validate()?;
+    out.write_all(&crate::helper::write_dng(&h, &img, meta)?)?;
+    Ok(())
 }
 
 /// Write `img` (a [`CfaPattern::LinearRgb`] raw) as a linear DNG to `out`.
@@ -228,7 +238,7 @@ fn source_metadata(path: &Path) -> Option<rawler::decoders::RawMetadata> {
 }
 
 #[cfg(all(test, feature = "rawler"))]
-mod tests {
+pub(crate) mod tests {
     #![allow(clippy::float_cmp)]
 
     use super::*;
@@ -236,7 +246,7 @@ mod tests {
     use ds_core::{Orientation, Size};
     use std::io::Cursor;
 
-    fn linear(w: u32, h: u32) -> RawImage {
+    pub(crate) fn linear(w: u32, h: u32) -> RawImage {
         // The A9's colour, from rawler's camera DB.
         let (m, _) = crate::cameras::matrix("SONY", "ILCE-9").unwrap();
         RawImage {

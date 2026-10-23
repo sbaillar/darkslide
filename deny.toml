@@ -23,8 +23,9 @@ allow = [
     "IJG",
     "MPL-2.0",
 ]
-# LGPL-2.1 only for rawler: statically linked; relinking is documented (NOTICE,
-# CONTRIBUTING.md). Any other LGPL or GPL crate fails.
+# LGPL-2.1 only for rawler, which only the separate RAW helper (crates/ds-rawler) links;
+# relinking is documented (NOTICE, CONTRIBUTING.md). scripts/licenses.sh checks the app
+# doesn't link it. Any other LGPL or GPL crate fails.
 exceptions = [{ crate = "rawler", allow = ["LGPL-2.1"] }]
 
 # Darkslide's own crates are Apache-2.0 but unpublished.

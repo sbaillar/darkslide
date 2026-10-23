@@ -45,6 +45,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
     case showSelectionInViewer
     /// [multiview] View ▸ Filmstrip ▸ Bottom / Left / Right (also the strip's context menu).
     case filmstripBottom, filmstripLeft, filmstripRight
+    /// [multiview] View ▸ Larger / Smaller Filmstrip Thumbnails (⌃⌘= / ⌃⌘-; the strip's size slider).
+    case largerFilmstripThumbnails, smallerFilmstripThumbnails
 
     public var id: String { rawValue }
 
@@ -98,6 +100,9 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
         // ⌥⌘H is the system's Hide Others; ⌥⇧⌘M (match exposures) is not ⇧⌘M.
         case .mergeHDR: Shortcut(key: "h", modifiers: [.command, .shift])
         case .mergePanorama: Shortcut(key: "m", modifiers: [.command, .shift])
+        // ⌘+ / ⌘- zoom the photo and ⌥⌘= / ⌥⌘- are the system's Accessibility Zoom.
+        case .largerFilmstripThumbnails: Shortcut(key: "=", modifiers: [.command, .control])
+        case .smallerFilmstripThumbnails: Shortcut(key: "-", modifiers: [.command, .control])
         case .moveRejectedToTrash, .movePickedToSelects, .restoreSessionTrash, .deleteRejected, .matchWhiteBalance,
              .toggleAllToolsTab, .showAIChanges, .clearAIHighlights, .undoAllAIChanges, .upscale, .showHistory,
              .voiceHelp, .showSelectionInViewer, .filmstripBottom, .filmstripLeft, .filmstripRight: nil
@@ -177,6 +182,8 @@ public enum CommandCatalog {
         case .showHistory: "Show History"
         case .showSelectionInViewer: "Show Selection in Viewer"
         case .filmstripBottom, .filmstripLeft, .filmstripRight: c.filmstripPosition!.title
+        case .largerFilmstripThumbnails: "Larger Filmstrip Thumbnails"
+        case .smallerFilmstripThumbnails: "Smaller Filmstrip Thumbnails"
         case .voiceCommands: "Voice Commands"
         case .voiceHelp: "What Can I Say?"
         case .upscale: model.upscaler?.title(in: model) ?? "Upscale 2×"
@@ -228,6 +235,8 @@ public enum CommandCatalog {
 
     /// [multiview] View ▸ Filmstrip, and the strip's context menu (checked: the current one).
     public static let filmstripMenu: [MenuCommand] = [.filmstripBottom, .filmstripLeft, .filmstripRight]
+    /// [multiview] View ▸ the filmstrip's thumbnail size (after the Filmstrip submenu).
+    public static let filmstripSizeMenu: [MenuCommand] = [.largerFilmstripThumbnails, .smallerFilmstripThumbnails]
 
     /// Library menu section (after View's zoom items).
     public static let smartFolderMenu: [MenuCommand] = [
@@ -272,6 +281,11 @@ public enum CommandCatalog {
         case .matchExposures, .matchWhiteBalance: return model.canMatchSet
         case .upscale: return model.upscaler.map { $0.isEnabled(in: model) } ?? false
         case .mergeHDR, .mergePanorama: return model.canMergePhotos
+        // The viewer's strip only (the map's keeps its size); off at the end of the range.
+        case .largerFilmstripThumbnails:
+            return model.browserMode == .filmstrip && model.filmstrip.cell < FilmstripSizing.cellHeights.upperBound
+        case .smallerFilmstripThumbnails:
+            return model.browserMode == .filmstrip && model.filmstrip.cell > FilmstripSizing.cellHeights.lowerBound
         }
     }
 
@@ -323,6 +337,8 @@ public enum CommandCatalog {
         case .showHistory: ToolWorkspaceCommands.reveal(.history, model: model, layout: layout)
         case .showSelectionInViewer: model.settings.showSelectionInViewer.toggle()
         case .filmstripBottom, .filmstripLeft, .filmstripRight: model.placeFilmstrip(c.filmstripPosition!)
+        case .largerFilmstripThumbnails: model.filmstrip = model.filmstrip.stepped(1)
+        case .smallerFilmstripThumbnails: model.filmstrip = model.filmstrip.stepped(-1)
         case .voiceCommands: model.voice.toggle()
         case .voiceHelp: model.voice.helpShown.toggle()
         case .upscale: model.upscaler?.toggle()

@@ -8,8 +8,9 @@
 //!    are allowed (today: matrices a camera wrote into its own DNG in the
 //!    CC0 compatibility corpus). See `docs/RAWDEC.md` for the policy and the
 //!    open question of sourcing more.
-//! 2. With the `rawler` feature, rawler's camera database, read through its
-//!    public API (the data stays in the LGPL crate; nothing is copied here).
+//! 2. rawler's camera database, read through its public API (the data stays in
+//!    the LGPL crate; nothing is copied here): in process with the `rawler`
+//!    feature, else from the rawler helper when one is installed ([`crate::helper`]).
 //!
 //! A camera found in neither gets [`RawError::Unsupported`](crate::RawError)
 //! from the native decoders.
@@ -59,7 +60,7 @@ pub(crate) const TABLE: &[Row] = &[Row {
 }];
 
 /// What is known about a camera beyond its file.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Camera {
     /// `ColorMatrix` (XYZ → camera) and its EXIF `LightSource` code.
     pub matrix: Option<([f32; 9], u16)>,
@@ -73,6 +74,7 @@ pub(crate) struct Camera {
     pub black_rows: Option<(usize, usize)>,
     pub black_cols: Option<(usize, usize)>,
     /// The 2×2 CFA at the frame's top-left pixel.
+    #[serde(with = "crate::helper::cfa_opt")]
     pub cfa: Option<ds_core::CfaPattern>,
 }
 
@@ -93,21 +95,71 @@ pub(crate) fn lookup(make: &str, model: &str, mode: &str) -> Camera {
     cam
 }
 
+/// Why a camera has no colour matrix: in a build without rawler and no helper
+/// installed, the missing helper (which the app offers to install).
+pub(crate) fn no_matrix_reason() -> String {
+    let base = "no colour matrix for this camera";
+    if cfg!(feature = "rawler") || crate::helper::rawler_helper().is_some() {
+        base.into()
+    } else {
+        format!("{base}: {}", crate::helper::NOT_INSTALLED)
+    }
+}
+
 /// The colour matrix alone (see [`lookup`]).
 pub(crate) fn matrix(make: &str, model: &str) -> Option<([f32; 9], u16)> {
     lookup(make, model, "").matrix
 }
 
+/// Helper answers by `(make, model, mode)`: a decode asks once per file, a helper
+/// process costs a few milliseconds.
 #[cfg(not(feature = "rawler"))]
-fn db(_: &str, _: &str, _: &str) -> Camera {
-    Camera::default()
+type Answers = std::collections::HashMap<(String, String, String), Camera>;
+#[cfg(not(feature = "rawler"))]
+static HELPER_ANSWERS: std::sync::Mutex<Option<Answers>> = std::sync::Mutex::new(None);
+
+/// Forget the helper's answers (a helper was installed or removed).
+pub(crate) fn clear_helper_cache() {
+    #[cfg(not(feature = "rawler"))]
+    HELPER_ANSWERS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take();
+}
+
+/// The rawler helper's entry for the camera; empty without a working helper (an
+/// unanswered question is asked again next time).
+#[cfg(not(feature = "rawler"))]
+fn db(make: &str, model: &str, mode: &str) -> Camera {
+    let key = (make.to_owned(), model.to_owned(), mode.to_owned());
+    let lock = || {
+        HELPER_ANSWERS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    };
+    if let Some(c) = lock().as_ref().and_then(|m| m.get(&key)) {
+        return c.clone();
+    }
+    let Ok(Some(helper)) = crate::helper::client() else {
+        return Camera::default();
+    };
+    match crate::helper::camera(&helper, make, model, mode) {
+        Ok(c) => {
+            lock().get_or_insert_default().insert(key, c.clone());
+            c
+        }
+        Err(e) => {
+            tracing::warn!(%e, make, model, "rawler helper camera lookup failed");
+            Camera::default()
+        }
+    }
 }
 
 /// rawler's entry for the camera: the `mode` variant when there is one,
 /// else the plain entry. The make is matched as written, then upper-cased
 /// (rawler keys Sony as `SONY`).
 #[cfg(feature = "rawler")]
-fn db(make: &str, model: &str, mode: &str) -> Camera {
+pub(crate) fn db(make: &str, model: &str, mode: &str) -> Camera {
     let cams = rawler::global_loader().get_cameras();
     let get =
         |make: &str, mode: &str| cams.get(&(make.to_string(), model.to_string(), mode.into()));

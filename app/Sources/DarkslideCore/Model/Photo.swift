@@ -107,7 +107,13 @@ public struct Photo: Identifiable, Hashable, Sendable {
     /// 0 (unrated) ... 5.
     public var rating: Int
     public var colorTag: ColorTag
-    public var pick: PickState
+    /// Changing the flag drops the AI Cull note: it no longer explains it.
+    public var pick: PickState {
+        didSet { if pick != oldValue { cullNote = nil } }
+    }
+    /// Why AI Cull rejected it (sidecar `cull_note`), e.g. "Eyes closed". Set
+    /// after `pick`; only while the AI's reject stands.
+    public var cullNote: String?
     public var isEdited: Bool
     /// The original on disk (`nil` for synthetic demo photos).
     public var url: URL?

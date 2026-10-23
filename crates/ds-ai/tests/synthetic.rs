@@ -47,7 +47,9 @@ fn degenerate_inputs_are_safe_and_neutral() {
     assert_eq!(black.noise.sampled_fraction, 0.0);
     let r = score(black, None, &w, &t).reasons;
     assert!(
-        r.contains(&Reason::Underexposed) && r.contains(&Reason::OutOfFocus),
+        r.iter()
+            .any(|x| matches!(x, Reason::Underexposed { stops: None, .. }))
+            && r.contains(&Reason::OutOfFocus),
         "{r:?}"
     );
 }

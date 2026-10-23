@@ -188,6 +188,18 @@ struct MetadataPanel: View {
                         model.setPick(p.pick == .rejected ? .none : .rejected)
                     }.help("Reject (X)")
                 }
+                if let note = AICullApplication.rejectNote(p) {
+                    HStack(alignment: .firstTextBaseline, spacing: DS.Space.xs) {
+                        Text("AI reject").font(DS.Font.label).foregroundStyle(DS.textSecondary)
+                            .frame(width: 72, alignment: .leading)
+                        Text(note).font(DS.Font.caption).foregroundStyle(DS.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                    }
+                    .help("Why AI Cull rejected this photo. Changing the flag clears it.")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("AI Cull rejected it: \(note)")
+                }
                 if let s = model.cullSuggestions[p.id] {
                     Divider().padding(.vertical, DS.Space.xs)
                     HStack {

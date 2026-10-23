@@ -51,7 +51,7 @@ enum WindowSnapshot {
         await cropDrag(model) // [cmp9] `--crop-drag`: the crop tool mid-drag
         await layersSky(model) // [lay9] `--layers-sky [photo]`: the Layers panel with an AI sky mask
         survey(model) // [cul9] `--survey [n]`: N-up survey of the first n photos, one eliminated
-        multiView(model) // [multiview] `--select n`, `--filmstrip-rows r`, `--filmstrip-position left|right`
+        multiView(model) // [multiview] `--select n`, `--filmstrip-rows r`, `--filmstrip-position left|right`, `--filmstrip-cell h`
         customTools(model) // `--tools-custom`: a custom tab and the All Tools tab in the strip
         // A running import keeps moving: capture it soon after it's part-way. [imp6]
         try? await Task.sleep(for: .seconds(CommandLine.arguments.contains("--import-card") ? 0.6 : 2.5))
@@ -103,10 +103,11 @@ enum WindowSnapshot {
 
     /// [multiview] `--select n`: the first n visible photos selected, the second focused
     /// (multi-view); `--filmstrip-position bottom|left|right`; `--filmstrip-rows r`: the
-    /// filmstrip dragged to r rows (columns at the side).
+    /// filmstrip dragged to r rows (columns at the side); `--filmstrip-cell h`: thumbnails h points high.
     private static func multiView(_ model: AppModel) {
         if let p = argument("--filmstrip-position").flatMap(FilmstripPosition.init(rawValue:)) { model.placeFilmstrip(p) }
         if let r = argument("--filmstrip-rows").flatMap(Int.init) { model.resizeFilmstrip(to: r, ended: true) }
+        if let h = argument("--filmstrip-cell").flatMap(Double.init) { model.sizeFilmstripThumbnails(h) }
         guard let n = argument("--select").flatMap(Int.init), n > 0 else { return }
         let ids = Array(model.visibleIDs.prefix(n))
         guard let first = ids.first else { return }

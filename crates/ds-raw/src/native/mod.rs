@@ -142,7 +142,7 @@ pub(crate) fn finish(s: Sensor) -> Result<(RawImage, DecodeInfo), RawError> {
     let (matrix, illuminant) = match matrix {
         Some(m) => m,
         None => cameras::matrix(&make, &model)
-            .ok_or_else(|| unsupported("no colour matrix for this camera"))?,
+            .ok_or_else(|| unsupported(&cameras::no_matrix_reason()))?,
     };
     let cam_to_xyz =
         color::cam_to_xyz(&matrix).ok_or_else(|| unsupported("degenerate color matrix"))?;

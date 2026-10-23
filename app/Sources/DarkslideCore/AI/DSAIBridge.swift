@@ -91,7 +91,8 @@ public enum DSAI {
         }
         var reasons = r.reasons.map { capitalized($0.text) }
         if groupSize > 1, r.suggestion == .best { reasons.insert("Best of \(groupSize) similar frames", at: 0) }
-        return CullSuggestion(photoID: PhotoID(r.id), score: Double(r.score), pick: pick, reasons: reasons)
+        return CullSuggestion(photoID: PhotoID(r.id), score: Double(r.score), pick: pick, reasons: reasons,
+                              rejectNote: pick == .rejected && !r.rejectNote.isEmpty ? r.rejectNote : nil)
     }
 
     static func capitalized(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
@@ -164,6 +165,24 @@ public enum AICullApplication {
     public struct Plan: Equatable, Sendable {
         public var changes: [PhotoID: PickState]
         public var message: String
+    }
+
+    /// The saved AI Cull note of a photo whose AI reject still stands (a new flag clears it).
+    public static func rejectNote(_ p: Photo?) -> String? {
+        guard let p, p.pick == .rejected, let note = p.cullNote, !note.isEmpty else { return nil }
+        return note
+    }
+
+    /// The reject badge's tooltip: why, when AI Cull rejected it.
+    public static func rejectHelp(_ p: Photo) -> String {
+        rejectNote(p).map { "Rejected by AI Cull: \($0)" } ?? "Rejected"
+    }
+
+    /// Apply one planned change: the flag, and with an AI reject its note
+    /// (after the flag, which clears any older note).
+    public static func apply(_ change: PickState, note: String?, to p: inout Photo) {
+        p.pick = change
+        if change == .rejected { p.cullNote = note }
     }
 
     /// Only undecided photos change: no flag, no rating, no colour tag.

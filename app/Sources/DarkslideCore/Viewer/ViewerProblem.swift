@@ -24,7 +24,13 @@ public enum ViewerProblem: Equatable, Sendable {
     case cannotDevelop(String)
 
     public enum Action: String, Sendable, CaseIterable {
-        case locateFolder, removeFromRecents, locateFile, removePhoto, retry
+        case locateFolder, removeFromRecents, locateFile, removePhoto, retry, getRawlerHelper
+    }
+
+    /// The file develops once the rawler helper is installed (`RawlerHelper`).
+    public var needsRawlerHelper: Bool {
+        if case .cannotDevelop(let reason) = self { return RawlerHelper.isNeeded(reason) }
+        return false
     }
 
     public var message: String {
@@ -44,6 +50,9 @@ public enum ViewerProblem: Equatable, Sendable {
             "Drive not connected — reconnect “\(volume)”: edits are saved but can’t be previewed or exported."
         case .renderFailed(let reason):
             "This photo couldn’t be developed: \(reason)"
+        case .cannotDevelop where needsRawlerHelper:
+            "Developing this file needs the RAW helper, a free add-on that isn’t installed. You’re seeing its "
+                + "embedded preview: you can still rate, tag and compare it."
         case .cannotDevelop(let reason):
             "Darkslide can’t develop this file yet (\(reason)). You’re seeing its embedded preview: "
                 + "you can still rate, tag and compare it."
@@ -59,6 +68,7 @@ public enum ViewerProblem: Equatable, Sendable {
         case .missingOnOtherVolume: [(.locateFile, "Locate…"), (.locateFolder, "Locate Folder…")]
         case .driveDisconnected: []
         case .renderFailed: [(.retry, "Retry")]
+        case .cannotDevelop where needsRawlerHelper: [(.getRawlerHelper, "Get RAW Helper")]
         case .cannotDevelop: []
         }
     }

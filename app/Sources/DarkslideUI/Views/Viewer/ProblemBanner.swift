@@ -22,8 +22,15 @@ package struct ProblemBanner: View {
                     .font(DS.Font.label)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: DS.Space.s)
+                if p.needsRawlerHelper {
+                    RawlerHelperProgress(helper: RawlerHelper.shared)
+                }
                 ForEach(p.actions, id: \.action) { item in
                     Button(item.title) { perform(item.action) }.controlSize(.small)
+                        .disabled(item.action == .getRawlerHelper && RawlerHelper.shared.isDownloading)
+                        .help(item.action == .getRawlerHelper
+                              ? "Download the RAW helper (\(RawlerHelperText.size)) from Darkslide’s GitHub releases"
+                              : "")
                 }
             }
             .padding(.horizontal, DS.Space.m)
@@ -60,6 +67,11 @@ package struct ProblemBanner: View {
             Task { await model.removeMissing([id]) }
         case .retry:
             model.viewer.retryRender()
+        case .getRawlerHelper:
+            Task {
+                guard (try? await RawlerHelper.shared.download()) != nil else { return }
+                model.viewer.retryRender()
+            }
         }
     }
 }

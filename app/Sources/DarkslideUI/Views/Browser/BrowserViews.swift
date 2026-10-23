@@ -215,7 +215,7 @@ struct ThumbnailCell: View {
             Image(systemName: "xmark").font(.system(size: 10, weight: .heavy))
                 .foregroundStyle(.white)
                 .padding(4).background(DS.reject, in: .circle)
-                .help("Rejected")
+                .help(AICullApplication.rejectHelp(photo))
         case .none: EmptyView()
         }
     }
@@ -343,11 +343,15 @@ package struct Filmstrip: View {
     @Bindable var model: AppModel
     var lines = 1
     var position = FilmstripPosition.bottom
+    /// The grid's cell height (the layout's size, fitted to the window).
+    var cell = FilmstripSizing.defaultCellHeight
 
-    package init(model: AppModel, lines: Int = 1, position: FilmstripPosition = .bottom) {
+    package init(model: AppModel, lines: Int = 1, position: FilmstripPosition = .bottom,
+                 cell: CGFloat = FilmstripSizing.defaultCellHeight) {
         self.model = model
         self.lines = lines
         self.position = position
+        self.cell = cell
     }
 
     private var gridded: Bool { position.isVertical || lines > 1 }
@@ -374,12 +378,12 @@ package struct Filmstrip: View {
                     ScrollViewReader { proxy in
                         Group {
                             if gridded {
-                                let cols = position.isVertical ? max(lines, 1) : FilmstripSizing.columns(width: geo.size.width)
-                                let cell = CGSize(width: FilmstripSizing.cellWidth, height: FilmstripSizing.cellHeight)
+                                let cols = position.isVertical ? max(lines, 1) : FilmstripSizing.columns(width: geo.size.width, cell: cell)
+                                let size = CGSize(width: FilmstripSizing.cellWidth(cell), height: cell)
                                 ScrollView(.vertical) {
-                                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cell.width), spacing: FilmstripSizing.spacing), count: cols),
+                                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(size.width), spacing: FilmstripSizing.spacing), count: cols),
                                               spacing: FilmstripSizing.spacing) {
-                                        ForEach(ids, id: \.self) { id in cellView(id, size: cell) }
+                                        ForEach(ids, id: \.self) { id in cellView(id, size: size) }
                                     }
                                     .padding(.horizontal, FilmstripSizing.sidePadding)
                                     .padding(.vertical, FilmstripSizing.padding)
@@ -405,6 +409,7 @@ package struct Filmstrip: View {
                         }
                         .onChange(of: lines) { if let id = model.focusedID { proxy.scrollTo(id, anchor: .center) } }
                         .onChange(of: position) { if let id = model.focusedID { proxy.scrollTo(id, anchor: .center) } }
+                        .onChange(of: cell) { if let id = model.focusedID { proxy.scrollTo(id, anchor: .center) } }
                     }
                 }
                 SprocketRow()
@@ -457,12 +462,15 @@ package struct FilmstripSeparator: View {
     /// Lines shown now, and the length the viewer and the strip share along the axis.
     let lines: Int
     let available: CGFloat
+    /// The thumbnails' cell height: lines snap to rows (columns) of this size.
+    let cell: CGFloat
     @State private var startExtent: CGFloat?
 
-    package init(model: AppModel, lines: Int, available: CGFloat) {
+    package init(model: AppModel, lines: Int, available: CGFloat, cell: CGFloat) {
         self.model = model
         self.lines = lines
         self.available = available
+        self.cell = cell
     }
 
     private var position: FilmstripPosition { model.filmstrip.position }
@@ -493,7 +501,8 @@ package struct FilmstripSeparator: View {
         .accessibilityLabel("Filmstrip size")
         .accessibilityValue(FilmstripText.size(lines: lines, vertical: vertical))
         .accessibilityAdjustableAction { dir in
-            let n = FilmstripSizing.clamped(max(lines + (dir == .increment ? 1 : -1), 0), available: available, at: position)
+            let n = FilmstripSizing.clamped(max(lines + (dir == .increment ? 1 : -1), 0), available: available, at: position,
+                                            cell: cell)
             model.resizeFilmstrip(to: n, ended: true)
         }
         .accessibilityAction(named: vertical ? "Toggle one column" : "Toggle one row") { model.toggleFilmstripLines() }
@@ -511,15 +520,16 @@ package struct FilmstripSeparator: View {
     private var drag: some Gesture {
         DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { v in
-                let start = startExtent ?? FilmstripSizing.extent(lines: lines, at: position)
+                let start = startExtent ?? FilmstripSizing.extent(lines: lines, at: position, cell: cell)
                 if startExtent == nil { startExtent = start }
-                let n = FilmstripSizing.lines(forExtent: start + grown(v.translation), available: available, at: position)
+                let n = FilmstripSizing.lines(forExtent: start + grown(v.translation), available: available, at: position,
+                                              cell: cell)
                 if n != model.filmstrip.lines { model.resizeFilmstrip(to: n, ended: false) }
             }
             .onEnded { v in
-                let start = startExtent ?? FilmstripSizing.extent(lines: lines, at: position)
+                let start = startExtent ?? FilmstripSizing.extent(lines: lines, at: position, cell: cell)
                 model.resizeFilmstrip(to: FilmstripSizing.lines(forExtent: start + grown(v.translation), available: available,
-                                                                at: position), ended: true)
+                                                                at: position, cell: cell), ended: true)
                 startExtent = nil
             }
     }

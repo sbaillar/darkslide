@@ -222,6 +222,10 @@ pub struct VariantRecord {
     /// then XMP); `None` until scanned (then `meta.gps` is the EXIF position).
     #[uniffi(default = None)]
     pub file_gps: Option<GeoPosition>,
+    /// Why AI Cull rejected it (sidecar `cull_note`); `None` once the flag
+    /// changed or when it was never culled.
+    #[uniffi(default = None)]
+    pub cull_note: Option<String>,
 }
 
 /// A session folder originals can be moved between (sessions created by import).
@@ -1306,6 +1310,7 @@ impl SessionHandle {
                     people: v.people,
                     metadata: (!v.iptc.is_empty()).then(|| v.iptc.into()),
                     geotag: v.geotag.map(GeoPosition::from),
+                    cull_note: v.cull_note,
                     file_gps: places
                         .get(&img.id)
                         .map(|&(latitude, longitude)| GeoPosition {
@@ -2055,6 +2060,21 @@ impl SessionHandle {
         run_job(token, move |_| {
             self.check_folder()?;
             Ok(lock(&self.session).set_pick(&Self::ids(&ids), pick.into())?)
+        })
+        .await
+    }
+
+    /// Store why AI Cull rejected `ids` (`None` clears it). Kept only on rejected
+    /// variants; `set_pick` clears it. Not an undo step.
+    pub async fn set_cull_note(
+        self: Arc<Self>,
+        ids: Vec<i64>,
+        note: Option<String>,
+        token: Arc<CancelToken>,
+    ) -> Result<(), DsError> {
+        run_job(token, move |_| {
+            self.check_folder()?;
+            Ok(lock(&self.session).set_cull_note(&Self::ids(&ids), note.as_deref())?)
         })
         .await
     }
@@ -3491,6 +3511,34 @@ mod tests {
         assert!(h.in_place_folder().unwrap().is_some());
         assert_eq!(h.open_report().unwrap().added, 1);
         assert!(format!("{h:?}").starts_with("SessionHandle"));
+    }
+
+    /// AI Cull's reject note is listed with the variant until the flag changes.
+    #[test]
+    fn cull_notes_are_set_listed_and_cleared_by_a_new_flag() {
+        let d = folder(&[("a.ARW", b"a")]);
+        let h = Arc::new(open(d.path()));
+        let id = list(&h)[0].variant_id;
+        assert_eq!(list(&h)[0].cull_note, None);
+        let pick = |p| block_on(h.clone().set_pick(vec![id], p, CancelToken::new())).unwrap();
+        let note = |n: Option<&str>| {
+            block_on(
+                h.clone()
+                    .set_cull_note(vec![id], n.map(Into::into), CancelToken::new()),
+            )
+            .unwrap();
+        };
+        pick(PickFlag::Rejected);
+        note(Some("Eyes closed"));
+        assert_eq!(list(&h)[0].cull_note.as_deref(), Some("Eyes closed"));
+        pick(PickFlag::Unflagged);
+        assert_eq!(list(&h)[0].cull_note, None);
+        note(Some("Eyes closed"));
+        assert_eq!(
+            list(&h)[0].cull_note,
+            None,
+            "only a rejected photo keeps one"
+        );
     }
 
     /// Keywords round-trip through the FFI (sidecars), trimmed and de-duplicated, and

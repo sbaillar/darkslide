@@ -30,16 +30,18 @@ struct MainWindow: View {
                     GeometryReader { geo in
                         let place = model.filmstrip.position
                         let available = place.isVertical ? geo.size.width : geo.size.height
-                        let lines = FilmstripSizing.clamped(model.filmstrip.lines, available: available, at: place)
+                        // Large thumbnails shrink to fit one line before the viewer gets squashed.
+                        let cell = FilmstripSizing.fitted(model.filmstrip.cell, available: available, at: place)
+                        let lines = FilmstripSizing.clamped(model.filmstrip.lines, available: available, at: place, cell: cell)
                         let showStrip = !chromeHidden && !model.filmstripHidden
                         let strip = Group {
                             if lines > 0 {
-                                Filmstrip(model: model, lines: lines, position: place)
-                                    .frame(width: place.isVertical ? FilmstripSizing.extent(lines: lines, at: place) : nil,
-                                           height: place.isVertical ? nil : FilmstripSizing.extent(lines: lines, at: place))
+                                Filmstrip(model: model, lines: lines, position: place, cell: cell)
+                                    .frame(width: place.isVertical ? FilmstripSizing.extent(lines: lines, at: place, cell: cell) : nil,
+                                           height: place.isVertical ? nil : FilmstripSizing.extent(lines: lines, at: place, cell: cell))
                             }
                         }
-                        let separator = FilmstripSeparator(model: model, lines: lines, available: available)
+                        let separator = FilmstripSeparator(model: model, lines: lines, available: available, cell: cell)
                         // The toast sits over the viewer's bottom edge, clear of the filmstrip's
                         // filter bar and the status bar.
                         let viewer = ViewerArea(model: model)

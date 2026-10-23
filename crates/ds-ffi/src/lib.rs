@@ -99,7 +99,7 @@ pub fn version() -> Result<String, DsError> {
 }
 
 /// Bump whenever an exported signature changes in a way old bindings can't call.
-pub const FFI_CONTRACT: u32 = 38;
+pub const FFI_CONTRACT: u32 = 40;
 
 /// Numeric contract revision (for a cheap equality check from Swift).
 #[uniffi::export]

@@ -5,10 +5,11 @@
 //! metadata and previews, and native sensor decoders (`native`, see
 //! `docs/RAWDEC.md`) for DNG, Sony ARW, Canon CR2, Nikon NEF and Pentax PEF,
 //! with a parallel positional-read fast path for Sony uncompressed ARW (the
-//! reference camera is the ILCE-9). With the `rawler` feature (on by
-//! default), everything the native decoders don't cover goes through
-//! `rawler`, after its declared dimensions have been bounded (see `guard`);
-//! without it those files return [`RawError::Unsupported`]. All header values
+//! reference camera is the ILCE-9). Everything the native decoders don't
+//! cover goes through `rawler`, after its declared dimensions have been
+//! bounded (see `guard`): in process with the `rawler` feature, else through
+//! the separate rawler helper program when one is installed ([`helper`]);
+//! without either, those files return [`RawError::Unsupported`]. All header values
 //! are validated against the file size before use, and malformed input
 //! yields a [`RawError`]; the rawler paths additionally rely on
 //! `catch_unwind` (so the workspace must keep `panic = "unwind"`).
@@ -31,6 +32,7 @@ mod error;
 #[cfg(feature = "rawler")]
 mod fallback;
 mod guard;
+pub mod helper;
 mod meta;
 mod native;
 mod preview;
@@ -52,6 +54,7 @@ use rawler::rawsource::RawSource;
 
 pub use dng::{DngMeta, write_linear_dng};
 pub use error::RawError;
+pub use helper::{rawler_helper, set_rawler_helper};
 pub use meta::{CaptureTime, GpsPosition, ImageMeta, NormPoint, Rational, filename_sequence};
 pub use preview::EmbeddedPreview;
 
@@ -120,7 +123,6 @@ impl std::fmt::Debug for RawFile<'_> {
 }
 
 /// Largest file read whole for rawler.
-#[cfg(feature = "rawler")]
 const MAX_RAWLER_BYTES: u64 = 2 << 30;
 
 /// Read the whole source once with bounded positional reads and hand rawler
@@ -144,7 +146,6 @@ pub(crate) fn rawler_source_from(src: &dyn Source) -> Result<RawSource, RawError
 /// How much of each end of a big file a metadata read hands rawler. Header
 /// parsers of the non-TIFF containers look at the start (CR3 `moov`, RAF,
 /// ARRI, MRW) or the end (X3F, CRW directories).
-#[cfg(feature = "rawler")]
 const METADATA_WINDOW: u64 = 8 << 20;
 
 /// Like [`rawler_source_from`] but only the first and last `window` bytes
@@ -241,13 +242,44 @@ impl<'a> RawFile<'a> {
         }
     }
 
+    /// The whole file as the rawler helper's stdin: the descriptor this file was
+    /// opened with (not the path again), or the bytes in a temporary file.
+    fn helper_input(&self) -> Result<helper::Input, RawError> {
+        if self.src().end() > MAX_RAWLER_BYTES {
+            return Err(RawError::Malformed(format!(
+                "{}-byte file is too large to decode",
+                self.src().end()
+            )));
+        }
+        match &self.backing {
+            Backing::File(f) => Ok(helper::Input::File(f.file().try_clone()?)),
+            Backing::Bytes(s) => helper::Input::bytes(&[s.data]),
+        }
+    }
+
+    /// Metadata through the helper, as rawler reads it: both ends of a big file
+    /// first, the whole file when those don't parse.
+    fn helper_metadata(&self, h: &dyn helper::Transport) -> Result<ImageMeta, RawError> {
+        let src = self.src();
+        let len = src.end();
+        if len > METADATA_WINDOW * 2 {
+            let ends =
+                helper::Input::window(len, METADATA_WINDOW, |off, buf| src.read_into(off, buf))?;
+            if let Ok(m) = helper::metadata(h, ends) {
+                return Ok(m);
+            }
+        }
+        helper::metadata(h, self.helper_input()?)
+    }
+
     /// Capture metadata: make/model/lens/ISO/shutter/aperture/focal length,
     /// capture time, orientation, dimensions, and for Sony the shutter
     /// count, AF point and shot number.
     ///
     /// Classic TIFF RAWs are read with the built-in IFD walker (no pixel data
     /// touched); other containers (CR3, RAF, ORF, RW2, …) go through rawler's
-    /// header parsers (`rawler` feature; without it they are unsupported).
+    /// header parsers (`rawler` feature or the rawler helper; without either
+    /// they are unsupported).
     pub fn metadata(&self) -> Result<ImageMeta, RawError> {
         if let (Some(c), Format::Tiff) = (&self.container, self.format) {
             return Ok(meta::from_container(self.src(), c));
@@ -256,7 +288,10 @@ impl<'a> RawFile<'a> {
         #[cfg(feature = "rawler")]
         return self.rawler_metadata();
         #[cfg(not(feature = "rawler"))]
-        Err(without_rawler(self.format, "metadata"))
+        match helper::client()? {
+            Some(h) => self.helper_metadata(&h),
+            None => Err(without_rawler(self.format, "metadata")),
+        }
     }
 
     /// Bound what rawler's header parsers load before they see the file (the
@@ -392,8 +427,8 @@ impl<'a> RawFile<'a> {
     ///
     /// The native decoders go first; their result (or error) is final, so a
     /// file they cover decodes the same with or without the `rawler`
-    /// feature. Files they don't cover go to rawler when the feature is on,
-    /// and are [`RawError::Unsupported`] otherwise.
+    /// feature. Files they don't cover go to rawler when the feature is on or
+    /// the rawler helper is installed, and are [`RawError::Unsupported`] otherwise.
     pub fn decode_with_info(&self) -> Result<(RawImage, DecodeInfo), RawError> {
         if let Some(done) = self.decode_native()? {
             return Ok(done);
@@ -401,7 +436,10 @@ impl<'a> RawFile<'a> {
         #[cfg(feature = "rawler")]
         return self.decode_rawler();
         #[cfg(not(feature = "rawler"))]
-        Err(without_rawler(self.format, "decoding"))
+        match helper::client()? {
+            Some(h) => self.helper_decode(&h),
+            None => Err(without_rawler(self.format, "decoding")),
+        }
     }
 
     /// The native decoders only: `Ok(None)` when none of them covers the
@@ -423,6 +461,25 @@ impl<'a> RawFile<'a> {
         }
         guard::check_tiff(src, c)?;
         native::decode(src, c)
+    }
+
+    /// rawler through the helper at `helper`, whatever the build. For tests and
+    /// benchmarks; [`RawFile::decode_with_info`] uses the configured helper.
+    #[doc(hidden)]
+    pub fn decode_with_helper(&self, helper: &Path) -> Result<(RawImage, DecodeInfo), RawError> {
+        self.helper_decode(&helper::Process(helper.to_owned()))
+    }
+
+    /// [`RawFile::metadata`] of a non-TIFF file through the helper at `helper`.
+    /// For tests.
+    #[doc(hidden)]
+    pub fn metadata_with_helper(&self, helper: &Path) -> Result<ImageMeta, RawError> {
+        self.check_header()?;
+        self.helper_metadata(&helper::Process(helper.to_owned()))
+    }
+
+    fn helper_decode(&self, h: &dyn helper::Transport) -> Result<(RawImage, DecodeInfo), RawError> {
+        helper::decode(h, self.helper_input()?)
     }
 
     /// rawler only (the `rawler` feature), after the same header guards as
@@ -483,17 +540,14 @@ impl<'a> RawFile<'a> {
     }
 }
 
-/// What a build without the `rawler` feature says about a file the native
-/// readers don't cover.
+/// What a build without the `rawler` feature and no helper says about a file
+/// the native readers don't cover.
 #[cfg(not(feature = "rawler"))]
 fn without_rawler(fmt: Format, what: &str) -> RawError {
     RawError::Unsupported {
         make: String::new(),
         model: String::new(),
-        reason: format!(
-            "{what} of {} files needs the rawler fallback, which this build leaves out",
-            fmt.name()
-        ),
+        reason: format!("{what} of {} files {}", fmt.name(), helper::NOT_INSTALLED),
     }
 }
 

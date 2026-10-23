@@ -58,6 +58,13 @@ pub struct Sidecar {
     pub color_tag: ColorTag,
     #[serde(default)]
     pub pick: PickState,
+    /// Why AI Cull rejected the photo, e.g. "Out of focus (sharpness 0.12, best
+    /// in group 0.71)". Only kept while `pick` is the AI's reject: any change of
+    /// `pick` clears it. Additive: absent in older sidecars (no note); written
+    /// as `null` when cleared so a rewrite never carries an old note over from
+    /// the file.
+    #[serde(default)]
+    pub cull_note: Option<String>,
     #[serde(default)]
     pub keywords: Vec<String>,
     /// Title, caption, credits, location and rights (IPTC Core). Additive:
@@ -384,6 +391,7 @@ pub(crate) mod tests {
             rating: Rating::new(4).unwrap(),
             color_tag: ColorTag::Green,
             pick: PickState::Picked,
+            cull_note: None,
             keywords: vec!["surf".into(), "日本".into()],
             content_hash: Some(FileHash([0xcd; 32])),
             replaced: vec![11, 12],

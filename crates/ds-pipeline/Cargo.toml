@@ -24,7 +24,7 @@ stage-timings = []
 
 [dev-dependencies]
 ds-testdata = { path = "../ds-testdata" }
-ds-raw = { path = "../ds-raw" }
+ds-raw = { path = "../ds-raw", features = ["rawler"] }
 criterion.workspace = true
 serde_json.workspace = true
 png = "0.18.1"

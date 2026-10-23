@@ -14,7 +14,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 ds-testdata = { path = "../ds-testdata" }
-ds-raw = { path = "../ds-raw" }
+ds-raw = { path = "../ds-raw", features = ["rawler"] }
 ds-pipeline = { path = "../ds-pipeline" }
 criterion.workspace = true
 

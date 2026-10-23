@@ -647,6 +647,10 @@ public actor RustSessionStore: CurrentSessionPointing, FolderSessionOpening, Use
             for (pick, ids) in plan.picks {
                 try await perform(sid) { h, token in try await h.setPick(ids: ids, pick: pick, token: token) }
             }
+            // After the flags: setting a flag clears the note in Rust too.
+            for (note, ids) in plan.cullNotes {
+                try await perform(sid) { h, token in try await h.setCullNote(ids: ids, note: note, token: token) }
+            }
             for (keywords, ids) in plan.keywords {
                 try await perform(sid) { h, token in try await h.setKeywords(ids: ids, keywords: keywords, token: token) }
             }
@@ -676,6 +680,7 @@ public actor RustSessionStore: CurrentSessionPointing, FolderSessionOpening, Use
         var ratings: [UInt8: [Int64]] = [:]
         var tags: [ColorLabel: [Int64]] = [:]
         var picks: [PickFlag: [Int64]] = [:]
+        var cullNotes: [String?: [Int64]] = [:]
         var keywords: [[String]: [Int64]] = [:]
         var geotags: [GeoPoint?: [Int64]] = [:]
         var metadata: [IPTCMetadata: [Int64]] = [:]
@@ -689,6 +694,10 @@ public actor RustSessionStore: CurrentSessionPointing, FolderSessionOpening, Use
             if old?.rating != p.rating { plan.ratings[UInt8(clamping: p.rating), default: []].append(p.id.raw) }
             if old?.colorTag != p.colorTag { plan.tags[label(p.colorTag), default: []].append(p.id.raw) }
             if old?.pick != p.pick { plan.picks[flag(p.pick), default: []].append(p.id.raw) }
+            // A note goes with an AI reject; a new flag already cleared the stored one.
+            if (old?.cullNote ?? nil) != p.cullNote, p.cullNote != nil || old?.pick == p.pick {
+                plan.cullNotes[p.cullNote, default: []].append(p.id.raw)
+            }
             if (old?.keywords ?? []) != p.keywords { plan.keywords[p.keywords, default: []].append(p.id.raw) }
             if (old?.geotag ?? nil) != p.geotag { plan.geotags[p.geotag, default: []].append(p.id.raw) }
             if (old?.metadata ?? IPTCMetadata()) != p.metadata { plan.metadata[p.metadata, default: []].append(p.id.raw) }
@@ -790,6 +799,7 @@ public actor RustSessionStore: CurrentSessionPointing, FolderSessionOpening, Use
         p.rating = Int(r.rating)
         p.colorTag = tag(r.colorTag)
         p.pick = pick(r.pick)
+        p.cullNote = p.pick == .rejected ? r.cullNote : nil // after the flag (setting it clears the note)
         p.isEdited = r.edited
         p.isMissing = r.missing
         p.fileChanged = r.fileChanged

@@ -2474,6 +2474,69 @@ fn sidecars_without_an_optimize_report_still_load() {
 }
 
 #[test]
+fn ai_cull_notes_live_in_the_sidecar_while_the_reject_stands() {
+    let mut f = fx();
+    let (_, v) = f.add("Capture/a.ARW", 0);
+    let (_, w) = f.add("Capture/b.ARW", 1);
+    let rel = f.s.locate(v).unwrap().sidecar;
+    let note = "Out of focus (sharpness 0.12, best in group 0.71)";
+    // Only a rejected variant keeps a note.
+    f.s.set_cull_note(&[v], Some(note)).unwrap();
+    assert_eq!(f.sidecar(v).cull_note, None);
+    f.s.set_pick(&[v, w], PickState::Rejected).unwrap();
+    f.s.set_cull_note(&[v, w], Some(&format!("  {note} ")))
+        .unwrap();
+    assert_eq!(f.s.variant(v).unwrap().cull_note.as_deref(), Some(note));
+    // Survives a relaunch and an index rebuild (the sidecar is the source of truth).
+    f.reopen();
+    assert_eq!(f.sidecar(v).cull_note.as_deref(), Some(note));
+    f.s.rebuild_index().unwrap();
+    assert_eq!(f.s.variant(w).unwrap().cull_note.as_deref(), Some(note));
+    // Other changes keep it; changing the flag by hand clears it, and undo restores it.
+    f.s.set_rating(&[v], Rating::new(2).unwrap()).unwrap();
+    assert_eq!(f.s.variant(v).unwrap().cull_note.as_deref(), Some(note));
+    f.s.set_pick(&[v], PickState::Picked).unwrap();
+    assert_eq!(f.s.variant(v).unwrap().cull_note, None);
+    assert_eq!(f.sidecar(v).cull_note, None);
+    assert!(
+        fs::read_to_string(f.root.join(&rel))
+            .unwrap()
+            .contains("\"cull_note\": null")
+    );
+    assert!(f.s.undo(v).unwrap());
+    let back = f.s.variant(v).unwrap();
+    assert_eq!(
+        (back.pick, back.cull_note.as_deref()),
+        (PickState::Rejected, Some(note))
+    );
+    // Setting the same pick again is no change and keeps the note.
+    f.s.set_pick(&[w], PickState::Rejected).unwrap();
+    assert_eq!(f.s.variant(w).unwrap().cull_note.as_deref(), Some(note));
+    // Blank or `None` clears it; a new variant starts without one.
+    f.s.set_cull_note(&[w], Some("  ")).unwrap();
+    assert_eq!(f.s.variant(w).unwrap().cull_note, None);
+    let nv = f.s.new_variant(f.s.variant(v).unwrap().image).unwrap();
+    assert_eq!(f.sidecar(nv).cull_note, None);
+    f.s.set_cull_note(&[v], None).unwrap();
+    assert_eq!(f.s.variant(v).unwrap().cull_note, None);
+    assert!(f.s.set_cull_note(&[VariantId(9999)], Some(note)).is_err());
+}
+
+#[test]
+fn sidecars_without_a_cull_note_still_load() {
+    let mut j: serde_json::Value =
+        serde_json::from_slice(&crate::sidecar::tests::sample().to_json()).unwrap();
+    assert!(j.get("cull_note").is_some(), "written even when empty");
+    j.as_object_mut().unwrap().remove("cull_note");
+    let loaded = Sidecar::from_json(&serde_json::to_vec(&j).unwrap()).unwrap();
+    assert_eq!(loaded.sidecar.cull_note, None);
+    assert!(!loaded.too_new);
+    j["cull_note"] = "Eyes closed".into();
+    let loaded = Sidecar::from_json(&serde_json::to_vec(&j).unwrap()).unwrap();
+    assert_eq!(loaded.sidecar.cull_note.as_deref(), Some("Eyes closed"));
+}
+
+#[test]
 fn a_derived_photo_starts_with_the_source_adjustments_and_no_undo_step() {
     let mut f = fx();
     let (_, src) = f.add("Capture/a.ARW", 0);

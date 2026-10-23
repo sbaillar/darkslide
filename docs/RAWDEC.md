@@ -1,8 +1,9 @@
 # Native RAW decoders
 
-`ds-raw` decodes RAW sensor data with its own Apache-2.0 code first (`crates/ds-raw/src/native/`)
-and keeps the LGPL-2.1 `rawler` crate only as an optional fallback (cargo feature `rawler`, on by
-default; see [OPEN_SOURCE.md](OPEN_SOURCE.md) B6 for why it should go). This document records
+`ds-raw` decodes RAW sensor data with its own Apache-2.0 code first (`crates/ds-raw/src/native/`).
+The LGPL-2.1 `rawler` crate covers the rest, but Darkslide.app doesn't link it: it runs in the
+separate, optional **rawler helper** (`darkslide-rawler`, [crates/ds-rawler](../crates/ds-rawler/README.md)),
+which users download from Settings ▸ RAW. This document records
 what the native decoders cover, where each one's knowledge comes from, how they compare with
 rawler, and what is left.
 
@@ -10,16 +11,20 @@ rawler, and what is left.
 
 | Build | What happens |
 |---|---|
-| default (`rawler` on; the app, `ds-ffi`, `ds-remote`) | Native decoders first. Files they don't cover (format, compression, camera) go to rawler. A native result or error is final, so a covered file decodes identically in both builds. |
-| `cargo build -p ds-raw --no-default-features`, `cargo build --workspace --no-default-features` | No rawler in the binary. Uncovered files return `RawError::Unsupported` ("… needs the rawler fallback, which this build leaves out"), which the app shows as "can't develop this file yet" over the embedded preview. `write_linear_dng` (HDR/panorama DNGs) returns `Unsupported`. Metadata of non-TIFF containers (CR3, RAF, ORF, RW2) is unsupported too. |
+| default (no features: the app, `ds-ffi`, `ds-remote`) | No rawler in the binary. Native decoders first; a native result or error is final, so a covered file decodes identically in every build. What they don't cover (format, compression, the camera data of non-DNG cameras, metadata of non-TIFF containers, `write_linear_dng`) goes to the **rawler helper** when one is set (`ds_raw::set_rawler_helper`, the FFI's `set_rawler_helper`, or `DS_RAWLER_HELPER`). Without one it is `RawError::Unsupported` ("… needs the rawler helper, which isn't installed"), which the app shows over the embedded preview with a Get RAW Helper button. |
+| `rawler` feature (`ds-rawler`, the tests, the benchmarks) | rawler linked in and used in process; the helper is never asked. |
 
-`ds-export` and `ds-import` take `ds-raw` without default features; `ds-ffi` and `ds-remote` pass
-a `rawler` feature through (default on). `RawFile::decode_native` and `RawFile::decode_rawler`
-(hidden from the docs) run one side only, for the parity test and the benchmark.
+The helper is one process per request (`crates/ds-raw/src/helper.rs`): the command on its command
+line, the RAW's own open descriptor (or an unlinked temporary file) as its stdin, a status byte and
+length-prefixed parts on its stdout. Both ends of the protocol live in `helper.rs`; `ds-rawler`'s
+`main` only moves bytes. A rawler crash or runaway allocation ends the helper, not the app. Camera
+data answers are cached per camera. `crates/ds-rawler/tests/helper.rs` checks the built helper's
+decodes against the in-process ones (every corpus file and the A9 samples: identical);
+`crates/ds-raw/tests/without_rawler.rs` runs the routing in a build without the feature.
 
-`cargo test -p ds-raw --no-default-features` (and clippy with `--all-targets`) run without rawler
-too; tests that need it (comparisons with rawler, and decodes of the synthetic and A9 Sony files,
-whose colour matrix comes from rawler's camera data) are `#[cfg(feature = "rawler")]`.
+`RawFile::decode_native`, `RawFile::decode_rawler` and `RawFile::decode_with_helper` (hidden from
+the docs) run one side only, for the parity tests and the benchmark. Tests that need rawler's
+camera data (the synthetic and A9 Sony files) turn the feature on through dev-dependencies.
 
 ## Coverage
 
@@ -141,4 +146,5 @@ serial in their entropy decoding, as they are in rawler, and win on a faster Huf
 - Replace rawler's DNG writer behind `write_linear_dng`.
 - Native metadata for CR3/RAF/ORF/RW2 (today through rawler's header parsers).
 - More `ColorData` layouts (CR2), lossy and 12-bit NEF, the fixed PEF code of older Pentax bodies.
-- Camera data for non-DNG cameras (owner decision above), then drop the `rawler` feature.
+- Camera data for non-DNG cameras (owner decision above), so Sony, Nikon and Canon files develop
+  without the helper.

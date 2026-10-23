@@ -18,6 +18,11 @@ struct FilterBar: View {
 
     var body: some View {
         HStack(spacing: compact ? DS.Space.s : DS.Space.m) {
+            // [multiview] First, so a narrow column beside the viewer still shows it.
+            if compact && model.browserMode == .filmstrip {
+                FilmstripSizeSlider(model: model)
+                Divider().frame(height: 14)
+            }
             stars
             chip(.unrated, "Unrated", on: model.filter.unratedOnly)
 
@@ -130,6 +135,29 @@ struct FilterBar: View {
                 .accessibilityLabel(info.label)
                 .accessibilityAddTraits(model.filter.minRating == n ? .isSelected : [])
             }
+        }
+    }
+}
+
+/// [multiview] The filmstrip's thumbnail size: small and large photo icons either side
+/// (View ▸ Larger / Smaller Filmstrip Thumbnails step it too).
+struct FilmstripSizeSlider: View {
+    @Bindable var model: AppModel
+
+    var body: some View {
+        HStack(spacing: DS.Space.xs) {
+            Image(systemName: "photo").font(.system(size: 8)).foregroundStyle(DS.textSecondary)
+            Slider(value: Binding(get: { model.filmstrip.cell }, set: { model.sizeFilmstripThumbnails($0) }),
+                   in: FilmstripSizing.cellHeights)
+                .frame(width: 80)
+            Image(systemName: "photo").font(.system(size: 13)).foregroundStyle(DS.textSecondary)
+        }
+        .help("Thumbnail size (⌃⌘= larger, ⌃⌘- smaller)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Filmstrip thumbnail size")
+        .accessibilityValue("\(Int(model.filmstrip.cell)) points")
+        .accessibilityAdjustableAction { dir in
+            CommandCatalog.perform(dir == .increment ? .largerFilmstripThumbnails : .smallerFilmstripThumbnails, model: model)
         }
     }
 }

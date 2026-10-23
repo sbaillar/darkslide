@@ -19,6 +19,12 @@ done
 
 cargo deny --log-level error check licenses bans sources
 
+# Darkslide.app (ds-ffi) must not link rawler (LGPL-2.1): only the separate RAW helper does.
+if cargo tree --locked -p ds-ffi -e normal --prefix none 2>/dev/null | grep -q '^rawler '; then
+  echo "error: ds-ffi links rawler; the app runs the RAW helper instead (docs/RAWDEC.md)" >&2
+  exit 1
+fi
+
 OUT=THIRD_PARTY_LICENSES.md
 TMP="$(mktemp)"
 trap '/bin/rm -f "$TMP"' EXIT

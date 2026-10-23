@@ -20,6 +20,8 @@
 //! - [`cull`]: a 0–1 [`CullScore`] with human-readable [`Reason`]s, merging
 //!   optional Vision signals (eyes open, face quality, aesthetics), and
 //!   [`suggest_picks`] for a group;
+//! - [`reject`]: why a frame would be rejected — typed [`RejectReason`]s
+//!   and the one-line note the app shows;
 //! - [`matching`]: exposure matching across a set (metering + EXIF prior);
 //! - [`intent`]: the natural-language edit seam — typed [`EditIntent`],
 //!   [`apply_intent`] (which reports what it could not apply), the
@@ -52,6 +54,7 @@ pub mod intent;
 pub mod matching;
 pub mod noise;
 pub mod phash;
+pub mod reject;
 pub mod sharpness;
 mod stats;
 #[cfg(test)]
@@ -81,6 +84,7 @@ pub use intent::{
 };
 pub use noise::{Noise, NoiseConfig};
 pub use phash::PerceptualHash;
+pub use reject::{Advantage, RejectReason, explain_reject, reject_note};
 pub use sharpness::{Sharpness, SharpnessConfig, SubjectRegion, SubjectSharpness, TileMap};
 
 /// Errors from constructing inputs.

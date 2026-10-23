@@ -11,9 +11,11 @@ and which ships inside Darkslide.app (Contents/Resources). In particular:
   (mozjpeg, via the mozjpeg and mozjpeg-sys crates).
 
 - rawler (https://github.com/dnglab/dnglab) is licensed under the GNU Lesser
-  General Public License, version 2.1, and is statically linked into the app.
-  The complete source of Darkslide is public, so you may modify rawler and
-  relink the app with it: see "Relinking rawler" in CONTRIBUTING.md.
+  General Public License, version 2.1. Darkslide.app doesn't contain it: it is
+  statically linked into the separate, optional RAW helper (darkslide-rawler,
+  crates/ds-rawler), which users download on request and which is distributed
+  under the LGPL's terms. Its complete source is public, so you may modify
+  rawler and relink the helper with it: see "Relinking rawler" in CONTRIBUTING.md.
 
 - UniFFI (https://github.com/mozilla/uniffi-rs) is licensed under the Mozilla
   Public License 2.0; its source is available from that repository.

@@ -318,6 +318,7 @@ struct AppCommands: Commands {
             Toggle(CommandCatalog.title(.showSelectionInViewer, model: model), // [multiview]
                    isOn: Binding(get: { model.settings.showSelectionInViewer }, set: { model.settings.showSelectionInViewer = $0 }))
             Menu("Filmstrip") { FilmstripPositionMenu(model: model) }
+            ForEach(CommandCatalog.filmstripSizeMenu) { item($0) } // [multiview] ⌃⌘= / ⌃⌘-
             Divider()
             item(.zoomIn)
             item(.zoomOut)

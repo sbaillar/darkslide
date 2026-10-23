@@ -112,7 +112,7 @@ public struct VisionAIService: AIService {
         return CullInput(id: photo.id.raw, width: UInt32(px.width), height: UInt32(px.height), rgba: px.bytes,
                          captureMs: DSAI.captureMs(photo.meta.captureDate), seq: DSAI.seq(photo.meta),
                          camera: photo.meta.camera.isEmpty ? nil : photo.meta.camera,
-                         vision: DSAI.signals(analysis, afPoint: photo.meta.afPoint))
+                         vision: DSAI.signals(analysis, afPoint: photo.meta.afPoint), name: photo.filename)
     }
 
     /// Hand `inputs` to ds-ai: one `add_batch` call, or one `add` each when `batchSize` is 1.

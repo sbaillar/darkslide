@@ -1,6 +1,6 @@
 [package]
 name = "ds-raw"
-description = "RAW decode (native decoders, optional rawler fallback), embedded previews, EXIF metadata"
+description = "RAW decode (native decoders, rawler fallback in process or through the rawler helper), embedded previews, EXIF metadata"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ rust-version.workspace = true
 ds-core.workspace = true
 thiserror.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+# Unlinked temporary files as the rawler helper's stdin (MIT OR Apache-2.0).
+tempfile.workspace = true
 rayon.workspace = true
 tracing.workspace = true
 rawler = { version = "0.8.0", optional = true }
@@ -20,15 +23,15 @@ zune-core = "0.5"
 zune-jpeg = "0.5"
 
 [features]
-default = ["rawler"]
-# LGPL-2.1 fallback for formats and cameras the native decoders don't cover yet
-# (docs/RAWDEC.md). Without it those files return `RawError::Unsupported`.
+default = []
+# LGPL-2.1 fallback for formats and cameras the native decoders don't cover yet,
+# linked in (docs/RAWDEC.md). Only the rawler helper (crates/ds-rawler) and tests
+# turn it on; Darkslide itself runs that helper instead, when it is installed.
 rawler = ["dep:rawler"]
 
 [dev-dependencies]
 ds-testdata = { path = "../ds-testdata" }
 criterion.workspace = true
-tempfile.workspace = true
 proptest.workspace = true
 # Lossy DNG test tiles (MIT OR Apache-2.0).
 jpeg-encoder = "0.7"

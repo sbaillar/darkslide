@@ -124,6 +124,9 @@ extension AppModel {
         model.voice.engine = SpeechAnalyzerEngine()
         model.voice.permissions = SystemVoicePermissions()
         if model.mode == .live {
+            // The rawler helper, when the user installed it (Settings ▸ RAW): before the
+            // first photo is decoded, so files that need it develop from the start.
+            RawlerHelper.shared.activate()
             // AI Denoise: Core ML on this Mac; an export denoises a photo just before it renders.
             // Process-wide (the Rust store), so only the app wires it, never a test's live model.
             DenoiseService.shared.app = model

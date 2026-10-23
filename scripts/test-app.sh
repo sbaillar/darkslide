@@ -16,6 +16,10 @@ SCRATCH="${SCRATCH:-$ROOT/app/.build}"
 scripts/check-core-platform.sh
 
 scripts/ffi.sh >/dev/null
+# Darkslide.app runs the rawler helper only when the user installs it; the tests use the
+# one built here (sample-free tests decode synthetic Sony files, whose colour matrix is
+# rawler's camera data).
+export DS_RAWLER_HELPER="${DS_RAWLER_HELPER:-$(scripts/build-rawler-helper.sh --quiet)}"
 
 # With only the Command Line Tools, SwiftPM runs swift-testing tests only when
 # the Testing framework dir is passed on the command line (Package.swift flags

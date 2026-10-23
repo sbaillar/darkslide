@@ -145,9 +145,9 @@ For contributions, use the **DCO** (a `Signed-off-by` line, checked in CI) rathe
   - If the App Store becomes a goal, either replace rawler (for example with a permissive decoder plus the existing Sony ARW fast paths in `ds-raw`), or get a written exception from the dnglab authors.
 - **Status (native decoders, [RAWDEC.md](RAWDEC.md)):**
   - `ds-raw` now decodes DNG, Sony ARW (uncompressed, cRAW, lossless), Canon CR2, Nikon NEF (14-bit lossless) and Pentax PEF with its own Apache-2.0 code, written clean-room from public specifications and the corpus files, and matching rawler's sensor data on the corpus.
-  - rawler is the optional cargo feature `rawler` (on by default; `ds-ffi` keeps it on for app builds). `cargo build --workspace --no-default-features` links no LGPL code.
-  - Still on rawler: ORF, RW2, RAF, CR3 decoding, metadata of those containers, the DNG writer (HDR/panorama output), and the colour matrices of non-DNG cameras.
-  - Open owner decision: where colour matrices for non-DNG cameras may legally come from (RAWDEC.md, "Camera data"). Until then a rawler-free build develops DNGs (and the K-3 Mark III PEF) only.
+  - Darkslide.app links no LGPL code. rawler runs in the separate, optional RAW helper (`darkslide-rawler`, `crates/ds-rawler`), a program the user downloads from Settings ▸ RAW (a GitHub release asset whose SHA-256 the app pins) and Darkslide runs as a child process over a documented protocol (`ds_raw::helper`). The helper is distributed under the LGPL's terms, with its source and relinking instructions (`crates/ds-rawler/README.md`). The `rawler` cargo feature (off by default) remains for the helper itself, tests and benchmarks.
+  - Through the helper: ORF, RW2, RAF, CR3 decoding, metadata of those containers, the DNG writer (HDR/panorama output), and the colour matrices of non-DNG cameras.
+  - Open owner decision: where colour matrices for non-DNG cameras may legally come from (RAWDEC.md, "Camera data"). Until then Darkslide without the helper develops DNGs (and the K-3 Mark III PEF) only.
 - **Fix:**
   - State the above in `NOTICE`.
   - Ship rawler's licence in the app (B7).

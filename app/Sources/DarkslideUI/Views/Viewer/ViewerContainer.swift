@@ -198,7 +198,11 @@ struct ViewerHUD: View {
                 // Render failures and missing originals: the ProblemBanner (with actions).
             }
             .padding(DS.Space.m)
-            if let cull = model.focusedID.flatMap({ model.cullSuggestions[$0] }), !cull.reasons.isEmpty {
+            if let note = AICullApplication.rejectNote(model.focusedID.flatMap(model.photo)) {
+                hudLabel("AI reject: \(note)", symbol: "sparkles")
+                    .padding(DS.Space.m)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            } else if let cull = model.focusedID.flatMap({ model.cullSuggestions[$0] }), !cull.reasons.isEmpty {
                 hudLabel(cull.reasons.joined(separator: " · "), symbol: "sparkles")
                     .padding(DS.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)

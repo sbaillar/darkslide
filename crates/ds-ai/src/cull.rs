@@ -225,8 +225,16 @@ pub enum Reason {
     ShadowsClipped {
         fraction: f32,
     },
-    Underexposed,
-    Overexposed,
+    /// `mean`: the frame's mean luma (0..=1, display-referred). `stops`: how
+    /// far `log2(mean)` is from the group's median, `None` for a lone frame.
+    Underexposed {
+        mean: f32,
+        stops: Option<f32>,
+    },
+    Overexposed {
+        mean: f32,
+        stops: Option<f32>,
+    },
     Noisy {
         sigma: f32,
     },
@@ -278,8 +286,8 @@ impl fmt::Display for Reason {
                 write!(f, "highlights clipped {}%", pct(fraction))
             }
             Self::ShadowsClipped { fraction } => write!(f, "shadows clipped {}%", pct(fraction)),
-            Self::Underexposed => f.write_str("underexposed"),
-            Self::Overexposed => f.write_str("overexposed"),
+            Self::Underexposed { .. } => f.write_str("underexposed"),
+            Self::Overexposed { .. } => f.write_str("overexposed"),
             Self::Noisy { sigma } => write!(f, "noisy (σ {sigma:.1})"),
             Self::PoorFaceCapture => f.write_str("poor face capture"),
             Self::LowAesthetics => f.write_str("low aesthetics score"),
@@ -609,10 +617,19 @@ fn exposure_part(
             fraction: e.shadows_clipped,
         });
     }
+    let deviation = g
+        .and_then(|g| g.stats.exposure)
+        .map(|r| stops(e.mean) - r.med);
     if ev < 0.0 {
-        reasons.push(Reason::Underexposed);
+        reasons.push(Reason::Underexposed {
+            mean: e.mean,
+            stops: deviation,
+        });
     } else if ev > 0.0 {
-        reasons.push(Reason::Overexposed);
+        reasons.push(Reason::Overexposed {
+            mean: e.mean,
+            stops: deviation,
+        });
     }
     (1.0 - 6.0 * hi_x.max(0.0) - 2.0 * lo_x.max(0.0) - 0.4 * ev.abs()).clamp(0.0, 1.0)
 }
@@ -919,9 +936,20 @@ mod tests {
             "{blown:?}"
         );
         let dark = lone(&run(&scale(&scene(1), 0.05)), None);
-        assert!(dark.reasons.contains(&Reason::Underexposed), "{dark:?}");
+        assert!(
+            dark.reasons
+                .iter()
+                .any(|r| matches!(r, Reason::Underexposed { stops: None, .. })),
+            "{dark:?}"
+        );
         let bright = lone(&run(&img(320, 240, |_, y| (240 + y / 60) as u8)), None);
-        assert!(bright.reasons.contains(&Reason::Overexposed), "{bright:?}");
+        assert!(
+            bright
+                .reasons
+                .iter()
+                .any(|r| matches!(r, Reason::Overexposed { stops: None, .. })),
+            "{bright:?}"
+        );
     }
 
     #[test]
@@ -966,7 +994,11 @@ mod tests {
             "{s:?}"
         );
         assert!(s[4].sharpness > 0.85 * s[0].sharpness, "{s:?}");
-        assert!(s[4].reasons.contains(&Reason::Underexposed));
+        assert!(
+            s[4].reasons
+                .iter()
+                .any(|r| matches!(r, Reason::Underexposed { stops: Some(x), .. } if *x < -1.0))
+        );
         assert!(
             !s[4]
                 .reasons

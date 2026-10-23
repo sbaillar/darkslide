@@ -620,12 +620,16 @@ public struct CullSuggestion: Sendable, Equatable {
     public var pick: PickState
     /// Short human reasons, e.g. "Eyes closed", "Sharp subject".
     public var reasons: [String]
+    /// Why it is rejected, most important first (ds-ai `reject_note`); only on
+    /// a `.rejected` suggestion. Saved with the reject as `Photo.cullNote`.
+    public var rejectNote: String?
 
-    public init(photoID: PhotoID, score: Double, pick: PickState, reasons: [String]) {
+    public init(photoID: PhotoID, score: Double, pick: PickState, reasons: [String], rejectNote: String? = nil) {
         self.photoID = photoID
         self.score = score
         self.pick = pick
         self.reasons = reasons
+        self.rejectNote = rejectNote
     }
 }
 

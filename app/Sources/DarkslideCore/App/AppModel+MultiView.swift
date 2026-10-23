@@ -27,8 +27,11 @@ extension AppModel {
     /// The separator was dragged to `lines` (live while dragging; `ended` remembers a multi-line size).
     public func resizeFilmstrip(to lines: Int, ended: Bool) {
         filmstrip = ended ? filmstrip.dragged(to: lines)
-            : FilmstripLayout(position: filmstrip.position, lines: lines, last: filmstrip.last)
+            : FilmstripLayout(position: filmstrip.position, lines: lines, last: filmstrip.last, cell: filmstrip.cell)
     }
+
+    /// The size slider: thumbnails `cell` points high (clamped to `FilmstripSizing.cellHeights`).
+    public func sizeFilmstripThumbnails(_ cell: CGFloat) { filmstrip = filmstrip.sized(cell) }
 
     /// Double-click on the separator: one line ↔ the last size.
     public func toggleFilmstripLines() { filmstrip = filmstrip.toggled }

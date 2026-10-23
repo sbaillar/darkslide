@@ -47,6 +47,7 @@ pub(crate) struct UndoState {
     pub rating: Rating,
     pub color_tag: ColorTag,
     pub pick: PickState,
+    pub cull_note: Option<String>,
     pub keywords: Vec<String>,
     pub iptc: IptcMeta,
     pub geotag: Option<GeoPoint>,
@@ -61,6 +62,7 @@ impl UndoState {
             rating: sc.rating,
             color_tag: sc.color_tag,
             pick: sc.pick,
+            cull_note: sc.cull_note.clone(),
             keywords: sc.keywords.clone(),
             iptc: sc.iptc.clone(),
             geotag: sc.geotag,
@@ -73,6 +75,7 @@ impl UndoState {
         sc.rating = self.rating;
         sc.color_tag = self.color_tag;
         sc.pick = self.pick;
+        sc.cull_note = self.cull_note;
         sc.keywords = self.keywords;
         sc.iptc = self.iptc;
         sc.geotag = self.geotag;
@@ -139,6 +142,8 @@ pub struct VariantInfo {
     pub rating: Rating,
     pub color_tag: ColorTag,
     pub pick: PickState,
+    /// Why AI Cull rejected it (sidecar `cull_note`); only while still rejected.
+    pub cull_note: Option<String>,
     pub keywords: Vec<String>,
     /// Title, caption, credits, location and rights (sidecar).
     pub iptc: IptcMeta,
@@ -785,6 +790,7 @@ impl Session {
                 rating: Rating::default(),
                 color_tag: ColorTag::None,
                 pick: PickState::Unflagged,
+                cull_note: None,
                 keywords: Vec::new(),
                 content_hash,
                 replaced,
@@ -948,7 +954,7 @@ impl Session {
     pub fn variant(&self, v: VariantId) -> Result<VariantInfo> {
         let mut st = self.conn.prepare_cached(
             "SELECT id, image_id, ordinal, name, rating, color_tag, pick, keywords, edited, read_only, iptc,
-                geo_lat, geo_lon, geo_alt
+                geo_lat, geo_lon, geo_alt, cull_note
              FROM variants WHERE id = ?",
         )?;
         let row = st
@@ -962,6 +968,7 @@ impl Session {
                     rating: Rating::new(r.get(4)?).unwrap_or_default(),
                     color_tag: tag_from_code(r.get(5)?),
                     pick: pick_from_code(r.get(6)?),
+                    cull_note: r.get(14)?,
                     keywords: serde_json::from_str(&kw).unwrap_or_default(),
                     iptc: serde_json::from_str(&r.get::<_, String>(10)?).unwrap_or_default(),
                     people: Vec::new(),
@@ -1098,6 +1105,7 @@ impl Session {
             rating: Rating::default(),
             color_tag: ColorTag::None,
             pick: PickState::Unflagged,
+            cull_note: None,
             keywords: Vec::new(),
             ..src
         };
@@ -1163,8 +1171,30 @@ impl Session {
         self.modify_undoable(vs, |_, sc| std::mem::replace(&mut sc.color_tag, tag) != tag)
     }
 
+    /// Changing the pick clears the AI Cull note: it no longer explains the flag.
     pub fn set_pick(&mut self, vs: &[VariantId], pick: PickState) -> Result<()> {
-        self.modify_undoable(vs, |_, sc| std::mem::replace(&mut sc.pick, pick) != pick)
+        self.modify_undoable(vs, |_, sc| {
+            let changed = std::mem::replace(&mut sc.pick, pick) != pick;
+            if changed {
+                sc.cull_note = None;
+            }
+            changed
+        })
+    }
+
+    /// Store why AI Cull rejected the variants (`None` clears it). Only a
+    /// rejected variant keeps a note; on any other it is cleared. Not an undo
+    /// step: it goes with the reject (whose undo restores it).
+    pub fn set_cull_note(&mut self, vs: &[VariantId], note: Option<&str>) -> Result<()> {
+        let note = note.map(str::trim).filter(|n| !n.is_empty());
+        self.modify(vs, |_, sc| {
+            let note = note.filter(|_| sc.pick == PickState::Rejected);
+            if sc.cull_note.as_deref() == note {
+                return false;
+            }
+            sc.cull_note = note.map(str::to_owned);
+            true
+        })
     }
 
     /// Replace the keywords (trimmed, de-duplicated, order kept).
@@ -1899,11 +1929,11 @@ pub(crate) fn index_sidecar(
     ])?;
     let mut st = tx.prepare_cached(
         "INSERT INTO variants(id, image_id, ordinal, name, rating, color_tag, pick, edited, keywords, search, sidecar,
-            sidecar_mtime, sidecar_size, read_only, custom, iptc, geo_lat, geo_lon, geo_alt)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)
+            sidecar_mtime, sidecar_size, read_only, custom, iptc, geo_lat, geo_lon, geo_alt, cull_note)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)
          ON CONFLICT(id) DO UPDATE SET image_id=?2, ordinal=?3, name=?4, rating=?5, color_tag=?6, pick=?7, edited=?8,
             keywords=?9, search=?10, sidecar=?11, sidecar_mtime=?12, sidecar_size=?13, read_only=?14, custom=?15,
-            iptc=?16, geo_lat=?17, geo_lon=?18, geo_alt=?19",
+            iptc=?16, geo_lat=?17, geo_lon=?18, geo_alt=?19, cull_note=?20",
     )?;
     st.execute(params![
         sc.variant_id,
@@ -1925,8 +1955,16 @@ pub(crate) fn index_sidecar(
         sc.geotag.map(|g| g.latitude),
         sc.geotag.map(|g| g.longitude),
         sc.geotag.and_then(|g| g.altitude_m),
+        cull_note(sc),
     ])?;
     write_people_rows(tx, sc)
+}
+
+/// `variants.cull_note`: the sidecar's note while the variant is rejected.
+fn cull_note(sc: &Sidecar) -> Option<&str> {
+    sc.cull_note
+        .as_deref()
+        .filter(|_| sc.pick == PickState::Rejected)
 }
 
 /// A geotag from its index columns (both coordinates, or none).
@@ -2003,7 +2041,7 @@ fn iptc_json(m: &IptcMeta) -> String {
 fn update_variant_row(tx: &Transaction<'_>, sc: &Sidecar, mtime: i64, size: i64) -> Result<()> {
     let mut st = tx.prepare_cached(
         "UPDATE variants SET name=?, rating=?, color_tag=?, pick=?, edited=?, custom=?, keywords=?, search=?,
-            iptc=?, sidecar_mtime=?, sidecar_size=?, geo_lat=?, geo_lon=?, geo_alt=? WHERE id=?",
+            iptc=?, sidecar_mtime=?, sidecar_size=?, geo_lat=?, geo_lon=?, geo_alt=?, cull_note=? WHERE id=?",
     )?;
     st.execute(params![
         sc.name,
@@ -2020,6 +2058,7 @@ fn update_variant_row(tx: &Transaction<'_>, sc: &Sidecar, mtime: i64, size: i64)
         sc.geotag.map(|g| g.latitude),
         sc.geotag.map(|g| g.longitude),
         sc.geotag.and_then(|g| g.altitude_m),
+        cull_note(sc),
         sc.variant_id,
     ])?;
     write_people_rows(tx, sc)

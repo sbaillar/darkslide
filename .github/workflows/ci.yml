@@ -38,6 +38,15 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked --workspace
+      # Darkslide's own build has no rawler (the workspace run above links it through
+      # ds-rawler and the tests): ds-raw on its own, without and then with the helper.
+      - name: ds-raw without rawler
+        run: |
+          cargo clippy --locked -p ds-raw --no-default-features --all-targets -- -D warnings
+          cargo test --locked -p ds-raw --no-default-features
+          cargo build --locked --release -p ds-rawler
+          DS_RAWLER_HELPER="$PWD/target/release/darkslide-rawler" \
+            cargo test --locked -p ds-raw --no-default-features --test without_rawler
 
   app:
     if: github.event_name != 'schedule'

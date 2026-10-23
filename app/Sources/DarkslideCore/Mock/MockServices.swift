@@ -15,7 +15,8 @@ public struct MockAIService: AIService {
             let score = rng.unit()
             let pick: PickState = score > 0.8 ? .picked : score < 0.15 ? .rejected : .none
             out.append(CullSuggestion(photoID: p.id, score: score, pick: pick,
-                                      reasons: [pick == .rejected ? "Soft focus" : "Sharp subject"]))
+                                      reasons: [pick == .rejected ? "Soft focus" : "Sharp subject"],
+                                      rejectNote: pick == .rejected ? "Soft focus" : nil))
             progress(i + 1, photos.count)
         }
         return out

@@ -205,6 +205,23 @@ pub fn filename_sequence(path: String) -> Result<Option<u64>, DsError> {
     guard(|| Ok(ds_raw::filename_sequence(&PathBuf::from(path))))
 }
 
+/// Use the rawler helper program at `path` for the formats and cameras the native
+/// decoders don't cover (`ds_raw::helper`); `None` stops using one. A helper must
+/// answer first: the rawler version it links, or an error (and the helper in use
+/// stays as it was).
+#[uniffi::export]
+pub fn set_rawler_helper(path: Option<String>) -> Result<Option<String>, DsError> {
+    guard(|| {
+        let Some(path) = path.map(PathBuf::from) else {
+            ds_raw::set_rawler_helper(None);
+            return Ok(None);
+        };
+        let info = ds_raw::helper::check(&path)?;
+        ds_raw::set_rawler_helper(Some(path));
+        Ok(Some(info.rawler))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
