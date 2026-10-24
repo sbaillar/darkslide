@@ -317,7 +317,9 @@ rawler is licensed under the LGPL-2.1, so it isn't built into Darkslide. It live
 
 ## Install and build from source
 
-There is no signed binary release yet; build it from source. You need:
+Download the app from [Releases](https://github.com/sbaillar/darkslide/releases) (`Darkslide-X.Y.Z-macos-arm64.zip`; macOS 26, Apple silicon). It's ad-hoc signed, not notarized: the first time, right-click Darkslide.app and choose **Open**. From then on Darkslide updates itself (Settings ▸ Updates).
+
+Or build it from source. You need:
 
 - macOS 26 on Apple silicon, with the Xcode Command Line Tools (Swift 6.2). Xcode.app isn't needed.
 - Rust 1.90 or newer (Homebrew `rust` or rustup).
@@ -335,6 +337,12 @@ dist/Darkslide.app/Contents/MacOS/Darkslide --demo   # try it on synthetic photo
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the full toolchain, the quality gates and how to run the tests.
 
+### Updates and betas
+
+Darkslide looks for a new version on this repository's [releases](https://github.com/sbaillar/darkslide/releases) shortly after it starts and then about once a day, and tells you with a small notice (never a dialog in the middle of culling). **Darkslide ▸ Check for Updates…** checks right away. The update sheet shows what changed; **Download & Restart** downloads it, checks it (SHA-256, bundle identifier, version, code signature), quits the normal way (pending changes are saved first) and reopens on the session and photo you were on. **Download** installs it the next time you quit, **Skip This Version** stops the reminders for that version. The version it replaces is kept in `~/Library/Application Support/Darkslide/Previous Version/` (one, replaced by the next update), so you can go back by dragging it to Applications.
+
+**Settings ▸ Updates** turns automatic checks off and has **Include beta versions**: betas are GitHub pre-releases of the next version (`v0.1.19-beta.1`), for trying new features early; they may have bugs. Once that version is released, beta users are offered the release. How releases and betas are published: [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Privacy and network use
 
 Darkslide has no accounts, analytics or telemetry. Your photos stay on your Mac and the drives you choose. These are the only things that use the network, and only when you use them:
@@ -344,6 +352,7 @@ Darkslide has no accounts, analytics or telemetry. Your photos stay on your Mac 
 | On-device AI models (remove, sky and people masks, lens blur depth, photo search) | Downloaded once from pinned upstream revisions on Hugging Face, the first time you use the feature; each file is checked against its SHA-256 | Download requests only; no photos |
 | AI Upscale model | When you choose Download AI Upscale Model… and agree to its terms (builds that set a download location) | Download requests only |
 | RAW helper | When you choose Download RAW Helper (Settings ▸ RAW, or on a photo that needs it); checked against its SHA-256 | Download requests to GitHub only |
+| Update check | Shortly after launch and about once a day (Settings ▸ Updates turns it off), and when you choose Check for Updates… | One request to GitHub's releases API with only `Darkslide/<version>` as the User-Agent; no identifiers. Downloading an update fetches the release's zip from GitHub |
 | Map tiles | In Map mode; asked once, and Settings ▸ General turns it off | The map areas you view are requested from Apple Maps; photos and their locations are never uploaded |
 | Google Photos | Only with a Google Photos export recipe, after you sign in | The exported files, to your own account |
 | Jev (TypeSafe) for Edit with words | Off by default; Settings ▸ AI with your own API key | The text you type, not the photo |

@@ -5,6 +5,7 @@ import SwiftUI
 
 public struct DarkslideApp: App {
     @State private var model: AppModel
+    @State private var updater: Updater
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     public init() {
@@ -28,16 +29,22 @@ public struct DarkslideApp: App {
         model.confirmClose = SessionCloseAlert.ask // Close Session asks while jobs run
         UpscaleService.shared.confirmDownload = UpscaleService.askDownload // its terms, once
         _model = State(initialValue: model)
+        let updater = Updater.live(model: model)
+        // After an update: reopen the session on the photo the user was on (once).
+        model.pendingResume = updater.launched()
+        _updater = State(initialValue: updater)
         NSWindow.allowsAutomaticWindowTabbing = false
     }
 
     public var body: some Scene {
         Window("Darkslide", id: AppWindows.main) {
             MainWindow(model: model)
+                .modifier(UpdatePresentation(updater: updater))
                 .frame(minWidth: 1100, minHeight: 700)
                 .preferredColorScheme(model.settings.appearance.colorScheme)
                 .task {
                     appDelegate.model = model
+                    appDelegate.updater = updater
                     // M4: private-defaults runs (snapshot/dev) don't autosave the window
                     // frame into the user's domain.
                     if AppModel.usesPrivateDefaults {
@@ -53,6 +60,7 @@ public struct DarkslideApp: App {
                         Task { await WindowSnapshot.run(model: model, path: args[i + 1]) }
                     }
                     await model.start()
+                    if !AppModel.usesPrivateDefaults { updater.startAutomaticChecks() } // never in dev/snapshot runs
                     if let i = args.firstIndex(of: "--open"), i + 1 < args.count {
                         await model.openFolder(URL(fileURLWithPath: args[i + 1]))
                     }
@@ -60,7 +68,7 @@ public struct DarkslideApp: App {
         }
         .windowToolbarStyle(.unified(showsTitle: false))
         .defaultSize(width: 1680, height: 1020)
-        .commands { AppCommands(model: model) }
+        .commands { AppCommands(model: model, updater: updater) }
 
         // Tools ▸ Customize Tools… (⇧⌘T): live, so the sidebar shows each change.
         Window("Customize Tools", id: ToolCustomizeView.windowID) {
@@ -75,7 +83,7 @@ public struct DarkslideApp: App {
 
         Settings {
             PreferencesView(settings: model.settings, voice: model.voice, remote: model.remote,
-                            googlePhotos: model.googlePhotos)
+                            googlePhotos: model.googlePhotos, updater: updater)
                 .preferredColorScheme(model.settings.appearance.colorScheme)
         }
     }
@@ -95,6 +103,7 @@ extension AppearancePreference {
 /// changes would be lost. The decisions live in `TerminationFlow` (tested).
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var model: AppModel?
+    weak var updater: Updater?
 
     /// One-window app: closing the main window closes the others (Customize Tools,
     /// Settings) and so quits, through `applicationShouldTerminate` as before. A
@@ -131,9 +140,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await model.shutdownArchive() // cancels a running rsync (bounded)
                 model.remote.stop() // the iPad link stops listening and advertising
             }
+            if !quit { self.updater?.quitCancelled() } // a Restart for an update waits for the next one
             sender.reply(toApplicationShouldTerminate: quit)
         }
         return .terminateLater
+    }
+
+    /// Termination is certain: a verified update is installed once this process has exited.
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated { updater?.applicationWillTerminate() }
     }
 
     @MainActor
@@ -195,6 +210,7 @@ enum AboutPanel {
 /// and `MenuActions` (unit-tested); this only lays them out.
 struct AppCommands: Commands {
     let model: AppModel
+    let updater: Updater
     @State private var layout = ToolLayout.shared
     @Environment(\.openWindow) private var openWindow
 
@@ -242,6 +258,8 @@ struct AppCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
             Button("About Darkslide") { AboutPanel.show() }
+            Button("Check for Updates\u{2026}") { updater.checkNow() }
+                .disabled(!updater.isAvailable)
         }
         CommandGroup(replacing: .undoRedo) {
             Button(model.history.undoLabel.map { "Undo \($0)" } ?? "Undo") { shared(.undo) }

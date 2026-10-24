@@ -5,6 +5,8 @@
 #   scripts/release.sh          0.1.0 → 0.1.1
 #   scripts/release.sh minor    0.1.3 → 0.2.0
 #   scripts/release.sh major    0.4.2 → 1.0.0
+#   scripts/release.sh beta     0.1.18 → 0.1.19-beta.1, 0.1.19-beta.1 → 0.1.19-beta.2
+#   (patch after a beta releases it: 0.1.19-beta.2 → 0.1.19)
 #
 # Re-runnable: if the push fails (network, hook, rejected), the release commit and tag stay
 # local; run the script again and it pushes that same release instead of bumping again.
@@ -16,7 +18,8 @@ part="${1:-patch}"
 git diff --quiet && git diff --cached --quiet || { echo "release: commit or stash changes first" >&2; exit 1; }
 
 old="$(/usr/bin/sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-[[ "$old" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "release: version '$old' is not plain MAJOR.MINOR.PATCH" >&2; exit 1; }
+[[ "$old" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]] \
+  || { echo "release: version '$old' is not MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-beta.N" >&2; exit 1; }
 
 push() {
   git push --atomic origin main "v$1" || {
@@ -47,14 +50,19 @@ fi
 git fetch -q origin main
 git merge-base --is-ancestor origin/main HEAD || { echo "release: main is behind or diverged from origin/main; merge it first" >&2; exit 1; }
 
-IFS=. read -r major minor patch <<<"$old"
+base="${old%%-*}"
+beta=""
+[ "$base" = "$old" ] || beta="${old##*-beta.}"
+IFS=. read -r major minor patch <<<"$base"
+suffix=""
 case "$part" in
-  patch) patch=$((patch + 1)) ;;
+  patch) [ -n "$beta" ] || patch=$((patch + 1)) ;; # a beta's patch is its release
   minor) minor=$((minor + 1)); patch=0 ;;
   major) major=$((major + 1)); minor=0; patch=0 ;;
-  *) echo "release: unknown part '$part' (patch|minor|major)" >&2; exit 1 ;;
+  beta) if [ -n "$beta" ]; then suffix="-beta.$((beta + 1))"; else patch=$((patch + 1)); suffix="-beta.1"; fi ;;
+  *) echo "release: unknown part '$part' (patch|minor|major|beta)" >&2; exit 1 ;;
 esac
-new="$major.$minor.$patch"
+new="$major.$minor.$patch$suffix"
 
 /usr/bin/sed -i '' "s/^version = \"$old\"/version = \"$new\"/" Cargo.toml
 cargo update --workspace --offline --quiet

@@ -3,12 +3,13 @@ import DarkslideCore
 import DarkslideUI
 import SwiftUI
 
-/// ⌘, window: General, Familiar, Shortcuts, RAW, Archive, Google Photos, AI, Voice, Devices, Plugins.
+/// ⌘, window: General, Familiar, Shortcuts, RAW, Archive, Google Photos, AI, Voice, Devices, Plugins, Updates.
 struct PreferencesView: View {
     @Bindable var settings: AppSettings
     let voice: VoiceController
     let remote: RemoteLinkModel
     var googlePhotos: (any GooglePhotosService)?
+    let updater: Updater
 
     var body: some View {
         TabView {
@@ -34,6 +35,8 @@ struct PreferencesView: View {
                 .tabItem { Label("Devices", systemImage: "ipad.landscape") }
             PluginsSettingsView(store: PluginStore.shared)
                 .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }
+            UpdateSettingsView(updater: updater)
+                .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
         }
         .frame(width: 560)
     }

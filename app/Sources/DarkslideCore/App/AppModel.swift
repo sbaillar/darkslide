@@ -331,6 +331,9 @@ public final class AppModel {
     @ObservationIgnored var recheckedOriginals: Set<PhotoID> = []
     @ObservationIgnored var recheckingOriginals = false
     @ObservationIgnored var toastTask: Task<Void, Never>?
+    /// Where the user was before an update restarted the app (`ResumeState`): `start()`
+    /// reopens that session and `open(_:)` focuses that photo, once.
+    @ObservationIgnored public var pendingResume: ResumeState?
 
     public init(sessions: any SessionStore, images: any ImageProvider, renderer: any Renderer,
                 importer: any ImportService, archive: any ArchiveService, ai: any AIService, settings: AppSettings,
@@ -400,7 +403,7 @@ public final class AppModel {
             // the recents instead (greyed out with why), and never an older session in
             // its place.
             // Nor one the user closed: the next launch opens none.
-            if currentSession == nil, !settings.sessionClosed, let last = sessionList.first {
+            if currentSession == nil, !settings.sessionClosed, let last = sessionToReopen() {
                 if let why = last.unavailable {
                     AppLog.session.notice("not reopening \(last.url.path, privacy: .private(mask: .hash)): \(why.label, privacy: .public)")
                 } else {
@@ -824,7 +827,7 @@ public final class AppModel {
                 return p
             })
             selection = []
-            focus(visibleIDs.first, extend: false)
+            focusAfterOpen(session) // the first photo, or the one an update's restart left
             await markDeviceEditsAdopted(session)
             await (sessions as? any CurrentSessionPointing)?.makeCurrent(session) // an older open's late load may have moved it
             await smartFolders.reload(store: sessions, session: session, photos: photos) // full count
