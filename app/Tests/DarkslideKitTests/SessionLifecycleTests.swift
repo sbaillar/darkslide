@@ -271,7 +271,7 @@ private actor CreateFailingStore: SessionCreating {
         m.setRating(4) // pending (debounced) writes
         m.updateEdits([first], label: "Exposure") { _, e in e.exposure.ev = 0.7 }
         m.viewer.state.comparePinned = first
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         // Flushed: the store has the rating and the edit.
         #expect(try await store.photos(in: session).allSatisfy { $0.rating == 4 })
         #expect(try await store.edit(for: first).exposure.ev == 0.7)
@@ -300,7 +300,7 @@ private actor CreateFailingStore: SessionCreating {
         #expect(m.performEmptyStateAction(.newSession) && m.sheet == .newSession)
         m.sheet = nil
         // Closing again does nothing.
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(await store.closed == [session.id])
         m.stop()
     }
@@ -313,7 +313,7 @@ private actor CreateFailingStore: SessionCreating {
         let first = try #require(m.focusedID)
         #expect(await waitUntil { m.viewer.frame != nil })
         m.setRating(5)
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(m.currentSession?.id == session.id, "nothing is dropped unsaved")
         #expect(m.focusedID == first && m.photos.count == 3)
         #expect(m.viewer.frame != nil, "the viewer is left as it was")
@@ -332,7 +332,7 @@ private actor CreateFailingStore: SessionCreating {
         await m.start()
         let cull = Task { await m.runAICull() }
         #expect(await waitUntil { m.cullProgress != nil && (m.cullProgress?.0 ?? 0) > 0 })
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         await cull.value
         #expect(m.cullProgress == nil)
         #expect(m.cullSuggestions.isEmpty, "a cull that finishes after the close is dropped")
@@ -345,7 +345,7 @@ private actor CreateFailingStore: SessionCreating {
         let m = makeModel(store: store)
         await m.start()
         let session = try #require(m.currentSession)
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         // Relaunch: no session opens on its own.
         let relaunched = AppModel(sessions: store, images: MockImageProvider(latency: .zero), renderer: FakeRenderer(),
                                   importer: MockImportService(bytesPerSecond: 1e12),
@@ -389,11 +389,11 @@ private actor CreateFailingStore: SessionCreating {
         // Asked first; Cancel keeps the session open.
         var asked: [SessionCloseAlert] = []
         m.confirmClose = { asked.append($0); return false }
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(asked.map(\.title) == ["The export is still running"])
         #expect(m.currentSession != nil && m.photos.count == 4, "cancelled: still open")
         m.confirmClose = { asked.append($0); return true }
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(asked.count == 2)
         #expect(m.currentSession == nil)
         #expect(m.toast?.message.contains("the export keeps running") == true)
@@ -426,7 +426,7 @@ private actor CreateFailingStore: SessionCreating {
         #expect(await waitUntil { im.phase == .importing })
         var asked: [SessionCloseAlert] = []
         m.confirmClose = { asked.append($0); return true }
-        await m.closeSession(imports: registry)
+        await m.closeSession(imports: registry, timeout: TestTiming.bound(.seconds(5)))
         #expect(asked.map(\.title) == ["The import is still running"])
         #expect(m.currentSession == nil)
         #expect(m.toast?.message.contains("the import keeps running") == true)
@@ -515,7 +515,7 @@ extension DenoiseGlobalStore {
             m.denoiser = dn
             for u in urls { dn.enqueue(u, background: true) }
             #expect(await waitUntil { if case .running = dn.states[urls[0]] { true } else { false } })
-            await m.closeSession(imports: ImportRegistry())
+            await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
             #expect(await waitUntil { urls.allSatisfy { dn.states[$0] == nil } }, "its denoise stopped")
             for u in urls { #expect(!(try await backend.isReady(u))) }
             m.stop()
@@ -575,7 +575,7 @@ private actor FileBackedStore: SessionCreating, SessionClosing {
         // The same name again is refused, and the folder left as it was.
         await #expect(throws: (any Error).self) { _ = try await store.createSession(named: "Studio Day") }
 
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(await !store.isOpen(s), "the Rust handle is released")
         #expect(m.currentSession == nil)
         #expect(FileManager.default.fileExists(atPath: lib.appendingPathComponent("Studio Day/.ds").path), "nothing deleted")
@@ -586,7 +586,7 @@ private actor FileBackedStore: SessionCreating, SessionClosing {
         #expect(m.currentSession?.id == s.id)
         #expect(await store.isOpen(s))
         // Closed again, then a new one in a chosen folder (its parents are made).
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         let elsewhere = root.appendingPathComponent("Elsewhere/Shoots")
         let shoot = try await m.createSession(named: "Shoot", in: elsewhere)
         #expect(m.currentSession?.id == shoot.id && !m.settings.sessionClosed)
@@ -623,7 +623,7 @@ private actor FileBackedStore: SessionCreating, SessionClosing {
         #expect(m.currentSession?.id == info.id && m.photos.count == 2)
         m.selectAll()
         m.setRating(3) // still pending when Close is chosen
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(await !store.isOpen(info))
         #expect(m.currentSession == nil && m.photos.isEmpty)
         // Flushed to the sidecars: a fresh store reads the ratings back.

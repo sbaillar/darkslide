@@ -195,7 +195,7 @@ private actor HungClose: SessionStore, SessionClosing {
         let other = try #require(m.sessionList.last)
         let clock = ContinuousClock()
         let start = clock.now
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(m.currentSession == nil && m.closing == nil)
         await m.open(other)
         #expect(m.currentSession?.id == other.id)
@@ -209,7 +209,7 @@ private actor HungClose: SessionStore, SessionClosing {
         m.openWaitLimit = .milliseconds(200)
         await m.start()
         let other = try #require(m.sessionList.last)
-        let close = Task { await m.closeSession(imports: ImportRegistry()) }
+        let close = Task { await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5))) }
         #expect(await waitUntil { m.currentSession == nil })
         let clock = ContinuousClock()
         let start = clock.now

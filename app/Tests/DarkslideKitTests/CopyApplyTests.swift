@@ -376,7 +376,7 @@ import Testing
     @Test func closingTheSessionClearsTheClipboard() async {
         let m = await loaded()
         m.perform(.copyAdjustments)
-        await m.closeSession()
+        await m.closeSession(timeout: TestTiming.bound(.seconds(5)))
         #expect(m.clipboard == nil && m.clipboardLayerIDs.isEmpty && !m.canApply)
     }
 
@@ -532,7 +532,7 @@ extension CropEdit {
         m.applyToSelection()
         let pending = m.pendingPaste
         #expect(pending != nil)
-        await m.closeSession()
+        await m.closeSession(timeout: TestTiming.bound(.seconds(5)))
         tools.release()
         #expect(await pending?.value == 0, "nothing pasted after the close")
         #expect(m.edits.isEmpty && m.developInfo.isEmpty, "nothing of the old session written back")

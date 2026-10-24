@@ -53,7 +53,7 @@ private actor LateClose: SessionStore, SessionClosing {
         m.closeTailLimit = .milliseconds(200) // stands in for 10 s
         m.openWaitLimit = .milliseconds(300) // stands in for 15 s
         await m.start()
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(m.currentSession == nil && m.closing == nil)
         await m.open(info) // picked again; it waits for its own release first
         #expect(m.currentSession?.id == info.id)
@@ -81,7 +81,7 @@ private actor LateClose: SessionStore, SessionClosing {
         let m = makeModel(store: LateClose(rust, closeDelay: .seconds(30)))
         m.closeTailLimit = .milliseconds(200)
         await m.start()
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         let clock = ContinuousClock()
         let start = clock.now
         await m.open(second)
@@ -103,7 +103,7 @@ private actor LateClose: SessionStore, SessionClosing {
         m.closeTailLimit = .milliseconds(200)
         m.openWaitLimit = .milliseconds(300)
         await m.start()
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         await m.importFinished(info)
         #expect(m.currentSession == nil && m.toast?.openSession?.id == info.id)
         await m.openToastSession()
@@ -111,7 +111,7 @@ private actor LateClose: SessionStore, SessionClosing {
         #expect(await rust.isOpen(info))
         // And when the user hadn't closed it (a plain import into it): the same wait.
         m.settings.sessionClosed = false
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         m.settings.sessionClosed = false
         await m.importFinished(info)
         #expect(m.currentSession?.id == info.id)
@@ -277,7 +277,7 @@ private actor DroppingStore: SessionStore {
         await store.setDrop(true)
         m.setRating(1)
         await m.saver.flush()
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(m.currentSession == nil)
         m.stop()
     }

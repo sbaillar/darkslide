@@ -137,7 +137,7 @@ private func stores(near folder: URL) -> URL {
         let info = try await rust.add(folder: folder)
         let m = makeModel(store: SlowRustStore(rust, saveDelay: .zero, closeDelay: .milliseconds(400)))
         await m.start()
-        let close = Task { await m.closeSession(imports: ImportRegistry()) }
+        let close = Task { await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5))) }
         #expect(await waitUntil { m.currentSession == nil })
         await m.open(info) // picked from the list again while the store is still closing it
         await close.value
@@ -194,10 +194,10 @@ private actor DelayStore: SessionStore, SessionClosing {
         await m.start()
         m.selectAll()
         m.setRating(2)
-        let first = Task { await m.closeSession(imports: ImportRegistry()) }
+        let first = Task { await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5))) }
         #expect(await waitUntil { !m.canCloseSession })
         #expect(!CommandCatalog.isEnabled(.closeSession, model: m), "⌥⌘W is off while closing")
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         await first.value
         #expect(await store.closed == 1)
         #expect(m.currentSession == nil)
@@ -216,7 +216,7 @@ private actor DelayStore: SessionStore, SessionClosing {
         #expect(m.sheet == .export)
         #expect(!m.beginOpen() && m.sheet == .export)
         #expect(CommandCatalog.perform(.openFolder, model: m) == .none, "no folder panel over the sheet either")
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         #expect(m.currentSession != nil && m.sheet == .export)
         m.sheet = nil
         #expect(CommandCatalog.isEnabled(.newSession, model: m) && CommandCatalog.isEnabled(.closeSession, model: m))
@@ -229,7 +229,7 @@ private actor DelayStore: SessionStore, SessionClosing {
         let m = makeModel()
         await m.start()
         let url = try #require(m.currentSession?.url)
-        await m.closeSession(imports: ImportRegistry())
+        await m.closeSession(imports: ImportRegistry(), timeout: TestTiming.bound(.seconds(5)))
         m.receive(OpenProgress(phase: .hashing, done: 1, total: 10), for: url)
         #expect(m.openProgress == nil)
         m.stop()
