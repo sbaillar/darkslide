@@ -739,7 +739,7 @@ dependencies = [
 
 [[package]]
 name = "ds-ai"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "bytemuck",
  "criterion",
@@ -757,7 +757,7 @@ dependencies = [
 
 [[package]]
 name = "ds-archive"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "chrono",
@@ -775,7 +775,7 @@ dependencies = [
 
 [[package]]
 name = "ds-c1"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "ds-core",
@@ -794,7 +794,7 @@ dependencies = [
 
 [[package]]
 name = "ds-cache"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "criterion",
@@ -807,7 +807,7 @@ dependencies = [
 
 [[package]]
 name = "ds-core"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "half",
  "proptest",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "ds-export"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "chrono",
  "criterion",
@@ -842,7 +842,7 @@ dependencies = [
 
 [[package]]
 name = "ds-ffi"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -885,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "ds-fsutil"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "rustix",
  "tempfile",
@@ -894,7 +894,7 @@ dependencies = [
 
 [[package]]
 name = "ds-gphotos"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "percent-encoding",
  "serde",
@@ -905,7 +905,7 @@ dependencies = [
 
 [[package]]
 name = "ds-import"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "chrono",
@@ -926,7 +926,7 @@ dependencies = [
 
 [[package]]
 name = "ds-lr"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "ds-core",
@@ -943,7 +943,7 @@ dependencies = [
 
 [[package]]
 name = "ds-merge"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "criterion",
  "ds-core",
@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "ds-pipeline"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -976,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "ds-plugin"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "ds-raw"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "criterion",
  "ds-core",
@@ -1018,7 +1018,7 @@ dependencies = [
 
 [[package]]
 name = "ds-rawler"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "ds-core",
  "ds-raw",
@@ -1028,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "ds-remote"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "ds-core",
@@ -1051,7 +1051,7 @@ dependencies = [
 
 [[package]]
 name = "ds-session"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "blake3",
  "criterion",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "ds-template"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "chrono",
  "thiserror",
@@ -1077,7 +1077,7 @@ dependencies = [
 
 [[package]]
 name = "ds-testdata"
-version = "0.1.20"
+version = "0.1.21"
 
 [[package]]
 name = "dunce"

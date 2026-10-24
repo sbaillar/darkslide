@@ -84,7 +84,19 @@ func makeModel(counts: [Int] = [40, 5], renderer: FakeRenderer = FakeRenderer(),
         ai: MockAIService(),
         settings: settings)
     model.watchCards = false
+    model.scaleTimeoutsForTests()
     return model
+}
+
+extension AppModel {
+    /// The app's wall-clock limits (a session switch's 30 s, an open's 15 s wait for a
+    /// close), stretched by `TestTiming.scale` like the tests' own bounds: on a loaded CI
+    /// runner a held load can pass the real 30 s and abandon the switch under test.
+    func scaleTimeoutsForTests() {
+        let switchLimit = TestTiming.bound(.seconds(30))
+        switchDeadline = { try? await Task.sleep(for: switchLimit) }
+        openWaitLimit = TestTiming.bound(openWaitLimit)
+    }
 }
 
 /// Poll until `condition` holds (async work hops through the main actor).

@@ -128,6 +128,7 @@ private func openA(ai: any AIService = MockAIService()) async -> (AppModel, TwoS
                                                  step: .milliseconds(1), isReachable: { _ in true }),
                      ai: ai, settings: settings)
     m.watchCards = false
+    m.scaleTimeoutsForTests()
     await m.start()
     await m.open(store.a)
     return (m, store)
