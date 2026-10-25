@@ -157,6 +157,8 @@ public final class AppSettings {
     public var copyright: String { didSet { defaults.set(copyright, forKey: Keys.copyright) } }
     /// [multiview] With several photos selected the viewer shows them all (on by default).
     public var showSelectionInViewer: Bool { didSet { defaults.set(showSelectionInViewer, forKey: Keys.showSelection) } }
+    /// Bursts show as collapsed stacks in the filmstrip and grid (the filmstrip's "Stack bursts"; on by default).
+    public var stackBursts: Bool { didSet { defaults.set(stackBursts, forKey: Keys.stackBursts) } }
 
     /// [multiview] The filmstrip's position and size in the window `window` (one row at the bottom until changed).
     public func filmstripLayout(window: String) -> FilmstripLayout { filmstripLayouts[window] ?? FilmstripLayout() }
@@ -239,6 +241,7 @@ public final class AppSettings {
         static let copyright = "exportCopyright"
         static let showSelection = "showSelectionInViewer"
         static let filmstripLayout = "filmstripLayout"
+        static let stackBursts = "stackBursts"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -300,6 +303,7 @@ public final class AppSettings {
         namePreset = defaults.string(forKey: Keys.namePreset).flatMap(NameSet.init(rawValue:))
         toolSidePreset = defaults.string(forKey: Keys.toolSide).flatMap(LayoutPreset.Side.init(rawValue:))
         showSelectionInViewer = defaults.object(forKey: Keys.showSelection) as? Bool ?? true
+        stackBursts = defaults.object(forKey: Keys.stackBursts) as? Bool ?? true
         let preset = defaults.string(forKey: Keys.keyPreset).flatMap(KeyPreset.init(rawValue:)) ?? .darkslide
         keyPreset = preset
         keyBindings = (defaults.dictionary(forKey: Keys.bindings) as? [String: String])

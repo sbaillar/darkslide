@@ -65,7 +65,9 @@ func makeSettings() -> AppSettings {
     let suite = testSuiteName()
     let d = UserDefaults(suiteName: suite)!
     d.removePersistentDomain(forName: suite)
-    return AppSettings(defaults: d)
+    let s = AppSettings(defaults: d)
+    s.stackBursts = false // tests walk every frame unless they turn stacking on
+    return s
 }
 
 @MainActor

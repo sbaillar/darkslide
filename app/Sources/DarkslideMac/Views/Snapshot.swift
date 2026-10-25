@@ -53,6 +53,7 @@ enum WindowSnapshot {
         survey(model) // [cul9] `--survey [n]`: N-up survey of the first n photos, one eliminated
         multiView(model) // [multiview] `--select n`, `--filmstrip-rows r`, `--filmstrip-position left|right`, `--filmstrip-cell h`
         customTools(model) // `--tools-custom`: a custom tab and the All Tools tab in the strip
+        burstStrip(model) // `--burst-strip`: stacking on, the biggest burst's strip open above the filmstrip
         // A running import keeps moving: capture it soon after it's part-way. [imp6]
         try? await Task.sleep(for: .seconds(CommandLine.arguments.contains("--import-card") ? 0.6 : 2.5))
         SnapshotWatchdog.step("capture")
@@ -88,6 +89,15 @@ enum WindowSnapshot {
         ToolWorkspaceCommands.revealAIChanges(model: model, layout: .shared)
         model.aiChangesShown = true
         print("snapshot: AI changes \(model.focusedAIChangeRows.map { "\($0.setting) \($0.detail)" })")
+    }
+
+    /// `--burst-strip`: bursts stacked, the biggest one's strip open above the filmstrip.
+    private static func burstStrip(_ model: AppModel) {
+        guard CommandLine.arguments.contains("--burst-strip") else { return }
+        model.setStackBursts(true)
+        guard let s = model.browserState.stacks.stacks.max(by: { $0.count < $1.count }) else { return }
+        model.focus(s.topID, extend: false)
+        model.toggleBurstStrip(for: s.topID)
     }
 
     /// [cul9] `--survey [n]`: select the first n visible photos (default 6, 4–6 shown

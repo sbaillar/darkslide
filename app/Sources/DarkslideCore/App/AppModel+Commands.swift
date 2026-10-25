@@ -54,6 +54,7 @@ extension AppModel {
             guard !task.isCancelled, isStill(in: session) else { return } // the session closed or changed meanwhile
             cullSuggestions = Dictionary(suggestions.map { ($0.photoID, $0) }, uniquingKeysWith: { a, _ in a })
             browserState.bestHints = Set(cullSuggestions.filter { $0.value.pick == .picked }.map(\.key))
+            browserState.aiScores = cullSuggestions.mapValues(\.score) // breaks ties for stack covers
             // Only photos the user hasn't decided on (no flag, rating or colour tag)
             // change, and the toast counts the changes actually made.
             let plan = AICullApplication.plan(targets.compactMap { photo($0.id) }, suggestions: cullSuggestions)
@@ -95,6 +96,9 @@ extension AppModel {
         }
         // Survey mode owns X, U, the arrows, ⏎ and Esc while it is up.
         if survey.isActive, isMainWindow, focus != .text, !(sheetOpen || sheet != nil), handleSurveyKey(key) { return true }
+        // The burst strip owns ←/→, ⏎ and Esc while it is open.
+        if isMainWindow, focus != .text, !(sheetOpen || sheet != nil),
+           focus != .control || key.special == .escape, handleBurstStripKey(key) { return true }
         // The crop/straighten tools own ⏎ (commit), Esc (cancel) and X (swap).
         if isMainWindow, focus != .text, !(sheetOpen || sheet != nil),
            focus != .control || key.special == .escape, viewer.handleToolKey(key) { return true }
@@ -123,9 +127,9 @@ extension AppModel {
         case .toggleStack:
             // First S turns burst stacking on (all collapsed); then S toggles the focused stack.
             if !browserState.stackBursts {
-                browserState.stackBursts = true
-                browserState.refresh(photos: photos)
+                setStackBursts(true)
             } else if let f = focusedID {
+                browserState.picker.close() // an expanded burst shows its frames in the filmstrip
                 browserState.stacks.toggleStack(of: f)
             }
             refocusIntoNavigation()

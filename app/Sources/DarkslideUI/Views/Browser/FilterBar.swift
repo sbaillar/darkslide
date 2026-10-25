@@ -21,6 +21,10 @@ struct FilterBar: View {
             // [multiview] First, so a narrow column beside the viewer still shows it.
             if compact && model.browserMode == .filmstrip {
                 FilmstripSizeSlider(model: model)
+                Toggle("Stack bursts", isOn: Binding(get: { model.browserState.stackBursts }, set: { model.setStackBursts($0) }))
+                    .toggleStyle(.checkbox)
+                    .fixedSize()
+                    .help("Show each burst as one stack; click a stack's badge to see its frames and choose its cover")
                 Divider().frame(height: 14)
             }
             stars

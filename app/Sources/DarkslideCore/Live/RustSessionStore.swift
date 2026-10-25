@@ -1184,3 +1184,21 @@ extension RustSessionStore: LinkSessionProviding {
         remoteMarkSeen(handle: h, generation: generation)
     }
 }
+
+// MARK: - Stack covers (`.ds/settings/stacks.json` in the session's store)
+
+extension RustSessionStore: StackCoverStoring {
+    public func storedStackCovers(in session: SessionInfo) async throws -> [StackCover] {
+        try StackCoverFile.read(try stackCoverURL(session))
+    }
+
+    public func storeStackCovers(_ covers: [StackCover], in session: SessionInfo) async throws {
+        try StackCoverFile.write(covers, to: try stackCoverURL(session))
+    }
+
+    /// In the open session's store only: a late save never reopens a session that closed.
+    private func stackCoverURL(_ session: SessionInfo) throws -> URL {
+        guard let h = handles[session.id] else { throw MockError.notFound("session \(session.name)") }
+        return StackCoverFile.url(inStore: URL(fileURLWithPath: try h.root(), isDirectory: true))
+    }
+}

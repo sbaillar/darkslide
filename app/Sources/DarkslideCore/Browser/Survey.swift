@@ -165,10 +165,13 @@ extension AppModel {
 
     /// Enter survey mode (selection or burst). Says why when there's nothing to compare.
     public func beginSurvey() {
+        let burst = visibleIDs.filter(selection.contains).count < 2
         guard survey.begin(surveyCandidates) else {
             show(Toast("Select two or more photos (or a burst) to survey", symbol: "square.grid.2x2"))
             return
         }
+        // A burst is surveyed from its chosen cover.
+        if burst, let f = focusedID, let d = coverDecision(of: f), d.source == .user { survey.focus(d.cover) }
         if let f = survey.focused { focus(f, extend: false) }
     }
 

@@ -204,7 +204,10 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
   <li><b>Multi-view:</b> select several photos (<kbd>⌘</kbd>-click or <kbd>⇧</kbd>-click in the filmstrip) and the viewer shows them all, as large as they fit: two side by side, four as 2×2, up to twelve. The focused photo is outlined, and it is the one you zoom and edit. Turn this off with <span class="menu">View ▸ Show Selection in Viewer</span>.</li>
   <li><b>Survey</b> (<kbd>N</kbd> or <kbd>⌥⌘S</kbd>): the selected photos side by side. Press <kbd>X</kbd> to take the weakest out until only the keepers are left.</li>
   <li><b>Before / after</b> (<kbd>Y</kbd>) splits the viewer between the original and your edit. <b>Pin for compare</b> (<kbd>K</kbd>) keeps a photo on screen while you move through the others.</li>
-  <li><b>Stacks:</b> bursts are stacked; <kbd>S</kbd> expands or collapses a stack.</li>
+  <li><b>Stacks:</b> with <b>Stack bursts</b> ticked (beside the filmstrip's thumbnail size, or <span class="menu">View ▸ Stack Bursts</span>; on by default), each burst shows as one stack in the filmstrip and the grid, and the arrow keys step over it. Untick it to see and walk every frame. <kbd>S</kbd> expands or collapses the focused stack.</li>
+  <li><b>Which frame is a stack's cover:</b> the frame with the highest star rating, so rating a frame above the cover makes it the cover at once. Rejected frames are never the cover (unless every frame is rejected). When several frames share the top rating, the one you chose wins; if you haven't chosen, the AI's pick from the last AI Cull (then its quality score) decides; otherwise the earliest frame. With nothing rated, every frame ties.</li>
+  <li><b>The burst strip:</b> click a stack (or its badge) in the filmstrip and its frames open in a strip just above the filmstrip, highest rated first, each with its stars. Click a frame, or use <kbd>←</kbd> <kbd>→</kbd>, to see it in the viewer; rating and flag keys still apply to it. The cover is marked: <b>Your pick</b> or <b>AI pick</b> when it broke a tie, so you can see whose choice it was and change it. <b>Use as Cover</b> (the button, a frame's context menu, or <kbd>↩</kbd>) is offered on the frames tied for the top rating; on the others the strip says what it takes (for example “Rate it ★★★ or higher to make it the cover”). <kbd>Esc</kbd>, a click outside or the badge again closes the strip.</li>
+  <li><b>Your choice is kept:</b> it is saved with the session, so it is the same on every Mac that opens it. If a frame is later rated higher, that frame becomes the cover, but your choice is remembered and comes back when the ratings tie again. If the burst changes (an import or a delete), the choice stays while its frame is still in the burst. Survey starts on your chosen cover too.</li>
 </ul>
 
 <figure>
@@ -594,6 +597,7 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
     <tr><td class="keys"><kbd>Y</kbd></td><td>Before / after</td></tr>
     <tr><td class="keys"><kbd>K</kbd></td><td>Pin for compare</td></tr>
     <tr><td class="keys"><kbd>S</kbd></td><td>Expand / collapse stack</td></tr>
+    <tr><td class="keys"><kbd>←</kbd> <kbd>→</kbd> / <kbd>↩</kbd> / <kbd>Esc</kbd></td><td>In the burst strip: previous / next frame, use as the stack's cover, close</td></tr>
     <tr><td class="keys"><kbd>N</kbd> or <kbd>⌥⌘S</kbd></td><td>Survey the selection</td></tr>
     <tr><td class="keys"><kbd>J</kbd> or <kbd>⌥⌘J</kbd></td><td>Clipping warning</td></tr>
     <tr><td class="keys"><kbd>⌥⌘P</kbd></td><td>Focus peaking</td></tr>

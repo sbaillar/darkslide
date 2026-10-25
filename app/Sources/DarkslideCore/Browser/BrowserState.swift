@@ -7,16 +7,34 @@ import Observation
 @MainActor @Observable
 public final class BrowserState {
     public let stacks = StackState()
+    /// The burst strip above the filmstrip.
+    public let picker = BurstPicker()
     /// How bursts are found: ds-ai grouping in live mode, capture time in demo.
     @ObservationIgnored public let grouping: any StackGrouping
     /// Preferred stack tops (ds-ai's best frames from the last AI Cull).
     @ObservationIgnored public var bestHints: Set<PhotoID> = [] {
         didSet { if bestHints != oldValue { builtFrom = []; builtVersion = nil } }
     }
-    /// Show bursts as collapsed stacks.
-    public var stackBursts = false {
-        didSet { stackBursts ? stacks.collapseAll() : stacks.expandAll() }
+    /// The last AI Cull's quality scores: among frames tied for a stack's top rating, the
+    /// AI prefers its picks, then the higher score.
+    @ObservationIgnored public var aiScores: [PhotoID: Double] = [:] {
+        didSet { if aiScores != oldValue { builtFrom = []; builtVersion = nil } }
     }
+    /// Show bursts as collapsed stacks (`AppSettings.stackBursts` for a model's state).
+    /// Off: every frame is shown and walked.
+    public var stackBursts = false {
+        didSet {
+            stackBursts ? stacks.collapseAll() : stacks.expandAll()
+            if !stackBursts { picker.close() }
+            if stackBursts != oldValue { onStackBurstsChange?(stackBursts) }
+        }
+    }
+    /// Told when `stackBursts` changes (the model saves it in its settings).
+    @ObservationIgnored var onStackBurstsChange: ((Bool) -> Void)?
+    /// The session's chosen stack covers (`StackCover`).
+    @ObservationIgnored public private(set) var covers: [StackCover] = []
+    /// The last cover save, so saves land in order.
+    @ObservationIgnored var coverSave: Task<Void, Never>?
     /// Signature of the photo list the stacks were built from.
     @ObservationIgnored private var builtFrom: [PhotoID] = []
     @ObservationIgnored private var builtVersion: Int?
@@ -31,10 +49,29 @@ public final class BrowserState {
     /// when the new list has the same ids in the same order.
     public func reset() {
         bestHints = []
+        aiScores = [:]
+        covers = []
         builtFrom = []
         builtVersion = nil
+        picker.close()
         stacks.expandAll()
         stacks.update(photos: [], grouping: grouping, best: [])
+    }
+
+    /// The covers stored with the session just opened.
+    public func load(covers: [StackCover]) {
+        self.covers = covers
+        stacks.apply(covers: covers)
+    }
+
+    /// Choose `cover` for the stack it belongs to. Returns every cover to save, or nil
+    /// when `cover` isn't in a stack.
+    @discardableResult
+    public func chooseCover(_ cover: PhotoID) -> [StackCover]? {
+        guard let s = stacks.stack(of: cover) else { return nil }
+        covers = StackCovers.choosing(cover, members: s.memberIDs, in: covers)
+        stacks.apply(covers: covers)
+        return covers
     }
 
     /// Rebuild stacks when the photo list changed (ids or order). O(n); call on
@@ -60,8 +97,9 @@ public final class BrowserState {
     private func rebuild(_ photos: [Photo], ids: [PhotoID]) {
         builtFrom = ids
         rebuilds += 1
-        stacks.update(photos: photos, grouping: grouping, best: bestHints)
+        stacks.update(photos: photos, grouping: grouping, best: bestHints, scores: aiScores, covers: covers)
         if stackBursts { stacks.collapseAll() }
+        picker.sync(picker.current.flatMap(stacks.stack(of:)) ?? picker.frames.lazy.compactMap(stacks.stack(of:)).first)
     }
 
     /// Ids to lay out, with collapsed stacks folded to one cell.
@@ -83,6 +121,9 @@ enum BrowserStateRegistry {
         if let s = table.object(forKey: model) { return s }
         // Live: ds-ai burst grouping (shot numbers resolve whole-second stamps).
         let s = BrowserState(grouping: model.mode == .live ? BurstGrouping() : CaptureTimeGrouping())
+        s.stackBursts = model.settings.stackBursts
+        let settings = model.settings
+        s.onStackBurstsChange = { [weak settings] in settings?.stackBursts = $0 }
         table.setObject(s, forKey: model)
         return s
     }

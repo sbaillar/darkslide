@@ -347,6 +347,8 @@ struct AppCommands: Commands {
                    isOn: Binding(get: { model.settings.showSelectionInViewer }, set: { model.settings.showSelectionInViewer = $0 }))
             Menu("Filmstrip") { FilmstripPositionMenu(model: model) }
             ForEach(CommandCatalog.filmstripSizeMenu) { item($0) } // [multiview] ⌃⌘= / ⌃⌘-
+            // The filmstrip's "Stack bursts" checkbox (S expands or collapses one burst).
+            Toggle("Stack Bursts", isOn: Binding(get: { model.browserState.stackBursts }, set: { model.setStackBursts($0) }))
             Divider()
             item(.zoomIn)
             item(.zoomOut)

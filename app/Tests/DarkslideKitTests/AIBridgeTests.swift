@@ -193,11 +193,16 @@ private let hardReason = ReasonRecord(kind: "out_of_focus", text: "out of focus"
     }
 
     @Test func stateUsesGroupingAndBestHints() {
-        let ps = burstPhotos()
+        var ps = burstPhotos()
+        for i in ps.indices { ps[i].rating = 0; ps[i].pick = .none } // tied: the AI decides
         let s = StackState()
         s.update(photos: ps, grouping: BurstGrouping(), best: [ps[2].id])
         #expect(s.stacks.map(\.memberIDs) == [[ps[0].id, ps[1].id, ps[2].id], [ps[3].id, ps[4].id]])
         #expect(s.stacks[0].topID == ps[2].id, "ds-ai's best frame is on top")
+        var rated = ps
+        rated[0].rating = 2
+        s.update(photos: rated, grouping: BurstGrouping(), best: [ps[2].id])
+        #expect(s.stacks[0].topID == ps[0].id, "a higher rating beats ds-ai's pick")
         var rejected = ps
         rejected[2].pick = .rejected
         s.update(photos: rejected, grouping: BurstGrouping(), best: [ps[2].id])

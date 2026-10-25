@@ -40,7 +40,7 @@ Darkslide detects memory cards, copies in parallel and verifies each file's chec
 - Grid, viewer, filmstrip and full-screen views. Space jumps to 100% at the cursor.
 - Ratings (`1`–`5`), colour labels (`6`–`9`, `-`) and pick / reject flags (`P` / `X`), all on single keys you can rebind.
 - **Multi-view:** select several photos and the viewer shows them all, the focused one outlined.
-- **Survey** (`N` or ⌥⌘S) for side-by-side picks, before/after (`Y`), pin-to-compare (`K`) and burst stacks.
+- **Survey** (`N` or ⌥⌘S) for side-by-side picks, before/after (`Y`), pin-to-compare (`K`) and burst stacks (the highest-rated frame is the cover; ties go to your pick, saved with the session, or the AI's).
 - **AI Cull** (⇧⌘K) scores sharpness, exposure and eyes on device and groups near-duplicates.
 - **Voice culling** (⌃⌘V): say "pick", "reject", "three stars" or "next 3"; speech is recognised on device.
 - Finish a cull in one step: rejects go to the session Trash and picks to Selects, both undoable.

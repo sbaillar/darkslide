@@ -46,6 +46,7 @@ struct MainWindow: View {
                         // filter bar and the status bar.
                         let viewer = ViewerArea(model: model)
                             .overlay(alignment: .top) { if !model.viewer.state.fullScreen { StageBar(model: model) } }
+                            .overlay { if showStrip && lines > 0 { BurstStrip(model: model) } } // a burst's frames, above the strip
                             .overlay(alignment: .bottom) { ToastOverlay(toast: model.toast, solid: model.snapshotMode) { Task { await model.openToastSession() } } }
                         switch place {
                         case .bottom:

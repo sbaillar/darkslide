@@ -71,9 +71,11 @@ extension AppModel {
     }
 
     /// With stacks on, keep focus on something the browser shows (after a collapse
-    /// or when a collapsed stack's top frame changed).
+    /// or when a collapsed stack's top frame changed). A frame shown from the burst
+    /// strip stays focused: rating it never jumps to the stack's cover.
     func refocusIntoNavigation() {
         guard browserState.stackBursts, let f = focusedID else { return }
+        if browserState.picker.isOpen, browserState.picker.frames.contains(f) { return }
         let nav = navigationIDs
         guard !nav.contains(f), let i = navIndex(of: f, in: nav) else { return }
         focus(nav[i], extend: false)

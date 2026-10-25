@@ -212,7 +212,14 @@ public final class AppModel {
     public internal(set) var focusedID: PhotoID? {
         // The AI Optimize panel belongs to the photo it opened on: moving on (or to
         // another session) closes it, so Apply never lands on a photo not on screen.
-        didSet { if focusedID != oldValue, optimizePanel != nil { endOptimize() } }
+        didSet {
+            if focusedID != oldValue, optimizePanel != nil { endOptimize() }
+            // The burst strip follows focus within its burst and closes when focus leaves it.
+            let picker = browserState.picker
+            if focusedID != oldValue, picker.isOpen {
+                if let f = focusedID, picker.frames.contains(f) { picker.select(f) } else { picker.close() }
+            }
+        }
     }
     /// Selection anchor for shift-extend.
     @ObservationIgnored var anchorID: PhotoID?
@@ -812,6 +819,13 @@ public final class AppModel {
             async let p = sessions.photos(in: session)
             async let a = sessions.albums(in: session)
             let (loaded, albums) = try await (p, a)
+            let covers: [StackCover]
+            do { // after the photos: the store has the session open by then
+                covers = try await sessions.stackCovers(in: session)
+            } catch { // unreadable stacks.json: stacks show their usual tops
+                AppLog.session.error("stack covers unreadable: \(error.localizedDescription, privacy: .private(mask: .hash))")
+                covers = []
+            }
             let stored = try await sessions.edits(in: session)
             guard token == openToken else {
                 // Loading pointed the store at this session: back to the one shown (or,
@@ -839,6 +853,7 @@ public final class AppModel {
             archiveSessionChanged(from: previous, to: session)
             immich.sessionOpened()
             self.albums = albums
+            browserState.load(covers: covers)
             // Edits come back from the store (sidecars in live mode).
             edits = stored.filter { !$0.value.isDefault }
             history = EditHistory()
@@ -931,6 +946,7 @@ public final class AppModel {
         depthVersions = [:]
         cullSuggestions = [:]
         browserState.bestHints = []
+        browserState.aiScores = [:]
     }
 
     /// Back to "no session": nothing listed, focused or selected; the

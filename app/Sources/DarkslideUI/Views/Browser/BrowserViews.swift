@@ -106,7 +106,7 @@ struct ThumbnailCell: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(PhotoAccessibility.label(photo, stackCount: stackCount))
         .accessibilityAddTraits(PhotoAccessibility.isSelected(isSelected, isFocused) ? [.isButton, .isSelected] : .isButton)
-        .accessibilityAction(named: "Expand or collapse stack") { onToggleStack?() }
+        .accessibilityAction(named: style == .filmstrip ? "Show burst frames" : "Expand or collapse stack") { onToggleStack?() }
         .modifier(AdjustableRating(rating: photo.rating, onRate: onRate))
         .onAppear { loader.prime(photo, bucket: bucket) }
         // Keyed on photo + bucket only: rating/tag/pick changes never reload the image.
@@ -190,7 +190,8 @@ struct ThumbnailCell: View {
                         .foregroundStyle(.black)
                     }
                     .buttonStyle(.plain)
-                    .help("Burst of \(stackCount). Click to expand (S)")
+                    .help(style == .filmstrip ? "Burst of \(stackCount). Click to see its frames and choose its cover"
+                          : "Burst of \(stackCount). Click to expand (S)")
                 }
                 if photo.colorTag != .none {
                     TagChip(tag: photo.colorTag)
@@ -356,6 +357,8 @@ package struct Filmstrip: View {
     var position = FilmstripPosition.bottom
     /// The grid's cell height (the layout's size, fitted to the window).
     var cell = FilmstripSizing.defaultCellHeight
+    /// Where the collapsed stacks' cells are, for the burst strip to fan out from.
+    @State private var anchors = StackAnchors()
 
     package init(model: AppModel, lines: Int = 1, position: FilmstripPosition = .bottom,
                  cell: CGFloat = FilmstripSizing.defaultCellHeight) {
@@ -434,18 +437,51 @@ package struct Filmstrip: View {
     @ViewBuilder private func cellView(_ id: PhotoID, size: CGSize) -> some View {
         let browser = model.browserState
         if let item = model.item(id) {
+            let badge = browser.stacks.badgeCount(for: id)
+            // A collapsed burst whose strip is open stays highlighted while its frames are shown.
+            let stripHere = badge != nil && browser.picker.stackID != nil && browser.stacks.stack(of: id)?.id == browser.picker.stackID
             ThumbnailCell(item: item, size: size, style: .filmstrip,
-                          isSelected: model.selection.contains(id), isFocused: model.focusedID == id,
-                          cache: model.thumbnails, stackCount: browser.stacks.badgeCount(for: id),
-                          onToggleStack: { browser.stacks.toggleStack(of: id) })
+                          isSelected: model.selection.contains(id), isFocused: model.focusedID == id || stripHere,
+                          cache: model.thumbnails, stackCount: badge,
+                          onToggleStack: { model.toggleBurstStrip(for: id, anchor: anchors.frames[id]) })
                 .id(id)
-                .onTapGesture { BrowserClick.handle(id, model: model) }
+                .modifier(StackAnchorReporter(id: id, anchors: anchors, enabled: badge != nil))
+                .onTapGesture {
+                    BrowserClick.handle(id, model: model)
+                    if badge != nil, !PlatformInput.commandDown, !PlatformInput.shiftDown {
+                        model.openBurstStrip(for: id, anchor: anchors.frames[id])
+                    }
+                }
                 .contextMenu {
                     CullContextMenu(model: model)
+                    if model.canUseAsCover(id) {
+                        Button("Use as Stack Cover", systemImage: "checkmark.seal") { model.useAsCover(id) }
+                    }
                     Divider()
                     Menu("Filmstrip") { FilmstripPositionMenu(model: model) } // [multiview]
                 }
                 .modifier(MapDragSource(model: model, id: id)) // [map] geotag by dropping on the map
+        }
+    }
+}
+
+/// Window frames of the filmstrip's collapsed-stack cells. A plain box: recording a
+/// frame while scrolling never re-renders the strip.
+final class StackAnchors {
+    var frames: [PhotoID: CGRect] = [:]
+}
+
+/// Records a collapsed stack cell's frame (window coordinates) in `anchors`.
+private struct StackAnchorReporter: ViewModifier {
+    let id: PhotoID
+    let anchors: StackAnchors
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { anchors.frames[id] = $0 })
+        } else {
+            content
         }
     }
 }
@@ -646,7 +682,7 @@ struct GridHeader: View {
         HStack(spacing: DS.Space.m) {
             Text(model.currentSession?.name ?? "Library").font(.system(size: 13, weight: .semibold))
             Spacer()
-            Toggle(isOn: Binding(get: { browser.stackBursts }, set: { browser.stackBursts = $0 })) {
+            Toggle(isOn: Binding(get: { browser.stackBursts }, set: { model.setStackBursts($0) })) {
                 Label("Stack Bursts", systemImage: "square.stack.3d.up")
             }
             .toggleStyle(.button)
