@@ -120,14 +120,34 @@ public protocol GooglePhotosService: Sendable {
     func revoke(refreshToken: String) async
 }
 
+/// What reading a Keychain item found.
+public enum KeychainLookup: Equatable, Sendable {
+    case found(String)
+    /// There is no such item.
+    case notFound
+    /// The Keychain couldn't be read (locked, access denied, damaged): ask again later.
+    case failed
+
+    public var value: String? {
+        if case .found(let s) = self { return s }
+        return nil
+    }
+}
+
 /// One generic-password Keychain item (a dictionary in tests).
 public struct KeychainItem: Sendable {
     public var read: @Sendable () -> String?
+    /// Whether the value was written, or (nil or "") the item is gone.
     public var write: @Sendable (String?) -> Bool
+    /// `read`, telling a missing item from a Keychain that couldn't be read.
+    public var lookup: @Sendable () -> KeychainLookup
 
-    public init(read: @escaping @Sendable () -> String?, write: @escaping @Sendable (String?) -> Bool) {
+    /// Without `lookup`, a nil `read` counts as "no such item".
+    public init(read: @escaping @Sendable () -> String?, write: @escaping @Sendable (String?) -> Bool,
+                lookup: (@Sendable () -> KeychainLookup)? = nil) {
         self.read = read
         self.write = write
+        self.lookup = lookup ?? { read().map(KeychainLookup.found) ?? .notFound }
     }
 
     /// The login Keychain item `service`/`account`; writing nil or "" deletes it. Written
@@ -135,26 +155,70 @@ public struct KeychainItem: Sendable {
     /// (like `JevSettings.KeyStore`). Not the data-protection keychain: that needs a
     /// provisioning-profile entitlement the ad-hoc and self-signed builds don't have. Reads
     /// match regardless of the attribute, so an item written before it is still found and
-    /// gets it the next time it is written.
+    /// gets it the next time it is written. In a test run the item is kept in memory
+    /// instead (`inTestProcess`), so no test reads or replaces the user's own keys.
     public static func keychain(service: String, account: String) -> KeychainItem {
+        if inTestProcess { return TestKeychain.item(service: service, account: account) }
         @Sendable func query() -> [String: Any] {
             [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
              kSecAttrAccount as String: account]
         }
-        return KeychainItem(read: {
+        let lookup: @Sendable () -> KeychainLookup = {
             var find = query()
             find[kSecReturnData as String] = true
             find[kSecMatchLimit as String] = kSecMatchLimitOne
             var out: CFTypeRef?
-            guard SecItemCopyMatching(find as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
-            return String(data: d, encoding: .utf8)
-        }, write: { value in
-            SecItemDelete(query() as CFDictionary)
-            guard let value, !value.isEmpty else { return true }
+            let status = SecItemCopyMatching(find as CFDictionary, &out)
+            return Self.lookup(status: status, data: out as? Data)
+        }
+        return KeychainItem(read: { lookup().value }, write: { value in
+            let deleted = SecItemDelete(query() as CFDictionary)
+            guard let value, !value.isEmpty else { return Self.removed(deleted) }
             var add = query()
             add[kSecValueData as String] = Data(value.utf8)
             add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+        }, lookup: lookup)
+    }
+
+    /// What `SecItemCopyMatching`'s `status` (and `data`) say about the item.
+    static func lookup(status: OSStatus, data: Data?) -> KeychainLookup {
+        switch status {
+        case errSecSuccess: data.flatMap { String(data: $0, encoding: .utf8) }.map(KeychainLookup.found) ?? .failed
+        case errSecItemNotFound: .notFound
+        default: .failed
+        }
+    }
+
+    /// Whether `SecItemDelete`'s `status` leaves no item (one that wasn't there counts).
+    static func removed(_ status: OSStatus) -> Bool {
+        status == errSecSuccess || status == errSecItemNotFound
+    }
+
+    /// A test run: `swift test` hands the `.xctest` bundle to its runner by path. Debug
+    /// builds only; a release build always uses the Keychain.
+    static let inTestProcess: Bool = {
+        #if DEBUG
+        let p = ProcessInfo.processInfo
+        return p.environment["XCTestConfigurationFilePath"] != nil || p.environment["XCTestBundlePath"] != nil
+            || p.arguments.contains { $0.hasSuffix(".xctest") || $0.contains(".xctest/") }
+        #else
+        return false
+        #endif
+    }()
+}
+
+/// The Keychain of a test run: items by service and account, in memory, shared by
+/// every `KeychainItem.keychain` item of the process as the real Keychain would be.
+enum TestKeychain {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var items: [String: String] = [:]
+
+    static func item(service: String, account: String) -> KeychainItem {
+        let key = "\(service)\u{0}\(account)"
+        return KeychainItem(read: { lock.withLock { items[key] } }, write: { value in
+            lock.withLock { items[key] = value.flatMap { $0.isEmpty ? nil : $0 } }
+            return true
         })
     }
 }

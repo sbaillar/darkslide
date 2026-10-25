@@ -12,6 +12,8 @@ import Metal
 /// 6. The frame uploads to a Metal texture and the runtime-compiled viewer
 ///    shader draws it; the read-back pixel matches the source.
 /// 7. Swift's copy/apply group table matches Rust's.
+/// 8. Every bundled plug-in loads from the app's Plugins folder (its files are this
+///    build's), with the four optional integrations among them.
 public enum SelfTest {
     public struct Check: Sendable {
         public let name: String
@@ -106,7 +108,21 @@ public enum SelfTest {
         let rust = RustCore.groups
         let matches = rust.map(\.0) == AdjustGroup.allCases && rust.allSatisfy { $0.0.supportsRelative == $0.1 }
         check("adjust groups", matches, "\(rust.count) groups agree with ds-core")
+        let plugins = bundledPlugins(AppPaths.builtInPlugins)
+        check("bundled plug-ins", plugins.ok, plugins.detail)
         return checks
+    }
+
+    /// The bundled plug-ins in `dir` load as this build's, and declare every integration.
+    static func bundledPlugins(_ dir: URL?) -> (ok: Bool, detail: String) {
+        guard let dir else { return (false, "no Plugins folder in the app") }
+        let r = checkBundledPlugins(builtinDir: dir.path)
+        let missing = NativeFeature.allCases.filter { !r.features.contains($0.rawValue) }.map(\.rawValue)
+        let ok = r.problems.isEmpty && missing.isEmpty && !r.loaded.isEmpty
+        var detail = "\(r.loaded.count) loaded (\(r.loaded.joined(separator: ", ")))"
+        if !r.problems.isEmpty { detail += "; refused: " + r.problems.joined(separator: "; ") }
+        if !missing.isEmpty { detail += "; missing: " + missing.joined(separator: ", ") }
+        return (ok, detail)
     }
 
     struct CancelMeasurement {

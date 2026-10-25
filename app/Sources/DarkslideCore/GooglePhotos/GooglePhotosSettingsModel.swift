@@ -75,8 +75,11 @@ public final class GooglePhotosSettingsModel {
     /// any, signs in again.
     public func removeClient() {
         guard !isSignedIn else { return }
+        guard settings.clientSecretItem.write(nil) else {
+            message = "Your client secret couldn't be removed from your Keychain."
+            return
+        }
         settings.clientIDOverride = ""
-        _ = settings.clientSecretItem.write(nil)
         ownClientID = ""
         clientID = settings.clientID
         clientIDEntry = ""
@@ -108,9 +111,9 @@ public final class GooglePhotosSettingsModel {
         busy = true
         defer { busy = false }
         if let token = settings.refreshToken { await service.revoke(refreshToken: token) }
-        _ = settings.refreshTokenItem.write(nil)
+        let removed = settings.refreshTokenItem.write(nil)
         isSignedIn = settings.isSignedIn
-        message = "Signed out."
+        message = removed ? "Signed out." : "The sign-in couldn't be removed from your Keychain."
     }
 
     /// The account state in words.

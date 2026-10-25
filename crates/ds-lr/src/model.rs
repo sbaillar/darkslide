@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use ds_core::{ColorTag, PickState, Rating};
+use ds_core::{ColorTag, GeoPoint, PickState, Rating};
 
 /// One develop-settings value. Catalogs hold them as Lua values, XMP as
 /// attribute text or `rdf:Seq` lists; both are read into this.
@@ -196,6 +196,11 @@ pub struct LrPhoto {
     pub title: Option<String>,
     pub caption: Option<String>,
     pub copyright: Option<String>,
+    /// Where the photo was taken (imported with the metadata, master photos only).
+    pub geotag: Option<GeoPoint>,
+    /// The folder to offer as a session when the photo isn't in this one (its
+    /// own folder when `None`): a photo library's whole `Masters` folder, say.
+    pub folder: Option<PathBuf>,
     pub develop: Option<Develop>,
 }
 
@@ -211,6 +216,9 @@ pub struct LrCollection {
     pub smart: bool,
     /// Members as photo keys, in the collection's order.
     pub members: Vec<String>,
+    /// Why it can't be imported, when it is a kind of collection Darkslide
+    /// has no album for (a book or a slideshow, say).
+    pub unsupported: Option<String>,
 }
 
 impl LrCollection {

@@ -27,6 +27,7 @@ fn recipe(name: &str, format: ExportFileFormat, dest: &Path) -> ExportRecipeSpec
         ai_upscale: false,
         watermark: None,
         post_process: vec![],
+        label_tags: true,
     }
 }
 
@@ -41,6 +42,9 @@ fn source(id: u64, path: &Path) -> ExportSource {
         adjustments_json: None,
         keywords: Vec::new(),
         metadata: None,
+        rating: None,
+        label: None,
+        pick: None,
     }
 }
 
@@ -60,6 +64,7 @@ struct FakeEncoder(
     Mutex<Vec<Call>>,
     Mutex<Vec<Vec<String>>>,
     Mutex<Vec<PhotoMetadata>>,
+    Mutex<Vec<Option<Vec<u8>>>>,
 );
 
 impl ImageEncoder for FakeEncoder {
@@ -74,10 +79,12 @@ impl ImageEncoder for FakeEncoder {
         exif: Option<Vec<u8>>,
         keywords: Vec<String>,
         metadata: PhotoMetadata,
+        xmp: Option<Vec<u8>>,
     ) -> Result<Vec<u8>, DsError> {
         assert_ne!(icc.len(), 0);
         self.1.lock().unwrap().push(keywords);
         self.2.lock().unwrap().push(metadata);
+        self.3.lock().unwrap().push(xmp);
         if quality == 13 {
             return Err(DsError::Io {
                 message: "encoder refused".into(),
@@ -2239,6 +2246,71 @@ fn keywords_are_exported_with_the_metadata() {
         (m[0].title.as_str(), m[0].creator.as_str()),
         ("Morning Surf", "Kai")
     );
+    let xmp = enc.3.lock().unwrap();
+    let packet = String::from_utf8(xmp[0].clone().unwrap()).unwrap();
+    assert!(packet.contains("<rdf:li>beach</rdf:li>"), "{packet}");
+}
+
+/// The rating, colour label and pick reach the file as `xmp:Rating` and
+/// `Darkslide/…` tags (and the app's encoder as an XMP packet); a recipe with
+/// `label_tags` off keeps the rating but leaves the tags out.
+#[test]
+fn rating_label_and_pick_are_exported() {
+    let t = tempfile::tempdir().unwrap();
+    let jpg = jpeg_original(t.path(), "R.JPG", 32, 16, false);
+    let out = t.path().join("Out");
+    let mut tags = recipe("tags", ExportFileFormat::Jpeg { quality: 90 }, &out);
+    tags.file_name_template = "{name}_tags".into();
+    let mut plain = recipe("plain", ExportFileFormat::Jpeg { quality: 90 }, &out);
+    plain.file_name_template = "{name}_plain".into();
+    plain.label_tags = false;
+    let mut s = source(1, &jpg);
+    s.keywords = vec!["beach".into()];
+    s.rating = Some(5);
+    s.label = Some(crate::session::ColorLabel::Green);
+    s.pick = Some(crate::session::PickFlag::Picked);
+    let rep = block_on(export_batch(
+        vec![s.clone()],
+        vec![tags.clone(), plain],
+        None,
+        false,
+        None,
+        CancelToken::new(),
+        None,
+        None,
+    ))
+    .unwrap();
+    assert!(rep.failed.is_empty(), "{:?}", rep.failed);
+    let has = |b: &[u8], needle: &[u8]| b.windows(needle.len()).any(|w| w == needle);
+    let a = fs::read(out.join("R_tags.jpg")).unwrap();
+    assert!(has(&a, b"<xmp:Rating>5</xmp:Rating>"));
+    assert!(has(&a, b"<rdf:li>Darkslide/Label/Green</rdf:li>"));
+    assert!(has(&a, b"<rdf:li>Darkslide|Pick</rdf:li>"));
+    let p = fs::read(out.join("R_plain.jpg")).unwrap();
+    assert!(has(&p, b"<xmp:Rating>5</xmp:Rating>"));
+    assert!(!has(&p, b"Darkslide/Label") && !has(&p, b"Darkslide|Pick"));
+    // The app's encoder gets the leaves as keywords and the packet.
+    let enc = Arc::new(FakeEncoder::default());
+    tags.format = ExportFileFormat::Heic { quality: 80 };
+    tags.file_name_template = "{name}_heic".into();
+    let rep = block_on(export_batch(
+        vec![s],
+        vec![tags],
+        Some(enc.clone()),
+        false,
+        None,
+        CancelToken::new(),
+        None,
+        None,
+    ))
+    .unwrap();
+    assert!(rep.failed.is_empty(), "{:?}", rep.failed);
+    assert_eq!(
+        *enc.1.lock().unwrap(),
+        [vec!["beach".to_string(), "Green".into(), "Pick".into()]]
+    );
+    let packet = String::from_utf8(enc.3.lock().unwrap()[0].clone().unwrap()).unwrap();
+    assert!(packet.contains("<xmp:Rating>5</xmp:Rating>"), "{packet}");
 }
 
 /// Final review M5: a destination that is (almost) full refuses the export up front

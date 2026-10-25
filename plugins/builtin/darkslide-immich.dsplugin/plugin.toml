@@ -1,0 +1,17 @@
+# Immich as an optional, built-in integration: this plug-in is its switch.
+# The code is native (crates/ds-immich, the app's Immich settings); see docs/PLUGINS.md,
+# "Native features".
+manifest = 1
+id = "darkslide.immich"
+name = "Immich"
+version = "1.0.0"
+api = 1
+authors = ["Darkslide"]
+summary = "Keeps developed copies and XMP sidecars of your photos in the archive for Immich, and syncs rule albums after each archive run."
+permissions = ["files.write:developed-copies"]
+
+[[contributes.native_feature]]
+id = "immich"
+name = "Immich"
+contract = 1
+uses = ["Your Immich server (the address and API key you enter)", "Developed JPEGs in each session's Developed folder"]

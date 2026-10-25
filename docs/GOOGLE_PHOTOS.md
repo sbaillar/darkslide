@@ -4,10 +4,11 @@ An export recipe can also upload its JPEG or HEIC files straight into your Googl
 
 ## Using it
 
-1. Open **Settings ▸ Google Photos** and click **Sign In with Google…**. Choose your account and allow both permissions. When the page says "Done", close it.
-2. Select photos and press ⌘E. Pick or add a JPEG or HEIC recipe, and under **Google Photos** turn on **Also upload to Google Photos**.
-3. Choose an album Darkslide made before, or type a name. Darkslide adds to its own album with that name, or creates it.
-4. Click **Export**. The sheet shows each photo as it uploads. At the end it shows how many went up, and which failed and why.
+1. Google Photos is an optional integration: turn it on in **Settings ▸ Plugins ▸ Integrations** first (turning it off later keeps your sign-in).
+2. Open **Settings ▸ Google Photos** and click **Sign In with Google…**. Choose your account and allow both permissions. When the page says "Done", close it.
+3. Select photos and press ⌘E. Pick or add a JPEG or HEIC recipe, and under **Google Photos** turn on **Also upload to Google Photos**.
+4. Choose an album Darkslide made before, or type a name. Darkslide adds to its own album with that name, or creates it.
+5. Click **Export**. The sheet shows each photo as it uploads. At the end it shows how many went up, and which failed and why.
 
 The photo's caption (or its title, if it has no caption) becomes the description in Google Photos. Uploads count toward your Google Account storage.
 

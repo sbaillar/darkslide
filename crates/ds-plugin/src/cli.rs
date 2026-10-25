@@ -110,10 +110,27 @@ fn new(name: &str, kind: &str, id: Option<&str>, parent: &Path) -> Result<String
             ("looks.json", fill(LOOKS_JSON)),
         ],
         "post-process" => {
-            let toml = BORDER_TOML.replace("com.example.film-border", &id).replace(
-                "name = \"Film Border\"\nversion",
-                &format!("name = \"{name}\"\nversion"),
-            );
+            // The reference plug-in made the author's own: its id, name, a first version,
+            // no borrowed authors or summary (they would say it is Film Border).
+            let toml = BORDER_TOML
+                .replace(
+                    "# Film Border: Darkslide's reference code plug-in",
+                    &format!("# {name}: a code plug-in"),
+                )
+                .replace("com.example.film-border", &id)
+                .replace(
+                    "name = \"Film Border\"\nversion = \"1.1.0\"",
+                    &format!("name = \"{name}\"\nversion = \"1.0.0\""),
+                )
+                .replace("authors = [\"Darkslide example\"]\n", "")
+                .replace(
+                    "summary = \"A plain border around each exported photo, like a print's margin.\"",
+                    &format!("summary = \"{name}: an export step.\""),
+                )
+                .replace(
+                    "name = \"Film Border\"\nmodule",
+                    &format!("name = \"{name}\"\nmodule"),
+                );
             vec![(MANIFEST_FILE, toml), ("border.wat", BORDER_WAT.to_owned())]
         }
         other => return Err(format!("unknown kind `{other}` (looks, post-process)")),
@@ -155,9 +172,12 @@ fn validate(path: &Path) -> Result<String, String> {
             c.id,
             c.contract
         );
-        let bytes = pkg
-            .get(&c.file)
-            .ok_or_else(|| format!("`{}` is missing", c.file))?;
+        let bytes = if c.kind.has_file() {
+            pkg.get(&c.file)
+                .ok_or_else(|| format!("`{}` is missing", c.file))?
+        } else {
+            &[]
+        };
         match c.kind {
             Kind::Looks | Kind::Styles | Kind::VoicePhrases => {
                 let builtin = m.id.starts_with(crate::manifest::BUILTIN_PREFIX);
@@ -211,6 +231,9 @@ fn validate(path: &Path) -> Result<String, String> {
                     out,
                     "contract checked (destinations don't run in this version yet)"
                 );
+            }
+            Kind::NativeFeature => {
+                let _ = writeln!(out, "switches the app's own {} feature", c.id);
             }
         }
     }

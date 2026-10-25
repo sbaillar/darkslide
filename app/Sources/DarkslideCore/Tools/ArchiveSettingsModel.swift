@@ -2,8 +2,9 @@ import DarkslideFFI
 import Foundation
 import Observation
 
-/// Settings › Archive: target, interval, on/off, and the Amazon Photos folder.
-/// Every look at a volume runs off the main thread with a timeout.
+/// Settings › Archive: the destination (a folder, or S3-compatible object storage),
+/// interval, on/off, and the Amazon Photos folder. Every look at a volume runs off the
+/// main thread with a timeout; the object storage keys live only in the Keychain.
 @MainActor @Observable
 public final class ArchiveSettingsModel {
     public enum TargetState: Equatable, Sendable {
@@ -19,6 +20,8 @@ public final class ArchiveSettingsModel {
     public typealias Checker = @Sendable (String) async -> TargetState
     /// `true` when the path exists (run off-main, bounded).
     public typealias Exists = @Sendable (String) -> Bool
+    /// Test Connection (FFI `archiveObjectTestConnection`); tests inject fakes.
+    public typealias ObjectTester = @Sendable (ObjectStoreSettings, ObjectCredentials) async throws -> ObjectConnectionTest
 
     public let settings: AppSettings
     public private(set) var targetState: TargetState = .notSet
@@ -37,6 +40,20 @@ public final class ArchiveSettingsModel {
     public private(set) var targetExists: Bool?
     /// The last "Create It" failure.
     public private(set) var createError: String?
+
+    /// Object storage being edited (applied by `saveObjectStore`, tested as typed).
+    public var objectDraft: ObjectStoreSettings
+    /// The access key ID being edited (shown; saved in the Keychain).
+    public var accessKeyIDDraft: String
+    /// A new secret access key (never shown back; empty keeps the saved one).
+    public var secretDraft = ""
+    /// What the last save or connection test said.
+    public private(set) var objectMessage: String?
+    /// The last connection test failed (the message is a problem, not a confirmation).
+    public private(set) var objectFailed = false
+    public private(set) var testingConnection = false
+    public let objectKeys: ArchiveObjectKeys
+    @ObservationIgnored private let objectTester: ObjectTester
 
     @ObservationIgnored private let checker: Checker
     @ObservationIgnored private let exists: Exists
@@ -60,8 +77,13 @@ public final class ArchiveSettingsModel {
                     try FileManager.default.createDirectory(atPath: $0, withIntermediateDirectories: false)
                 },
                 volumeIdentity: @escaping ArchiveVolumeIdentity = ArchiveVolume.identity,
-                timeout: Double = 2) {
+                timeout: Double = 2, objectKeys: ArchiveObjectKeys = .shared,
+                objectTester: @escaping ObjectTester = ArchiveSettingsModel.ffiObjectTest) {
         self.volumeIdentity = volumeIdentity
+        self.objectKeys = objectKeys
+        self.objectTester = objectTester
+        objectDraft = settings.archiveObjectStore
+        accessKeyIDDraft = objectKeys.accessKeyID ?? ""
         self.settings = settings
         self.checker = checker
         self.exists = exists
@@ -244,6 +266,114 @@ public final class ArchiveSettingsModel {
             ? "Amazon Photos is installed. Choose the folder it backs up."
             : "Originals are handed to Amazon Photos after each import."
         case false?: "The Amazon Photos app isn't installed. It uploads the folder; Darkslide only fills it."
+        }
+    }
+
+    // MARK: Destination
+
+    /// Shown under the destination picker.
+    public nonisolated static let switchNote =
+        "Switching destinations never moves or deletes what's already archived."
+    /// Shown with the object storage settings.
+    public nonisolated static let objectNote =
+        "Nothing is ever deleted from the bucket: before a changed file is replaced, its previous version is copied "
+        + "to .ds-archive-trash/ under the path. The keys are kept in your Keychain."
+
+    /// FFI Test Connection over `URLSession`.
+    public nonisolated static let ffiObjectTest: ObjectTester = { settings, keys in
+        try await archiveObjectTestConnection(http: URLSessionArchiveHTTP(), settings: settings, credentials: keys,
+                                              token: CancelToken())
+    }
+
+    public var destination: ArchiveDestinationKind {
+        get { settings.archiveDestination }
+        set { settings.archiveDestination = newValue }
+    }
+
+    /// For a folder that is ready: whether it is a volume that must be mounted or a
+    /// folder on this Mac (network file systems are mounted volumes wherever they are).
+    public var folderKindText: String? {
+        guard case .ready(let fs) = targetState else { return nil }
+        let target = settings.archiveTarget.trimmingCharacters(in: .whitespaces)
+        let network = ["smbfs", "nfs", "afpfs", "webdav"].contains(fs ?? "")
+        return target.lowercased().hasPrefix("/volumes/") || network
+            ? "Mounted volume: archiving waits while it isn't mounted."
+            : "Local folder on this Mac."
+    }
+
+    /// What is wrong with the typed object storage settings (nil: fine).
+    public var objectProblem: String? { objectDraft.problem }
+
+    /// Where sessions land, e.g. "Sessions go to s3://photos/darkslide/<session>/…".
+    public var objectLayoutText: String {
+        let bucket = objectDraft.bucket.trimmingCharacters(in: .whitespaces)
+        return bucket.isEmpty ? "Enter the bucket and its path." : "Sessions go to \(objectDraft.layout)<session name>/…"
+    }
+
+    public var hasSavedSecret: Bool { objectKeys.hasSecret }
+
+    /// The keys as typed, falling back to the saved secret.
+    private var draftCredentials: ObjectCredentials? {
+        let id = accessKeyIDDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let typed = secretDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secret = typed.isEmpty ? objectKeys.credentials?.secretAccessKey : typed
+        guard !id.isEmpty, let secret, !secret.isEmpty else { return nil }
+        return ObjectCredentials(accessKeyId: id, secretAccessKey: secret)
+    }
+
+    private func report(_ message: String, failed: Bool) {
+        objectMessage = message
+        objectFailed = failed
+    }
+
+    /// Apply the object storage settings and keep the keys in the Keychain.
+    public func saveObjectStore() {
+        if let problem = objectProblem { return report(problem.prefix(1).uppercased() + problem.dropFirst() + ".", failed: true) }
+        guard draftCredentials != nil else {
+            return report("Enter the access key ID and the secret access key.", failed: true)
+        }
+        settings.archiveObjectStore = objectDraft
+        guard objectKeys.save(accessKeyID: accessKeyIDDraft, secret: secretDraft) else {
+            return report("The keys couldn't be saved in the Keychain.", failed: true)
+        }
+        secretDraft = ""
+        report("Saved. The keys are in your Keychain.", failed: false)
+    }
+
+    /// Forget both keys (the archive then waits for new ones).
+    public func removeKeys() {
+        guard objectKeys.remove() else {
+            return report("The keys couldn't be removed from your Keychain.", failed: true)
+        }
+        accessKeyIDDraft = ""
+        secretDraft = ""
+        report("The keys were removed from your Keychain.", failed: false)
+    }
+
+    /// HeadBucket, then a small test object under the path (it stays: the next test
+    /// overwrites it), with the settings and keys as typed.
+    public func testConnection() async {
+        if let problem = objectProblem { return report(problem.prefix(1).uppercased() + problem.dropFirst() + ".", failed: true) }
+        guard let keys = draftCredentials else {
+            return report("Enter the access key ID and the secret access key.", failed: true)
+        }
+        testingConnection = true
+        defer { testingConnection = false }
+        do {
+            let r = try await objectTester(objectDraft, keys)
+            report("Connected. A small test object was left at \(r.testKey); the next test overwrites it.", failed: false)
+        } catch let e as DsError {
+            report(Self.words(e), failed: true)
+        } catch {
+            report("The test didn't finish: \(error.localizedDescription)", failed: true)
+        }
+    }
+
+    nonisolated static func words(_ e: DsError) -> String {
+        switch e {
+        case .InvalidArgument(let m), .Io(let m): m.prefix(1).uppercased() + m.dropFirst()
+        case .Cancelled: "The test was cancelled."
+        default: "\(e)"
         }
     }
 }

@@ -64,6 +64,15 @@ fn new_post_process_validates_runs_and_packs_to_wasm() {
     let folder = d.path().join("Frame.dsplugin");
     let text = fs::read_to_string(folder.join(MANIFEST_FILE)).unwrap();
     assert!(text.contains("id = \"com.me.frame\"") && text.contains("name = \"Frame\""));
+    // The author's own plug-in, not a copy claiming to be Film Border.
+    assert!(
+        text.contains("version = \"1.0.0\"")
+            && text.contains("summary = \"Frame: an export step.\"")
+    );
+    assert!(
+        !text.contains("Film Border") && !text.contains("Darkslide example"),
+        "{text}"
+    );
     let v = run(&args(&["validate", s(&folder)])).unwrap();
     assert!(v.contains("runs on 64×64"), "{v}");
     assert!(!v.contains("(0 bytes changed)"), "the border paints: {v}");

@@ -16,9 +16,11 @@ struct PluginSnapshot: Sendable {
     var allowUnsignedCode: Bool
     var devFolders: [String]
     var content: PluginContent
+    var features: Set<NativeFeature>
 
     init(_ host: PluginHost) {
         plugins = host.list()
+        features = Set(host.nativeFeatures().compactMap(NativeFeature.init(rawValue:)))
         postProcessors = host.postProcessors()
         allowUnsignedCode = host.allowUnsignedCode()
         devFolders = host.devFolders()
@@ -38,12 +40,16 @@ public final class PluginStore {
     public private(set) var postProcessors: [PostProcessorInfo] = []
     public private(set) var allowUnsignedCode = false
     public private(set) var devFolders: [String] = []
+    /// The app's own integrations that are on (`FeatureGates` follows this).
+    public private(set) var features: Set<NativeFeature> = []
     /// The last problem (a refused install, a bad pack), shown in the pane.
     public var lastError: String?
     /// Packs that didn't load.
     public private(set) var contentErrors: [String] = []
     /// Called after the active content changed (voice phrases to refresh, panels to redraw).
     @ObservationIgnored public var onContentChanged: (() -> Void)?
+    /// Called after the plug-ins were read again (an integration may have been turned on or off).
+    @ObservationIgnored public var onFeaturesChanged: (() -> Void)?
     /// Folders no file grant may reach besides Darkslide's own: the app's session roots.
     @ObservationIgnored public var protectedRoots: () -> [URL] = { [] }
     @ObservationIgnored let host: PluginHost
@@ -72,9 +78,37 @@ public final class PluginStore {
         postProcessors = s.postProcessors
         allowUnsignedCode = s.allowUnsignedCode
         devFolders = s.devFolders
+        features = s.features
         contentErrors = s.content.errors
         PluginContent.current = s.content
         onContentChanged?()
+        onFeaturesChanged?()
+    }
+
+    /// The first launch with integrations as plug-ins: each feature nobody has decided
+    /// about yet starts on when `wasSetUp` says the user had set it up, else off; decided
+    /// once and remembered. Later launches find nothing undecided and ask nothing (no
+    /// Keychain reads). Runs at launch, before the features are first used.
+    @discardableResult
+    public func migrateFeatures(_ wasSetUp: (NativeFeature) -> Bool) -> [String] {
+        let undecided = host.undecidedFeatures().compactMap(NativeFeature.init(rawValue:))
+        guard !undecided.isEmpty else { return [] }
+        let configured = Dictionary(uniqueKeysWithValues: undecided.map { ($0.rawValue, wasSetUp($0)) })
+        let host = self.host
+        // In order with every other change (an older snapshot still in flight is dropped).
+        let (decided, snapshot, number) = Self.order.withLock { n in
+            let decided = Result { try host.seedFeatures(configured: configured) }
+            n += 1
+            return (decided, PluginSnapshot(host), n)
+        }
+        shown = max(shown, number)
+        apply(snapshot)
+        switch decided {
+        case let .success(ids): return ids
+        case let .failure(error):
+            lastError = Self.message(error)
+            return []
+        }
     }
 
     /// Re-read the records off the main actor (no change).
@@ -238,11 +272,18 @@ extension PluginRecord {
             ("looks", "look pack", "look packs"), ("styles", "style pack", "style packs"),
             ("voice_phrases", "phrase pack", "phrase packs"), ("export_post_process", "export step", "export steps"),
             ("export_destination", "export destination", "export destinations"),
+            ("native_feature", "integration", "integrations"),
         ]
         return names.compactMap { kind, one, many in
             counts[kind].map { "\($0) \($0 == 1 ? one : many)" }
         }.joined(separator: " · ")
     }
+
+    /// One of the app's own integrations (Archive, Immich…): listed under Integrations.
+    public var isIntegration: Bool { builtIn && contributions.contains { $0.kind == "native_feature" } }
+
+    /// What an integration reaches beyond the app, in words.
+    public var uses: [String] { contributions.flatMap(\.uses) }
 
     /// "Built-in", "Key 3F2A-… (“Jane”)", "Unsigned", and DEV for a development folder.
     public var trustLabel: String {

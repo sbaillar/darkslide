@@ -1,22 +1,36 @@
-//! Session archiving: rsync to a mounted target (the NAS at `/Volumes/pics`)
-//! on a schedule, plus the Amazon Photos folder hand-off for originals.
+//! Session archiving on a schedule, to one of two kinds of [`Destination`]:
 //!
-//! Invariants: never `--delete`; replaced files go to
-//! `.ds-archive-trash/<timestamp>` on the target; nothing is written unless
-//! the target is mounted and writable; the live SQLite WAL is never copied
-//! (a consistent snapshot from the injected [`Snapshotter`] is).
+//! - a **folder** ([`FolderDestination`]): rsync to a mounted volume (the NAS at
+//!   `/Volumes/pics`, an external disk) or a local folder;
+//! - **S3-compatible object storage** ([`object::ObjectDestination`]): AWS S3,
+//!   Backblaze B2, Wasabi, Cloudflare R2, `MinIO`.
+//!
+//! Plus the Amazon Photos folder hand-off for originals ([`amazon`]), which doesn't
+//! depend on the destination.
+//!
+//! Invariants, whichever the destination: nothing is ever deleted from the archive
+//! (never `--delete`; no `DeleteObject`); a replaced file's previous version goes to
+//! `.ds-archive-trash/<timestamp>` first; nothing is written unless the destination
+//! answers (a folder's volume mounted and writable, a bucket reachable with the
+//! keys); the live SQLite WAL is never copied (a consistent snapshot from the
+//! injected [`Snapshotter`] is); `.ds/cache` and `*.partial` stay out.
 
 use std::io;
 use std::path::{Path, PathBuf};
 
 pub mod amazon;
 pub mod archiver;
+pub mod dest;
+pub mod exclude;
+pub mod object;
 pub mod rsync;
 pub mod scheduler;
 pub mod target;
 
 pub use amazon::{AmazonBackup, MirrorReport, Original, amazon_app_installed};
 pub use archiver::{ArchiveOutcome, Archiver, SNAPSHOT_REL, Snapshotter, TRASH_DIR, prune_trash};
+pub use dest::{Destination, DestinationKind, FolderDestination, SessionSource};
+pub use object::{ObjectDestination, ObjectStoreConfig};
 pub use rsync::{
     CommandOutput, CommandRunner, CommandSpec, RsyncFlavor, RsyncProgress, RsyncRunner,
     SystemRunner,
@@ -45,6 +59,9 @@ pub enum ArchiveError {
     Rsync { code: Option<i32>, stderr: String },
     #[error("cancelled")]
     Cancelled,
+    /// Object storage answered, but refused or garbled what was sent (after retries).
+    #[error("object storage: {0}")]
+    Storage(String),
     #[error("{}: {source}", path.display())]
     Io { path: PathBuf, source: io::Error },
     #[error("amazon manifest: {0}")]

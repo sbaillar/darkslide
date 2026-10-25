@@ -60,7 +60,10 @@ extension AppModel {
         var r = ResumeState()
         r.updatedTo = version
         r.notes = notes
-        guard let session = currentSession else { return r }
+        guard let session = currentSession else {
+            if browserMode == .library { r.browserMode = browserMode.rawValue } // [library] needs no session
+            return r
+        }
         r.sessionID = session.id
         r.sessionPath = session.url.path
         if let p = focusedPhoto {
@@ -77,6 +80,25 @@ extension AppModel {
         r.filter = ResumeState.Filter(minRating: filter.minRating, unratedOnly: filter.unratedOnly,
                                       colorTag: filter.colorTag?.rawValue, pick: filter.pick.rawValue, text: filter.text)
         return r
+    }
+
+    /// [library] Whether `start()` shows the Library and leaves the session closed: after an
+    /// update, a session the user had open wins (it reopens where they were), and the Library
+    /// they were in without one is kept; otherwise the Open in setting decides.
+    func startsInLibrary() -> Bool {
+        if let r = pendingResume {
+            if r.sessionID != nil || r.sessionPath != nil { return false }
+            if r.browserMode == BrowserMode.library.rawValue { return true }
+        }
+        return settings.startView == .library
+    }
+
+    /// [library] Leaving the Library opens the session a Library start left closed.
+    func openDeferredSession() {
+        guard let s = deferredSession else { return }
+        deferredSession = nil
+        guard currentSession == nil else { return }
+        Task { await open(s) }
     }
 
     /// The session `start()` reopens: the resumed one when it is listed and can open,

@@ -83,7 +83,7 @@ public enum ArchiveDisplay {
 
     /// Why archiving is off (badge popover and state).
     public static func offText(_ s: ArchiveSettingsSnapshot) -> String {
-        if s.target.trimmingCharacters(in: .whitespaces).isEmpty { return "Archive off: no target set" }
+        if !s.hasTarget { return s.objectStore == nil ? "Archive off: no target set" : "Archive off: no bucket set" }
         return s.enabled ? "Archive off" : "Archive switched off"
     }
 

@@ -1,0 +1,26 @@
+[package]
+name = "ds-immich"
+description = "Immich album sync: rule-driven albums over an Immich external library that indexes the archive (API key, albums, library scans)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[features]
+# The in-process mock Immich server, for other crates' tests.
+mock = []
+
+[dependencies]
+blake3.workspace = true
+ds-fsutil = { path = "../ds-fsutil" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+percent-encoding = "2.3.2"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -393,6 +393,7 @@ impl HeicEncoder for Heic {
         _: Option<&[u8]>,
         _: &[String],
         _: &ds_core::IptcMeta,
+        _: Option<&[u8]>,
     ) -> Result<Vec<u8>, String> {
         self.0.fetch_add(1, Ordering::SeqCst);
         Ok(vec![1; img.data.len()])
@@ -536,6 +537,7 @@ impl HeicEncoder for PanickingHeic {
         _: Option<&[u8]>,
         _: &[String],
         _: &ds_core::IptcMeta,
+        _: Option<&[u8]>,
     ) -> Result<Vec<u8>, String> {
         panic!("ImageIO blew up")
     }
@@ -856,6 +858,7 @@ impl HeicEncoder for FullDisk {
         _: Option<&[u8]>,
         _: &[String],
         _: &ds_core::IptcMeta,
+        _: Option<&[u8]>,
     ) -> Result<Vec<u8>, String> {
         self.0.fetch_add(1, Ordering::SeqCst);
         Err("write failed: No space left on device (os error 28)".into())

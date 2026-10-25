@@ -122,6 +122,10 @@ pub struct ExportRecipeSpec {
     /// Plug-in steps drawn after the watermark, in order (contract 28).
     #[uniffi(default = [])]
     pub post_process: Vec<crate::plugins::ExportPostProcessStep>,
+    /// With the metadata, write the colour label and pick flag as tags
+    /// (`Darkslide/Label/Red`, `Darkslide/Pick`, `Darkslide/Reject`; contract 42).
+    #[uniffi(default = true)]
+    pub label_tags: bool,
 }
 
 /// An export recipe's output ICC profile (RGB), with how colours are mapped into it.
@@ -166,6 +170,16 @@ pub struct ExportSource {
     /// Its creator and copyright win over `artist`/`copyright`.
     #[uniffi(default = None)]
     pub metadata: Option<PhotoMetadata>,
+    /// The photo's star rating (0–5), written as `xmp:Rating` with the metadata;
+    /// `None` leaves it out (contract 42).
+    #[uniffi(default = None)]
+    pub rating: Option<u8>,
+    /// Its colour label and pick flag, written as `Darkslide/…` tags when the
+    /// recipe's `label_tags` is on.
+    #[uniffi(default = None)]
+    pub label: Option<crate::session::ColorLabel>,
+    #[uniffi(default = None)]
+    pub pick: Option<crate::session::PickFlag>,
 }
 
 /// One written file.
@@ -264,7 +278,9 @@ pub trait ImageEncoder: Send + Sync {
     /// byte order (`rgb16.len() == width * height * 6`), output-encoded in the
     /// space of `icc`. Embed `icc`, `exif` (TIFF-structured, as in a JPEG APP1
     /// after `Exif\0\0`) when given, and `keywords` and the set `metadata` fields
-    /// (IPTC/XMP). Returns the file bytes.
+    /// (IPTC/XMP), and the XMP packet `xmp` when given (the same fields plus the
+    /// rating and hierarchical tags; merged with them, contract 42). Returns the
+    /// file bytes.
     fn encode(
         &self,
         format: EncodedImageFormat,
@@ -276,6 +292,7 @@ pub trait ImageEncoder: Send + Sync {
         exif: Option<Vec<u8>>,
         keywords: Vec<String>,
         metadata: PhotoMetadata,
+        xmp: Option<Vec<u8>>,
     ) -> Result<Vec<u8>, DsError>;
 
     /// The upright size of a non-RAW original, from its header (no decode).
@@ -307,6 +324,7 @@ impl HeicEncoder for Hook {
         exif: Option<&[u8]>,
         keywords: &[String],
         iptc: &IptcMeta,
+        xmp: Option<&[u8]>,
     ) -> Result<Vec<u8>, String> {
         let bytes = ne_bytes(&img.data);
         self.encoder
@@ -320,6 +338,7 @@ impl HeicEncoder for Hook {
                 exif.map(<[u8]>::to_vec),
                 keywords.to_vec(),
                 iptc.clone().into(),
+                xmp.map(<[u8]>::to_vec),
             )
             .map_err(|e| e.to_string())
     }
@@ -951,6 +970,7 @@ pub(crate) fn recipe_of(r: &ExportRecipeSpec) -> Result<ExportRecipe, DsError> {
     out.exif = ExifPolicy {
         include: r.include_exif,
         strip_gps: r.strip_gps,
+        label_tags: r.label_tags,
     };
     out.constrain_to_sensor_pixels = r.constrain_to_sensor_pixels;
     if let Some(p) = &r.output_profile {
@@ -1074,6 +1094,7 @@ pub(crate) fn exif_block(path: &Path) -> Option<ExifBlock> {
         gps,
         keywords: Vec::new(),
         iptc: IptcMeta::default(),
+        organize: ds_export::xmp::Organize::default(),
     };
     Some(ExifBlock {
         meta,
@@ -1113,6 +1134,13 @@ fn item_of(s: &ExportSource) -> ExportItem {
     if let Some(m) = &s.metadata {
         meta.iptc = m.clone().into();
     }
+    meta.organize = ds_export::xmp::Organize {
+        rating: s.rating.map(|r| r.min(5)),
+        tags: ds_export::xmp::label_pick_tags(
+            s.label.map_or(ds_core::ColorTag::None, Into::into),
+            s.pick.map_or(ds_core::PickState::Unflagged, Into::into),
+        ),
+    };
     ExportItem {
         id: s.id,
         name: path
@@ -1183,6 +1211,9 @@ pub fn export_name_sample(path: String) -> Result<ExportNameSample, DsError> {
             adjustments_json: None,
             keywords: Vec::new(),
             metadata: None,
+            rating: None,
+            label: None,
+            pick: None,
         });
         Ok(ExportNameSample {
             name: item.name,

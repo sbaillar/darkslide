@@ -17,7 +17,7 @@ other credits are in `app/Resources/Acknowledgements.md`, and the summary is in 
 
 ## Licences used
 
-- Apache License 2.0 (157)
+- Apache License 2.0 (159)
 - MIT License (29)
 - ISC License (19)
 - Mozilla Public License 2.0 (6)
@@ -3981,6 +3981,7 @@ Used by:
 - crypto-common 0.1.7 (https://github.com/RustCrypto/traits)
 - digest 0.10.7 (https://github.com/RustCrypto/traits)
 - hmac 0.12.1 (https://github.com/RustCrypto/MACs)
+- md-5 0.10.6 (https://github.com/RustCrypto/hashes)
 - sha2 0.10.9 (https://github.com/RustCrypto/hashes)
 - signature 2.2.0 (https://github.com/RustCrypto/traits/tree/master/signature)
 - spake2 0.4.0 (https://github.com/RustCrypto/PAKEs/tree/master/spake2)
@@ -4391,6 +4392,7 @@ APPENDIX: How to apply the Apache License to your work.
 Used by:
 - getrandom 0.2.17 (https://github.com/rust-random/getrandom)
 - getrandom 0.3.4 (https://github.com/rust-random/getrandom)
+- getrandom 0.4.3 (https://github.com/rust-random/getrandom)
 
 ```text
                               Apache License

@@ -66,8 +66,8 @@ pub use preset::{PRESET_SCHEMA_VERSION, Preset, PresetStore};
 pub use relpath::{Folder, MAX_PLAIN_NAME, RelPath, original_path, sidecar_file_name};
 pub use session::is_capture_one_session;
 pub use session::{
-    ImageId, ImageInfo, MAX_EXTERNAL_DEPTH, MAX_EXTERNAL_FILES, NewOriginal, Originals, Session,
-    SyncReport, UNHASHED, VariantId, VariantInfo, neutral_default,
+    DEVELOPED_DIR, DEVELOPED_MARKER, ImageId, ImageInfo, MAX_EXTERNAL_DEPTH, MAX_EXTERNAL_FILES,
+    NewOriginal, Originals, Session, SyncReport, UNHASHED, VariantId, VariantInfo, neutral_default,
 };
 pub use sidecar::{ImageMetaLite, MIGRATIONS, Migration, PersonTag, Sidecar, iou};
 pub use trash::{SystemTrash, Trasher};

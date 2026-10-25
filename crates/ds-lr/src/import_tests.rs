@@ -10,6 +10,7 @@ use ds_session::{ImageMetaLite, UNHASHED, VariantId};
 use super::*;
 use crate::journal::{can_revert, revert};
 use crate::model::{Develop, Setting, SourceKind};
+use crate::state::STATE_FILE;
 
 struct Env {
     _dir: tempfile::TempDir,
@@ -669,10 +670,10 @@ fn an_unreadable_record_is_reported_and_replaced() {
     let e = env();
     let l = organized(&e);
     e.run(&l, &ImportOptions::default());
-    fs::write(state::path(&e.store), b"{broken").unwrap();
+    fs::write(state::path(&e.store, STATE_FILE), b"{broken").unwrap();
     let r = e.run(&l, &ImportOptions::default());
     assert!(r.warnings.iter().any(|w| w.contains("starting over")));
-    assert!(state::load(&e.store).is_ok());
+    assert!(state::load(&e.store, STATE_FILE).is_ok());
 }
 
 #[test]
@@ -957,6 +958,7 @@ fn a_failure_part_way_through_creating_variants_can_be_reverted() {
     let mut state = State::default();
     let out = apply_planned(
         &mut s,
+        crate::journal::JOURNAL_FILE,
         Journal::new(State::default()),
         creations,
         (&mut writes, &mut resolved, &mut state),
@@ -1024,4 +1026,136 @@ fn thousands_of_virtual_copies_import_in_bounded_time() {
     let r = e.run(&lib(photos), &ImportOptions::default());
     assert_eq!(r.variants_created, 2_000);
     assert!(started.elapsed().as_secs() < 240, "{:?}", started.elapsed());
+}
+
+fn place(lat: f64, lon: f64) -> Option<ds_core::GeoPoint> {
+    ds_core::GeoPoint::new(lat, lon, None)
+}
+
+#[test]
+fn locations_merge_three_ways_and_revert() {
+    let e = env();
+    let mut a = e.photo("A", "a.ARW");
+    a.geotag = place(48.85, 2.35);
+    let mut copy = e.photo("A2", "a.ARW");
+    copy.master = Some("A".into());
+    copy.order = 1;
+    copy.geotag = place(1.0, 1.0); // a copy shares its photo's position
+    let l = lib(vec![a.clone(), copy]);
+    let r = e.run(&l, &ImportOptions::default());
+    assert_eq!(r.changed[&Category::Metadata], 1, "{r:?}");
+    let v = e.variant("a.ARW", 0);
+    assert_eq!(e.session().variant(v).unwrap().geotag, a.geotag);
+    // Again: in sync.
+    let again = e.run(&l, &ImportOptions::default());
+    assert!(!again.changed.contains_key(&Category::Metadata));
+    // Moved in Darkslide, then moved in the source too: a conflict, kept.
+    e.session().set_geotag(&[v], place(10.0, 10.0)).unwrap();
+    let mut moved = l.clone();
+    moved.photos[0].geotag = place(20.0, 20.0);
+    let r = e.run(&moved, &ImportOptions::default());
+    assert!(r.conflicts.iter().any(|c| c.field == "location"), "{r:?}");
+    assert_eq!(e.session().variant(v).unwrap().geotag, place(10.0, 10.0));
+    let r = e.run(&moved, &overwrite());
+    assert_eq!(r.overwritten, 1);
+    assert_eq!(e.session().variant(v).unwrap().geotag, place(20.0, 20.0));
+    // Revert: back to no position at all.
+    revert(&mut e.session()).unwrap().unwrap();
+    assert_eq!(e.session().variant(v).unwrap().geotag, None);
+    // Without the metadata category, the position is left alone.
+    let only_rating = ImportOptions {
+        categories: [Category::Rating].into(),
+        ..ImportOptions::default()
+    };
+    e.run(&l, &only_rating);
+    assert_eq!(e.session().variant(v).unwrap().geotag, None);
+}
+
+/// Another importer's flavor: its own mapping, record and journal, so its
+/// revert never takes back a Lightroom import (or the reverse).
+#[test]
+fn flavors_keep_their_own_records_and_mapping() {
+    fn map(dev: &Develop, _: &MapContext) -> Mapped {
+        let mut m = Mapped::default();
+        if let Some(v) = dev.get("Bright").and_then(Setting::num) {
+            m.adjustments.exposure.exposure_ev = v as f32;
+            m.categories.insert(Category::Tone);
+            m.mapped.push(("Bright".into(), Fidelity::Exact));
+        }
+        m.dropped.push(("Levels".into(), "no equivalent".into()));
+        m
+    }
+    const OTHER: Flavor = Flavor {
+        app: "Other",
+        library: "other library",
+        state_file: "other-import.json",
+        journal_file: "other-import-undo.json",
+        unnamed_album: "Other album",
+        map,
+    };
+    let e = env();
+    let mut a = e.photo("A", "a.ARW");
+    a.develop = Some(BTreeMap::from([("Bright".to_owned(), Setting::Num(1.5))]));
+    let mut b = e.photo("B", "b_longer.ARW");
+    b.rating = rating(3);
+    let mut l = lib(vec![a]);
+    l.collections = vec![
+        LrCollection {
+            id: 1,
+            name: " ".into(),
+            members: vec!["A".into()],
+            ..LrCollection::default()
+        },
+        LrCollection {
+            id: 2,
+            name: "Holiday book".into(),
+            members: vec!["A".into()],
+            unsupported: Some("a book: Darkslide has no books".into()),
+            ..LrCollection::default()
+        },
+    ];
+    let opts = ImportOptions {
+        flavor: OTHER,
+        ..ImportOptions::default()
+    };
+    let r = e.run(&l, &opts);
+    assert_eq!(r.mapped_keys["Bright"], (Fidelity::Exact, 1));
+    assert_eq!(r.dropped["Levels"].1, 1);
+    assert_eq!(r.collections_skipped.len(), 1);
+    assert!(r.collections_skipped[0].reason.contains("book"));
+    assert!(e.session().albums().iter().any(|a| a.name == "Other album"));
+    assert_eq!(adjustments(&e, "a.ARW", 0).exposure.exposure_ev, 1.5);
+    assert!(e.store.join(".ds/settings/other-import.json").is_file());
+    // A Lightroom import beside it, then each is reverted on its own.
+    e.run(&lib(vec![b]), &ImportOptions::default());
+    let s = e.session();
+    assert!(can_revert(&s) && crate::journal::can_revert_as(&s, &OTHER));
+    crate::journal::revert_as(&mut e.session(), &OTHER)
+        .unwrap()
+        .unwrap();
+    assert_eq!(adjustments(&e, "a.ARW", 0).exposure.exposure_ev, 0.0);
+    let bv = e.variant("b_longer.ARW", 0);
+    assert_eq!(e.session().variant(bv).unwrap().rating, rating(3).unwrap());
+    assert!(can_revert(&e.session()));
+    // A different library of the flavor: albums found by name, in its words.
+    let mut other = l.clone();
+    other.id = Some("cat-9".into());
+    e.run(&l, &opts);
+    let r = e.run(&other, &opts);
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("different other library")),
+        "{r:?}"
+    );
+}
+
+#[test]
+fn photos_not_found_are_listed_under_their_library_folder() {
+    let e = env();
+    let mut p = e.photo("X", "nowhere/x.ARW");
+    p.path = PathBuf::from("/Library.aplibrary/Masters/2012/x.ARW");
+    p.folder = Some(PathBuf::from("/Library.aplibrary/Masters"));
+    let r = e.run(&lib(vec![p]), &DRY());
+    assert_eq!(r.not_found_folders[0].folder, "/Library.aplibrary/Masters");
 }

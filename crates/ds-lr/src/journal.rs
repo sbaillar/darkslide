@@ -27,18 +27,25 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use ds_core::{Adjustments, ColorTag, PickState, Rating};
+use ds_core::{Adjustments, ColorTag, GeoPoint, PickState, Rating};
 use ds_session::{AlbumId, Session, VariantId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{IoAt, LrError, Result};
+use crate::flavor::Flavor;
 use crate::import::{Current, Writes, apply};
 use crate::state::{self, State};
 
 /// File name under the session store's `.ds/settings/`.
 pub const JOURNAL_FILE: &str = "lightroom-import-undo.json";
 const VERSION: u32 = 1;
+
+/// Where a photo was taken, or that it had no position (`point: None`).
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub(crate) struct Place {
+    pub point: Option<GeoPoint>,
+}
 
 /// Organization fields of one variant; `None`: not written by the import.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -58,6 +65,8 @@ pub(crate) struct Values {
     pub caption: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub copyright: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geotag: Option<Place>,
 }
 
 impl Values {
@@ -66,6 +75,7 @@ impl Values {
         self.rating = self.rating.or(other.rating);
         self.color_tag = self.color_tag.or(other.color_tag);
         self.pick = self.pick.or(other.pick);
+        self.geotag = self.geotag.or(other.geotag);
         for (mine, theirs) in [
             (&mut self.title, other.title),
             (&mut self.caption, other.caption),
@@ -325,12 +335,12 @@ impl Journal {
     }
 }
 
-pub(crate) fn path(store: &Path) -> PathBuf {
-    store.join(".ds/settings").join(JOURNAL_FILE)
+pub(crate) fn path(store: &Path, file: &str) -> PathBuf {
+    store.join(".ds/settings").join(file)
 }
 
-fn load(store: &Path) -> Result<Option<Journal>> {
-    let p = path(store);
+fn load(store: &Path, file: &str) -> Result<Option<Journal>> {
+    let p = path(store, file);
     match std::fs::read(&p) {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map(Some)
@@ -343,9 +353,9 @@ fn load(store: &Path) -> Result<Option<Journal>> {
     }
 }
 
-fn save(store: &Path, j: &mut Journal) -> Result<()> {
+fn save(store: &Path, file: &str, j: &mut Journal) -> Result<()> {
     j.version = VERSION;
-    let p = path(store);
+    let p = path(store, file);
     if let Some(dir) = p.parent() {
         std::fs::create_dir_all(dir).at(dir)?;
     }
@@ -361,6 +371,7 @@ fn save(store: &Path, j: &mut Journal) -> Result<()> {
 /// keeps it in memory only.
 pub(crate) struct Writer {
     store: Option<PathBuf>,
+    file: &'static str,
     pub j: Journal,
 }
 
@@ -369,6 +380,7 @@ impl Writer {
     pub fn dry() -> Self {
         Self {
             store: None,
+            file: JOURNAL_FILE,
             j: Journal::default(),
         }
     }
@@ -376,8 +388,8 @@ impl Writer {
     /// Fold `planned` into the store's journal and save it before anything is
     /// written. An unreadable journal is replaced (this import alone becomes
     /// revertible).
-    pub fn begin(store: &Path, planned: Journal) -> Result<Self> {
-        let j = match load(store) {
+    pub fn begin(store: &Path, file: &'static str, planned: Journal) -> Result<Self> {
+        let j = match load(store, file) {
             Ok(Some(mut old)) => {
                 old.absorb(planned);
                 old
@@ -386,6 +398,7 @@ impl Writer {
         };
         let mut w = Self {
             store: Some(store.to_owned()),
+            file,
             j,
         };
         if !w.j.is_empty() {
@@ -396,15 +409,20 @@ impl Writer {
 
     pub fn save(&mut self) -> Result<()> {
         match &self.store {
-            Some(store) => save(store, &mut self.j),
+            Some(store) => save(store, self.file, &mut self.j),
             None => Ok(()),
         }
     }
 }
 
-/// Whether there is an import to revert.
+/// Whether there is a Lightroom import to revert.
 pub fn can_revert(session: &Session) -> bool {
-    path(session.root()).is_file()
+    can_revert_as(session, &Flavor::LIGHTROOM)
+}
+
+/// Whether there is an import of `flavor` to revert.
+pub fn can_revert_as(session: &Session, flavor: &Flavor) -> bool {
+    path(session.root(), flavor.journal_file).is_file()
 }
 
 /// What a revert did.
@@ -449,11 +467,16 @@ fn revert_settings(
     })
 }
 
-/// Take back the journaled imports. `Ok(None)`: nothing to revert.
-#[allow(clippy::too_many_lines)] // one pass per kind of change, as in ds-c1
+/// Take back the journaled Lightroom imports. `Ok(None)`: nothing to revert.
 pub fn revert(session: &mut Session) -> Result<Option<RevertReport>> {
+    revert_as(session, &Flavor::LIGHTROOM)
+}
+
+/// Take back the journaled imports of `flavor`. `Ok(None)`: nothing to revert.
+#[allow(clippy::too_many_lines)] // one pass per kind of change, as in ds-c1
+pub fn revert_as(session: &mut Session, flavor: &Flavor) -> Result<Option<RevertReport>> {
     let store = session.root().to_owned();
-    let Some(j) = load(&store)? else {
+    let Some(j) = load(&store, flavor.journal_file)? else {
         return Ok(None);
     };
     let mut report = RevertReport::default();
@@ -525,6 +548,11 @@ pub fn revert(session: &mut Session) -> Result<Option<RevertReport>> {
         if iptc_any {
             writes.iptc.push((v, iptc));
         }
+        if let (Some(a), Some(b)) = (ch.after.geotag, before.geotag) {
+            put(cur.geotag == a.point, &mut || {
+                writes.geotags.push((v, b.point));
+            });
+        }
         if let Some(a) = revert_settings(&cur.adjustments, &ch.adjustments, &mut report.kept) {
             writes.adjustments.push((v, a));
             any = true;
@@ -565,8 +593,9 @@ pub fn revert(session: &mut Session) -> Result<Option<RevertReport>> {
         }
     }
     let mut before = j.state_before;
-    state::save(&store, &mut before).at(&state::path(&store))?;
-    let p = path(&store);
+    state::save(&store, flavor.state_file, &mut before)
+        .at(&state::path(&store, flavor.state_file))?;
+    let p = path(&store, flavor.journal_file);
     std::fs::remove_file(&p).at(&p)?;
     Ok(Some(report))
 }
@@ -726,27 +755,30 @@ mod tests {
     #[test]
     fn journal_files_round_trip_and_unreadable_ones_are_replaced() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(load(dir.path()).unwrap().is_none());
+        assert!(load(dir.path(), JOURNAL_FILE).unwrap().is_none());
         let planned = Journal {
             albums_created: vec![3],
             ..Journal::default()
         };
-        Writer::begin(dir.path(), planned.clone()).unwrap();
-        let back = load(dir.path()).unwrap().unwrap();
+        Writer::begin(dir.path(), JOURNAL_FILE, planned.clone()).unwrap();
+        let back = load(dir.path(), JOURNAL_FILE).unwrap().unwrap();
         assert_eq!(back.version, VERSION);
         assert_eq!(back.albums_created, vec![3]);
-        std::fs::write(path(dir.path()), b"{nope").unwrap();
-        assert!(load(dir.path()).is_err());
-        let w = Writer::begin(dir.path(), planned).unwrap();
+        std::fs::write(path(dir.path(), JOURNAL_FILE), b"{nope").unwrap();
+        assert!(load(dir.path(), JOURNAL_FILE).is_err());
+        let w = Writer::begin(dir.path(), JOURNAL_FILE, planned).unwrap();
         assert_eq!(w.j.albums_created, vec![3]);
-        assert!(load(dir.path()).unwrap().is_some(), "replaced");
+        assert!(
+            load(dir.path(), JOURNAL_FILE).unwrap().is_some(),
+            "replaced"
+        );
         // A dry run's writer never saves.
         let mut dry = Writer::dry();
         dry.j.albums_created.push(1);
         dry.save().unwrap();
         // An empty plan writes nothing.
         let d2 = tempfile::tempdir().unwrap();
-        Writer::begin(d2.path(), Journal::default()).unwrap();
-        assert!(!path(d2.path()).exists());
+        Writer::begin(d2.path(), JOURNAL_FILE, Journal::default()).unwrap();
+        assert!(!path(d2.path(), JOURNAL_FILE).exists());
     }
 }

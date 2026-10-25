@@ -90,8 +90,10 @@ struct MainToolbar: ToolbarContent {
         ToolbarItem {
             RemoteBadge(remote: model.remote) // [remote]
         }
-        ToolbarItem {
-            ArchiveBadge(model: model, showsTitle: wide)
+        if model.features.isOn(.archive) { // Settings ▸ Plugins
+            ToolbarItem {
+                ArchiveBadge(model: model, showsTitle: wide)
+            }
         }
         if model.settings.layoutPreset.copyApply == .toolbarEnd { // Capture One's place: the far right
             ToolbarItem {

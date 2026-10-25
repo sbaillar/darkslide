@@ -206,6 +206,22 @@ const BATCH_CHUNK: usize = 50;
 /// Deepest sub-folder an external walk descends into.
 pub const MAX_EXTERNAL_DEPTH: usize = 8;
 
+/// The folder (at the top of the archived folder: an imported session's root, or
+/// a folder opened in place) holding developed copies for photo servers. Never
+/// photos of the session: an imported session only has photos under `Capture/`,
+/// `Selects/` and `Trash/`, and the walk of a folder opened in place skips it once
+/// it holds [`DEVELOPED_MARKER`].
+pub const DEVELOPED_DIR: &str = "Developed";
+
+/// File inside [`DEVELOPED_DIR`] that marks it as Darkslide's (a user's own
+/// `Developed` folder without it stays part of the session).
+pub const DEVELOPED_MARKER: &str = ".darkslide-developed";
+
+/// The top-level folder of a walk that holds Darkslide's developed copies.
+fn is_developed_dir(dir: &Path, name: &str, depth: usize) -> bool {
+    depth == 0 && name == DEVELOPED_DIR && dir.join(DEVELOPED_MARKER).is_file()
+}
+
 /// Session-level settings stored in `.ds/settings/session.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SessionSettings {
@@ -1691,10 +1707,12 @@ fn walk(root: &Path, dir: &Path, originals: bool, out: &mut DiskScan) -> Result<
 /// Folder names an external walk never enters: packages and app libraries
 /// (their contents are not the user's loose photos).
 fn is_bundle(name: &str) -> bool {
-    const EXT: [&str; 9] = [
+    const EXT: [&str; 11] = [
         "app",
         "bundle",
         "photoslibrary",
+        "photolibrary",
+        "migratedphotolibrary",
         "lrdata",
         "cocatalog",
         "cosessiondb",
@@ -1760,10 +1778,10 @@ fn walk_external(
         }
         let Ok(ft) = entry.file_type() else { continue };
         if ft.is_dir() {
-            if depth < MAX_EXTERNAL_DEPTH
-                && !is_bundle(&name)
-                && !(capture_one && capture_one_skips(&name, depth))
-            {
+            let skipped = is_bundle(&name)
+                || (capture_one && capture_one_skips(&name, depth))
+                || is_developed_dir(&entry.path(), &name, depth);
+            if depth < MAX_EXTERNAL_DEPTH && !skipped {
                 walk_external(ext, &entry.path(), depth + 1, capture_one, out)?;
             }
         } else if ft.is_file() {

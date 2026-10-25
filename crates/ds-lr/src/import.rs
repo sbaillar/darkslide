@@ -21,14 +21,15 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use ds_core::{Adjustments, ColorTag, IptcMeta, PickState, Rating};
+use ds_core::{Adjustments, ColorTag, GeoPoint, IptcMeta, PickState, Rating};
 use ds_session::{AlbumId, ImageId, ImageInfo, Session, VariantId};
 use serde_json::Value;
 
 use crate::error::{LrError, Result};
+use crate::flavor::Flavor;
 use crate::groups;
-use crate::journal::{Change, Created, Journal, Writer, diff};
-use crate::map::{MapContext, Mapped, map_develop};
+use crate::journal::{Change, Created, Journal, Place, Writer, diff};
+use crate::map::{MapContext, Mapped};
 use crate::matching::{By, match_photos};
 use crate::model::{Category, Fidelity, LrCollection, LrLibrary, LrPhoto};
 use crate::state::{self, Record, State};
@@ -51,6 +52,8 @@ pub struct ImportOptions {
     pub overwrite_edits: bool,
     /// What to bring over; the rest is left alone.
     pub categories: BTreeSet<Category>,
+    /// The application the library comes from.
+    pub flavor: Flavor,
 }
 
 impl Default for ImportOptions {
@@ -59,6 +62,7 @@ impl Default for ImportOptions {
             dry_run: false,
             overwrite_edits: false,
             categories: Category::ALL.into_iter().collect(),
+            flavor: Flavor::LIGHTROOM,
         }
     }
 }
@@ -192,6 +196,7 @@ pub(crate) struct Writes {
     pub picks: HashMap<PickState, Vec<VariantId>>,
     pub keywords: BTreeMap<Vec<String>, Vec<VariantId>>,
     pub iptc: Vec<(VariantId, IptcMeta)>,
+    pub geotags: Vec<(VariantId, Option<GeoPoint>)>,
     pub adjustments: Vec<(VariantId, Adjustments)>,
 }
 
@@ -204,6 +209,7 @@ impl Writes {
             .chain(self.keywords.values_mut())
             .flatten()
             .chain(self.iptc.iter_mut().map(|(v, _)| v))
+            .chain(self.geotags.iter_mut().map(|(v, _)| v))
             .chain(self.adjustments.iter_mut().map(|(v, _)| v))
     }
 }
@@ -215,6 +221,7 @@ pub(crate) struct Current {
     pub pick: PickState,
     pub keywords: Vec<String>,
     pub iptc: IptcMeta,
+    pub geotag: Option<GeoPoint>,
     pub adjustments: Adjustments,
     read_only: bool,
 }
@@ -227,6 +234,7 @@ impl Current {
             pick: PickState::Unflagged,
             keywords: Vec::new(),
             iptc: IptcMeta::default(),
+            geotag: None,
             adjustments: Adjustments::default(),
             read_only: false,
         }
@@ -240,6 +248,7 @@ impl Current {
             pick: info.pick,
             keywords: info.keywords,
             iptc: info.iptc,
+            geotag: info.geotag,
             adjustments: session.load_adjustments(v)?,
             read_only: info.read_only,
         })
@@ -304,14 +313,17 @@ pub fn import(
         warnings: lib.warnings.clone(),
         ..ImportReport::default()
     };
-    let mut state = state::load(session.root()).unwrap_or_else(|e| {
+    let flavor = opts.flavor;
+    let mut state = state::load(session.root(), flavor.state_file).unwrap_or_else(|e| {
         report.warnings.push(format!(
-            "{e} (starting over: Darkslide values that differ from Lightroom's count as edits)"
+            "{e} (starting over: Darkslide values that differ from {}'s count as edits)",
+            flavor.app
         ));
         State::default()
     });
     let state_before = state.clone();
-    let albums_by_name = forget_other_sources_albums(session, lib, &mut state, &mut report);
+    let albums_by_name =
+        forget_other_sources_albums(session, &flavor, lib, &mut state, &mut report);
     let images = session.images()?;
     let mut run = Run {
         session,
@@ -342,6 +354,7 @@ pub fn import(
     } else {
         apply_planned(
             session,
+            flavor.journal_file,
             journal,
             creations,
             (&mut writes, &mut resolved, &mut state),
@@ -359,9 +372,11 @@ pub fn import(
     }
     if !opts.dry_run {
         state.library.clone_from(&lib.id);
-        state::save(session.root(), &mut state).map_err(|source| LrError::Io {
-            path: state::path(session.root()),
-            source,
+        state::save(session.root(), flavor.state_file, &mut state).map_err(|source| {
+            LrError::Io {
+                path: state::path(session.root(), flavor.state_file),
+                source,
+            }
         })?;
     }
     Ok(report)
@@ -372,6 +387,7 @@ pub fn import(
 /// an earlier import made are found by name.
 fn forget_other_sources_albums(
     session: &Session,
+    flavor: &Flavor,
     lib: &LrLibrary,
     state: &mut State,
     report: &mut ImportReport,
@@ -380,11 +396,10 @@ fn forget_other_sources_albums(
     if let (Some(was), Some(now)) = (&state.library, &lib.id)
         && was != now
     {
-        report.warnings.push(
-            "This is a different Lightroom catalog than the one last imported; \
-             albums are matched by name"
-                .to_owned(),
-        );
+        report.warnings.push(format!(
+            "This is a different {} than the one last imported; albums are matched by name",
+            flavor.library
+        ));
         for (_, id) in std::mem::take(&mut state.albums) {
             if let Ok(a) = session.album(AlbumId(id)) {
                 by_name.insert(a.name.clone(), AlbumId(id));
@@ -399,11 +414,12 @@ fn forget_other_sources_albums(
 /// still be reverted.
 fn apply_planned(
     session: &mut Session,
+    journal_file: &'static str,
     journal: Journal,
     creations: Vec<(i64, ImageId, Created)>,
     (writes, resolved, state): (&mut Writes, &mut HashMap<String, VariantId>, &mut State),
 ) -> Result<Writer> {
-    let mut w = Writer::begin(session.root(), journal)?;
+    let mut w = Writer::begin(session.root(), journal_file, journal)?;
     let mut real: HashMap<i64, VariantId> = HashMap::new();
     // The journal is written once before the variants are made and once
     // after, not per variant (that rewrites it whole each time). A failure
@@ -529,8 +545,9 @@ impl Run<'_> {
             let Some((id, by)) = m.found.get(&p.key).copied() else {
                 if !ambiguous.contains(p.path.to_string_lossy().as_ref()) {
                     let folder = p
-                        .path
-                        .parent()
+                        .folder
+                        .as_deref()
+                        .or_else(|| p.path.parent())
                         .map(|d| d.to_string_lossy().into_owned())
                         .unwrap_or_default();
                     *folders.entry(folder.clone()).or_default() += 1;
@@ -621,7 +638,7 @@ impl Run<'_> {
                 None => None,
             };
             let mapped = photo.develop.as_ref().map(|d| {
-                map_develop(
+                (self.opts.flavor.map)(
                     d,
                     &MapContext {
                         meta: &info.meta,
@@ -820,8 +837,25 @@ impl Run<'_> {
                 *slot = new;
                 iptc_written = true;
             }
+            // Where it was taken belongs to the photo (every variant shares it).
+            if let (None, Some(g)) = (&photo.master, photo.geotag) {
+                let mut last = rec.geotag.map(Some);
+                if merge(
+                    self,
+                    (vid, file, "location"),
+                    (&cur.geotag, &Some(g), &None),
+                    &mut last,
+                ) {
+                    ch.before.geotag = Some(Place { point: cur.geotag });
+                    ch.after.geotag = Some(Place { point: Some(g) });
+                    scratch.geotags.push((vid, Some(g)));
+                }
+                rec.geotag = last.flatten();
+            }
             if iptc_written {
                 scratch.iptc.push((vid, iptc.clone()));
+            }
+            if iptc_written || !scratch.geotags.is_empty() {
                 changed.push(Category::Metadata);
             }
         }
@@ -893,6 +927,7 @@ impl Run<'_> {
                 },
             ));
             w.adjustments.push((vid, made.adjustments));
+            w.geotags.extend(scratch.geotags);
         } else if !changed.is_empty() {
             let w = &mut self.writes;
             for (r, vs) in scratch.ratings {
@@ -908,6 +943,7 @@ impl Run<'_> {
                 w.keywords.entry(k).or_default().extend(vs);
             }
             w.iptc.extend(scratch.iptc);
+            w.geotags.extend(scratch.geotags);
             w.adjustments.extend(scratch.adjustments);
             self.journal.variants.insert(vid.0, ch);
         }
@@ -939,17 +975,20 @@ pub(crate) fn apply(session: &mut Session, w: &Writes) -> Result<()> {
     for (v, iptc) in &w.iptc {
         session.set_iptc(&[*v], iptc)?;
     }
+    for (v, g) in &w.geotags {
+        session.set_geotag(&[*v], *g)?;
+    }
     if !w.adjustments.is_empty() {
         session.apply_batch(&w.adjustments)?;
     }
     Ok(())
 }
 
-fn album_name(c: &LrCollection) -> String {
+fn album_name(c: &LrCollection, flavor: &Flavor) -> String {
     let n = c.display_name();
     let n = n.trim();
     if n.is_empty() {
-        "Lightroom collection".to_owned()
+        flavor.unnamed_album.to_owned()
     } else {
         n.to_owned()
     }
@@ -965,13 +1004,19 @@ fn import_collections(
 ) -> Result<()> {
     for coll in &lib.collections {
         let key = format!("col:{}", coll.id);
-        let name = album_name(coll);
-        if coll.smart {
+        let name = album_name(coll, &opts.flavor);
+        let skip = match (&coll.unsupported, coll.smart) {
+            (Some(why), _) => Some(why.clone()),
+            (None, true) => Some(
+                "a smart collection (a saved search): Darkslide can't read Lightroom's rules"
+                    .into(),
+            ),
+            (None, false) => None,
+        };
+        if let Some(reason) = skip {
             report.collections_skipped.push(Skipped {
                 name: coll.display_name(),
-                reason:
-                    "a smart collection (a saved search): Darkslide can't read Lightroom's rules"
-                        .into(),
+                reason,
             });
             continue;
         }

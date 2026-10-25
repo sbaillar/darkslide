@@ -58,6 +58,9 @@ public final class ExportModel {
     @ObservationIgnored let store: ExportRecipeStore
     /// Uploads for recipes with a Google Photos destination (nil: not available).
     @ObservationIgnored let googlePhotos: (any GooglePhotosService)?
+    /// Whether the Google Photos integration is on (Settings ▸ Plugins), asked before
+    /// each check and each upload: turned off mid-run, the next recipe isn't uploaded.
+    @ObservationIgnored let googlePhotosOn: @MainActor () -> Bool
     /// The Google Photos uploads of the last run, one per recipe that has one.
     public private(set) var googleUploads: [GooglePhotosUpload] = []
     /// While the exported files are uploaded to Google Photos.
@@ -72,9 +75,10 @@ public final class ExportModel {
     /// `defaultFolder`: nil while it is resolved by `prepare(session:)`.
     public init(items: [ExportJobItem], defaultFolder: URL?, service: any ExportService, store: ExportRecipeStore,
                 skippedVideos: Int = 0, previewSource: WatermarkPreviewSource? = nil,
-                googlePhotos: (any GooglePhotosService)? = nil) {
+                googlePhotos: (any GooglePhotosService)? = nil, googlePhotosOn: @escaping @MainActor () -> Bool = { true }) {
         self.items = items
         self.googlePhotos = googlePhotos
+        self.googlePhotosOn = googlePhotosOn
         self.previewSource = previewSource
         self.skippedVideos = skippedVideos
         self.defaultFolder = defaultFolder ?? ExportDestination.fallbackRoot()
@@ -352,6 +356,9 @@ extension ExportModel {
     var googlePhotosProblem: String? {
         for r in enabledRecipes {
             guard let target = r.googlePhotos else { continue }
+            // Never a silent skip: the recipe keeps its album; the user turns it back on or
+            // turns the upload off in the recipe.
+            guard googlePhotosOn() else { return Self.googlePhotosOffProblem(r.name) }
             guard let googlePhotos, googlePhotos.isSignedIn else {
                 return "Sign in to Google Photos in Settings ▸ Google Photos to upload with “\(r.name)”."
             }
@@ -363,9 +370,22 @@ extension ExportModel {
         return nil
     }
 
+    /// Shown in place of the upload while Google Photos is off: once, quietly.
+    public static let moreDestinationsHint = "Uploads (Google Photos) can be turned on in Settings ▸ Plugins."
+
+    static func googlePhotosOffProblem(_ recipe: String) -> String {
+        "“\(recipe)” uploads to Google Photos, which is turned off: turn it on in Settings ▸ Plugins, or turn the upload off."
+    }
+
+    /// Whether the Export sheet offers the Google Photos upload for `recipe`: when the
+    /// integration is on, or the recipe already uploads (so it can be turned off).
+    public func offersGooglePhotos(_ recipe: ExportRecipe) -> Bool {
+        googlePhotosOn() || recipe.googlePhotos != nil
+    }
+
     /// List this app's albums for the album picker (once signed in).
     public func loadGoogleAlbums() async {
-        guard let googlePhotos, googlePhotos.isSignedIn else { return }
+        guard googlePhotosOn(), let googlePhotos, googlePhotos.isSignedIn else { return }
         do {
             googleAlbums = try await googlePhotos.albums().sorted {
                 $0.title.localizedStandardCompare($1.title) == .orderedAscending
@@ -404,6 +424,12 @@ extension ExportModel {
         defer { uploading = nil }
         for (recipe, target, files) in Self.googlePhotosJobs(outcome, job: job) {
             if Task.isCancelled { break }
+            // Turned off since the export started: the files stay exported, nothing is sent.
+            guard googlePhotosOn() else {
+                googleUploads.append(GooglePhotosUpload(recipeName: recipe.name, albumTitle: target.albumTitle,
+                                                        error: "turned off in Settings ▸ Plugins; nothing was uploaded"))
+                continue
+            }
             uploading = GooglePhotosProgress(done: 0, total: files.count)
             let (updates, sink) = AsyncStream.makeStream(of: GooglePhotosProgress.self, bufferingPolicy: .bufferingNewest(1))
             let pump = Task { [weak self] in for await u in updates { self?.uploading = u } }

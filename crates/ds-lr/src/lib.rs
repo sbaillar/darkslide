@@ -6,6 +6,7 @@
 
 mod catalog;
 mod error;
+mod flavor;
 mod groups;
 mod import;
 mod journal;
@@ -22,10 +23,11 @@ mod xmp;
 
 pub use catalog::read_catalog;
 pub use error::{LrError, Result};
+pub use flavor::Flavor;
 pub use import::{
     Conflict, FolderCount, ImportOptions, ImportReport, NotFound, PhotoNote, Skipped, import,
 };
-pub use journal::{JOURNAL_FILE, RevertReport, can_revert, revert};
+pub use journal::{JOURNAL_FILE, RevertReport, can_revert, can_revert_as, revert, revert_as};
 pub use limits::check_depth;
 pub use lua::parse_lua_table;
 pub use map::{MapContext, Mapped, map_develop};

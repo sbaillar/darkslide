@@ -4,7 +4,7 @@ use std::fs;
 use ds_export::Image16;
 
 /// Tests share the "current host" slot: one at a time.
-fn serial() -> std::sync::MutexGuard<'static, ()> {
+pub(super) fn serial() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: Mutex<()> = Mutex::new(());
     LOCK.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -516,6 +516,7 @@ fn export_recipes_carry_their_steps() {
         ai_upscale: false,
         watermark: None,
         post_process: vec![border_step("")],
+        label_tags: true,
     };
     assert_eq!(
         crate::export::recipe_of(&spec).unwrap().post_process.len(),

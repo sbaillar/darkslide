@@ -51,7 +51,7 @@ struct ArchivePopover: View {
                         if s.problems.count > 5 {
                             Text("and \(s.problems.count - 5) more").font(DS.Font.caption).foregroundStyle(DS.textSecondary)
                         }
-                        if let a = s.amazon {
+                        if let a = s.amazon, model.features.isOn(.amazonPhotos) {
                             Text(ArchiveDisplay.amazonLine(a)).font(DS.Font.caption)
                                 .foregroundStyle(a.error == nil ? DS.textSecondary : DS.reject)
                         }
@@ -72,7 +72,7 @@ struct ArchivePopover: View {
                     }
                 }
             }
-            if let amazon = status.detail?.amazon {
+            if let amazon = status.detail?.amazon, model.features.isOn(.amazonPhotos) {
                 Divider()
                 Label(ArchiveDisplay.amazonLine(amazon), systemImage: "icloud.and.arrow.up")
                     .font(DS.Font.caption).foregroundStyle(DS.textSecondary)

@@ -19,6 +19,10 @@ extension AppModel {
                             defaults: UserDefaults = .standard) -> AppModel {
         switch mode {
         case .live:
+            // Settings ▸ Plugins: the integrations (archive, Amazon Photos, Immich, Google
+            // Photos) are decided before anything asks whether they are on.
+            let plugins = PluginStore.shared
+            migrateFeatures(plugins, settings: settings)
             let previews = RustPreviewProvider()
             // ds-session through the FFI; folders open in place (index + sidecars in <folder>/.ds/).
             // Newly registered files get the user's "apply on import" preset.
@@ -46,11 +50,13 @@ extension AppModel {
                                             settings: { await MainActor.run { settings.archiveSnapshot } },
                                             handles: { await store.archiveHandle(for: $0) },
                                             lockDir: RustArchiveService.defaultLockDir,
-                                            followAmazonFolder: { _ = await settings.followMovedAmazonFolder() }),
+                                            followAmazonFolder: { _ = await settings.followMovedAmazonFolder() },
+                                            plugins: PluginHosts.shared),
                 ai: makeAIService(),
                 settings: settings,
                 previews: previews,
                 mode: .live)
+            model.followPlugins(plugins)
             var exporter = RustExportService() // ds-export, RAWs developed by ds-pipeline
             exporter.maskProvider = { [weak model] id, targets in
                 guard let model else { return [:] }
@@ -61,6 +67,10 @@ extension AppModel {
             model.exporter = exporter
             // Google Photos export destination: the user's own OAuth client, token in the Keychain.
             model.googlePhotos = RustGooglePhotosService(settings: GooglePhotosSettings(defaults: settings.userDefaults))
+            // Immich: developed copies and sidecars in the archive, rule albums synced after archive runs.
+            model.immich.configure(service: RustImmichService(manager: (model.archive as? RustArchiveService)?.manager,
+                                                              handles: { await store.archiveHandle(for: $0) }),
+                                   app: model)
             // Auto WB/tone, WB picker, as-shot + lens readouts, edited thumbnails (pipeline).
             let tools = RustDevelopTools()
             model.tools = tools

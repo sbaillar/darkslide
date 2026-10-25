@@ -292,9 +292,9 @@ struct PluginTests {
         var r = PluginRecord(id: "a.b", name: "N", version: nil, summary: "", authors: [], path: "/x", builtIn: false,
                              dev: false, trust: .untrusted(signer: "U", key: "k", fingerprint: "F"), state: .shadowed,
                              message: nil, approvals: [], permissions: [], contributions: [
-                                PluginContributionInfo(kind: "export_post_process", id: "a", name: "A"),
-                                PluginContributionInfo(kind: "export_post_process", id: "b", name: "B"),
-                                PluginContributionInfo(kind: "voice_phrases", id: "c", name: "C"),
+                                PluginContributionInfo(kind: "export_post_process", id: "a", name: "A", uses: []),
+                                PluginContributionInfo(kind: "export_post_process", id: "b", name: "B", uses: []),
+                                PluginContributionInfo(kind: "voice_phrases", id: "c", name: "C", uses: []),
                              ], warnings: [], hasCode: true)
         #expect(r.contributionSummary == "1 phrase pack · 2 export steps")
         #expect(r.trustLabel.contains("not trusted") && r.stateLabel.contains("Replaced"))

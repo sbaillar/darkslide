@@ -6,6 +6,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
     case openFolder, importCard
     /// File ▸ New Session… / Close Session (also in the toolbar's session menu).
     case newSession, closeSession
+    /// [library] File ▸ Browse All Sessions in Library (⇧⌘L): the catalog of every session's photos.
+    case showLibrary
     case copyAdjustments, applyAdjustments, copyFromPrevious, autoAdjust, aiCull
     /// ⌥⌘A: AI Optimize (explained, measured proposals; a panel to choose them).
     case aiOptimize
@@ -47,6 +49,9 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
     case filmstripBottom, filmstripLeft, filmstripRight
     /// [multiview] View ▸ Larger / Smaller Filmstrip Thumbnails (⌃⌘= / ⌃⌘-; the strip's size slider).
     case largerFilmstripThumbnails, smallerFilmstripThumbnails
+    /// [immich] Photo ▸ Keep a Developed Copy for Immich / Stop Updating Developed Copy
+    /// (also in the browser's context menu).
+    case developForImmich, stopDevelopingForImmich
 
     public var id: String { rawValue }
 
@@ -63,6 +68,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
         case .newSession: Shortcut(key: "n", modifiers: [.command, .shift])
         // ⌘W still closes the window.
         case .closeSession: Shortcut(key: "w", modifiers: [.command, .option])
+        // Lightroom's Library is ⌥⌘1 (actual size here); L for Library, as ⇧⌘N / ⇧⌘I are New / Import.
+        case .showLibrary: Shortcut(key: "l", modifiers: [.command, .shift])
         case .copyAdjustments: Shortcut(key: "c", modifiers: [.command, .shift])
         case .applyAdjustments: Shortcut(key: "v", modifiers: [.command, .shift])
         case .copyFromPrevious: Shortcut(key: "v", modifiers: [.command, .option])
@@ -105,7 +112,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
         case .smallerFilmstripThumbnails: Shortcut(key: "-", modifiers: [.command, .control])
         case .moveRejectedToTrash, .movePickedToSelects, .restoreSessionTrash, .deleteRejected, .matchWhiteBalance,
              .toggleAllToolsTab, .showAIChanges, .clearAIHighlights, .undoAllAIChanges, .upscale, .showHistory,
-             .voiceHelp, .showSelectionInViewer, .filmstripBottom, .filmstripLeft, .filmstripRight: nil
+             .voiceHelp, .showSelectionInViewer, .filmstripBottom, .filmstripLeft, .filmstripRight,
+             .developForImmich, .stopDevelopingForImmich: nil
         }
     }
 
@@ -142,6 +150,7 @@ public enum CommandCatalog {
             ? "Import from Card (Coming Soon)…" : "Import from Card…"
         case .newSession: CommandCatalogTitles.newSession
         case .closeSession: CommandCatalogTitles.closeSession
+        case .showLibrary: CommandCatalogTitles.showLibrary
         case .copyAdjustments: model.settings.names.copyMenu
         case .applyAdjustments: model.settings.names.applyMenu
         case .copyFromPrevious: "Copy from Previous"
@@ -189,6 +198,8 @@ public enum CommandCatalog {
         case .upscale: model.upscaler?.title(in: model) ?? "Upscale 2×"
         case .mergeHDR: "Merge to HDR…"
         case .mergePanorama: "Merge to Panorama…"
+        case .developForImmich: model.immich.developTitle
+        case .stopDevelopingForImmich: model.immich.stopTitle
         }
     }
 
@@ -212,6 +223,8 @@ public enum CommandCatalog {
         switch c {
         case .newSession:
             model.canCreateSession ? "Create an empty session and open it (⇧⌘N)" : "This mode can’t create sessions"
+        case .showLibrary:
+            "Every session's photos in one catalog (⇧⌘L): filter, sort, rate and open any photo in its session"
         case .closeSession:
             if let s = model.currentSession {
                 model.cull.busy ? "Wait until the files have moved"
@@ -223,12 +236,18 @@ public enum CommandCatalog {
             model.cull.canMove ? nil : CullFinisher.inPlaceReason
         case .upscale:
             model.upscaler.map { $0.help(in: model) } ?? UpscaleModelDescriptor.reasons.missing
+        case .developForImmich: model.immich.developHelp
+        case .stopDevelopingForImmich:
+            "Stop updating the selection's developed copies. The copies already made stay in Developed and in the archive"
         default: nil
         }
     }
 
     /// Photo ▸ Enhance.
     public static let enhanceMenu: [MenuCommand] = [.upscale]
+
+    /// [immich] Photo menu and the browser's context menu: developed copies for Immich.
+    public static let immichMenu: [MenuCommand] = [.developForImmich, .stopDevelopingForImmich]
 
     /// Edit menu section (after Select All).
     public static let matchMenu: [MenuCommand] = [.matchExposures, .matchWhiteBalance]
@@ -246,7 +265,7 @@ public enum CommandCatalog {
     public static func isEnabled(_ c: MenuCommand, model: AppModel, layout: ToolLayout = .shared) -> Bool {
         let hasPhoto = model.focusedID != nil
         switch c {
-        case .openFolder, .importCard, .cheatSheet, .fullScreen, .customizeTools, .voiceCommands, .showHistory, .voiceHelp,
+        case .openFolder, .importCard, .showLibrary, .cheatSheet, .fullScreen, .customizeTools, .voiceCommands, .showHistory, .voiceHelp,
              .showSelectionInViewer, .filmstripBottom, .filmstripLeft, .filmstripRight: return true
         // Shown as a checkmark; hiding it is off only when it is the last tab.
         case .toggleAllToolsTab: return !layout.workspace.contains(.allTools) || layout.workspace.canRemoveTab(.allTools)
@@ -281,6 +300,8 @@ public enum CommandCatalog {
         case .matchExposures, .matchWhiteBalance: return model.canMatchSet
         case .upscale: return model.upscaler.map { $0.isEnabled(in: model) } ?? false
         case .mergeHDR, .mergePanorama: return model.canMergePhotos
+        case .developForImmich: return model.immich.canDevelop
+        case .stopDevelopingForImmich: return model.immich.canStopDeveloping
         // The viewer's strip only (the map's keeps its size); off at the end of the range.
         case .largerFilmstripThumbnails:
             return model.browserMode == .filmstrip && model.filmstrip.cell < FilmstripSizing.cellHeights.upperBound
@@ -298,6 +319,7 @@ public enum CommandCatalog {
         case .importCard: model.sheet = .importCard(nil)
         case .newSession: model.beginNewSession()
         case .closeSession: Task { await model.closeSession() }
+        case .showLibrary: model.showLibrary()
         case .copyAdjustments: model.perform(.copyAdjustments)
         case .applyAdjustments: model.perform(.applyAdjustments)
         case .copyFromPrevious: model.perform(.copyFromPrevious)
@@ -344,6 +366,8 @@ public enum CommandCatalog {
         case .upscale: model.upscaler?.toggle()
         case .mergeHDR: model.beginMerge(.hdr)
         case .mergePanorama: model.beginMerge(.panorama)
+        case .developForImmich: Task { await model.immich.developSelected() }
+        case .stopDevelopingForImmich: Task { await model.immich.stopDeveloping() }
         }
         return .none
     }
@@ -436,4 +460,6 @@ public enum ToolbarHelp {
 package enum CommandCatalogTitles {
     package static let newSession = "New Session…"
     package static let closeSession = "Close Session"
+    /// [library] File menu and the Open Session sheet.
+    package static let showLibrary = "Browse All Sessions in Library"
 }

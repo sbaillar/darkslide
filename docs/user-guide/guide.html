@@ -243,9 +243,10 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
 <h1 id="library">Library, Find, People and Map</h1>
 
 <h2 id="library-mode">Library mode</h2>
-<p>Choose <span class="menu">Library</span> in the toolbar's view switch to see the photos of every session in one fast grid, without opening each session.</p>
+<p>Choose <span class="menu">Library</span> in the toolbar's view switch to see the photos of every session in one fast grid, without opening each session. <span class="menu">File ▸ Browse All Sessions in Library</span> (<kbd>⇧⌘L</kbd>) and the Open Session sheet lead there too. To start Darkslide in the Library, set <span class="menu">Settings ▸ General ▸ Open in</span> to Library. No session is opened at launch then; the last one opens when you leave the Library.</p>
 <ul>
   <li>Browse <b>All Photographs</b>, by session, by date (year, month, day) or by collection.</li>
+  <li><b>Opened Sessions</b> shows the photos of every session you have opened as one. ⌘-click sessions in the sidebar to see just those together.</li>
   <li>Filter by rating, label, flag, camera and keyword; search file names, titles and keywords; sort by capture time, rating, file name or session.</li>
   <li>Rate, label and flag from the Library. The change is written to the photo's own session.</li>
   <li><b>Collections</b> gather photos from any sessions. <b>Smart collections</b> keep a filter (<span class="menu">Smart Collection from Filter…</span>).</li>
@@ -451,7 +452,7 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
 <h1 id="archive">Archive and Amazon Photos</h1>
 
 <h2 id="archive-rsync">Archive</h2>
-<p>Darkslide can copy your sessions to an archive folder, for example on a NAS, in the background with rsync. Set it up in Settings ▸ Archive or the Import &amp; Archive tab.</p>
+<p>Darkslide can copy your sessions to an archive folder, for example on a NAS, in the background with rsync. The archive is optional: setup offers it, and Settings ▸ Plugins turns it on or off. While it is on, set it up in Settings ▸ Archive or the Import &amp; Archive tab.</p>
 <ul>
   <li>rsync runs when there are changes, after an import and when you close a session, and checks on the interval you choose.</li>
   <li>It never deletes anything in the archive. Choose whether rejected photos are archived too.</li>
@@ -464,14 +465,14 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
 </figure>
 
 <h2 id="archive-amazon">Amazon Photos hand-off</h2>
-<p>Amazon Photos has no public API, so Darkslide mirrors your originals into a folder that the official Amazon Photos app backs up. Choose that folder in Settings ▸ Archive or during setup, and choose whether rejected photos are sent too.</p>
+<p>Amazon Photos has no public API, so Darkslide mirrors your originals into a folder that the official Amazon Photos app backs up. Turn it on in Settings ▸ Plugins, then choose that folder in Settings ▸ Amazon Photos, and choose whether rejected photos are sent too.</p>
 </section>
 
 <section class="chapter">
 <div class="num">Chapter 13</div>
 <h1 id="plugins">Plug-ins</h1>
 
-<p>Plug-ins add looks, styles, voice phrases, and export steps. Manage them in Settings ▸ Plugins.</p>
+<p>Plug-ins add looks, styles, voice phrases, and export steps. Manage them in Settings ▸ Plugins. Its Integrations list turns Darkslide's optional built-in integrations on or off: Archive, Amazon Photos, Immich and Google Photos. They start off (or on, if you had set them up before they became optional). Turning one off hides it and stops its background work; its settings are kept.</p>
 <ul>
   <li><b>Install:</b> drop a <code>.dsplugin</code> folder on the pane, or <span class="menu">Install…</span>. The sheet shows what the plug-in says it does before anything is installed. Turn each plug-in on or off with <span class="menu">Enabled</span>.</li>
   <li><b>Nothing is granted at install.</b> Looks, styles and voice phrases are data only. An export step is WebAssembly code that runs sandboxed with time and memory limits; code from an unsigned or untrusted author waits for your approval and never gets file, network or account access silently. If a plug-in's files change, it waits for your approval again.</li>
@@ -526,12 +527,14 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
     <tr><td><b>General</b></td><td>Appearance, the sessions folder, opening the import sheet when a card is inserted, your name and copyright for exports, the new-session name, map tiles, and Show Welcome Again</td></tr>
     <tr><td><b>Familiar</b></td><td>Layout, keyboard shortcuts and names like Darkslide, Lightroom Classic or Capture One</td></tr>
     <tr><td><b>Shortcuts</b></td><td>Rebind every single-key command; a key already in use moves to the new command</td></tr>
-    <tr><td><b>Archive</b></td><td>The rsync archive target and interval, and the Amazon Photos folder</td></tr>
-    <tr><td><b>Google Photos</b></td><td>Sign in and out; your own Google client if the build has none</td></tr>
+    <tr><td><b>Archive</b></td><td>The rsync archive target and interval (while the Archive integration is on)</td></tr>
+    <tr><td><b>Amazon Photos</b></td><td>The folder the Amazon Photos app backs up (while that integration is on)</td></tr>
+    <tr><td><b>Google Photos</b></td><td>Sign in and out; your own Google client if the build has none (while that integration is on)</td></tr>
+    <tr><td><b>Immich</b></td><td>The server, API key, path mapping and album rules (while that integration is on)</td></tr>
     <tr><td><b>AI</b></td><td>How typed edits are interpreted, including the optional Jev service</td></tr>
     <tr><td><b>Voice</b></td><td>Voice commands and your own phrases</td></tr>
     <tr><td><b>Devices</b></td><td>The Mac ↔ iPad link and paired devices</td></tr>
-    <tr><td><b>Plugins</b></td><td>Installed plug-ins, their permissions, and development folders</td></tr>
+    <tr><td><b>Plugins</b></td><td>The optional integrations (on or off), installed plug-ins, their permissions, and development folders</td></tr>
   </tbody>
 </table>
 </section>
@@ -646,6 +649,7 @@ DS_SKIP_MODELS=1 scripts/build-app.sh --run</code></pre>
     <tr><td class="keys"><kbd>⇧⌘N</kbd></td><td>New session</td></tr>
     <tr><td class="keys"><kbd>⌘O</kbd></td><td>Open a session or folder</td></tr>
     <tr><td class="keys"><kbd>⌥⌘W</kbd></td><td>Close session</td></tr>
+    <tr><td class="keys"><kbd>⇧⌘L</kbd></td><td>Browse all sessions in the Library</td></tr>
     <tr><td class="keys"><kbd>⇧⌘I</kbd></td><td>Import from card</td></tr>
     <tr><td class="keys"><kbd>⌘E</kbd></td><td>Export</td></tr>
     <tr><td class="keys"><kbd>⌘F</kbd></td><td>Find</td></tr>

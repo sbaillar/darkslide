@@ -454,7 +454,11 @@ impl Host {
             return Status::Error("no manifest".into());
         };
         if p.origin == Origin::BuiltIn {
-            let enabled = self.state.plugins.get(&m.id).is_none_or(|s| s.enabled);
+            // A native feature (an optional integration) is off until the user, or the
+            // first-launch migration (`seed_features`), turns it on; other bundled
+            // plug-ins are on until turned off.
+            let default = m.native_features().next().is_none();
+            let enabled = self.state.plugins.get(&m.id).map_or(default, |s| s.enabled);
             return if enabled {
                 Status::Active
             } else {
@@ -1064,6 +1068,71 @@ impl Host {
         Ok(())
     }
 
+    /// Whether the app's own optional feature `feature` (`immich`, `archive`…) is on:
+    /// a bundled plug-in that declares it is active. Off when no plug-in declares it.
+    #[must_use]
+    pub fn feature_enabled(&self, feature: &str) -> bool {
+        self.contributions(Kind::NativeFeature)
+            .any(|(p, c)| p.origin == Origin::BuiltIn && c.id == feature)
+    }
+
+    /// Every native feature that is on.
+    #[must_use]
+    pub fn native_features(&self) -> BTreeSet<String> {
+        self.contributions(Kind::NativeFeature)
+            .filter(|(p, _)| p.origin == Origin::BuiltIn)
+            .map(|(_, c)| c.id.clone())
+            .collect()
+    }
+
+    /// Bundled feature plug-ins nobody has decided about yet: (plug-in id, its features).
+    fn undecided(&self) -> Vec<(String, Vec<String>)> {
+        let mut out: Vec<(String, Vec<String>)> = Vec::new();
+        for p in &self.plugins {
+            let Some(m) = &p.manifest else { continue };
+            let features: Vec<String> = m.native_features().map(str::to_owned).collect();
+            if p.origin == Origin::BuiltIn
+                && !features.is_empty()
+                && !self.state.plugins.contains_key(&m.id)
+                && !out.iter().any(|(id, _)| id == &m.id)
+            {
+                out.push((m.id.clone(), features));
+            }
+        }
+        out
+    }
+
+    /// The native features whose plug-in nobody has decided about yet (the app checks
+    /// whether each was set up only then, so a launch after the first reads nothing).
+    #[must_use]
+    pub fn undecided_features(&self) -> Vec<String> {
+        self.undecided().into_iter().flat_map(|(_, f)| f).collect()
+    }
+
+    /// The first launch with feature plug-ins (the migration): decide once, for every
+    /// bundled feature plug-in nobody has decided about yet, whether it starts on. It
+    /// starts on when the user already set up one of its features (`configured`, by
+    /// feature id), so nothing they rely on stops after an update; otherwise off. A
+    /// plug-in the user (or an earlier launch) already decided about is never changed.
+    /// Returns the plug-in ids decided now.
+    pub fn seed_features(
+        &mut self,
+        configured: &BTreeMap<String, bool>,
+    ) -> Result<Vec<String>, PluginError> {
+        let decided = self.undecided();
+        if decided.is_empty() {
+            return Ok(Vec::new());
+        }
+        for (id, features) in &decided {
+            self.state.plugin(id).enabled = features
+                .iter()
+                .any(|f| configured.get(f).copied().unwrap_or(false));
+        }
+        self.save()?;
+        self.reload();
+        Ok(decided.into_iter().map(|(id, _)| id).collect())
+    }
+
     /// Active contributions of `kind`, with their plug-in.
     pub fn contributions(&self, kind: Kind) -> impl Iterator<Item = (&Plugin, &Contribution)> {
         self.plugins
@@ -1249,7 +1318,7 @@ pub fn inspect_package(
     let text = std::str::from_utf8(text)
         .map_err(|_| PluginError::Manifest(format!("{MANIFEST_FILE} is not UTF-8")))?;
     let m = Manifest::parse_with(text, darkslide, strict)?;
-    for c in &m.contributions {
+    for c in m.contributions.iter().filter(|c| c.kind.has_file()) {
         let bytes = pkg
             .get(&c.file)
             .ok_or_else(|| PluginError::Invalid(format!("`{}` is missing", c.file)))?;

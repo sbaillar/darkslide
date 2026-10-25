@@ -156,6 +156,17 @@ struct ThumbnailCell: View {
             // Grid only: the filmstrip prints flag, stars and "edited" on its film edge.
             // Top-left: pick flag.
             if style == .grid { flag.position(x: inner.minX + 8, y: inner.minY + 8) }
+            // Top-right: developed copy for Immich (left of the edited badge).
+            if let copy = item.immichCopy {
+                Image(systemName: copy.symbol)
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(3)
+                    .background(.black.opacity(0.6), in: .rect(cornerRadius: 3))
+                    .foregroundStyle(copy == .current ? Color.white : DS.star)
+                    .position(x: inner.maxX - (style == .grid && photo.isEdited ? 29 : 9), y: inner.minY + 9)
+                    .help(copy.help)
+                    .accessibilityLabel(copy.help)
+            }
             // Top-right: edited badge.
             if style == .grid, photo.isEdited {
                 Image(systemName: "slider.horizontal.3")

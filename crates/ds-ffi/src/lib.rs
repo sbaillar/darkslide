@@ -37,6 +37,7 @@
 uniffi::setup_scaffolding!();
 
 pub mod ai;
+pub mod apple;
 pub mod archive;
 pub mod background;
 pub mod c1;
@@ -48,8 +49,10 @@ pub mod engine;
 pub mod error;
 pub mod events;
 pub mod export;
+pub mod features;
 pub mod frame;
 pub mod gphotos;
+pub mod immich;
 pub mod import;
 pub mod jobs;
 pub mod lr;
@@ -99,7 +102,7 @@ pub fn version() -> Result<String, DsError> {
 }
 
 /// Bump whenever an exported signature changes in a way old bindings can't call.
-pub const FFI_CONTRACT: u32 = 40;
+pub const FFI_CONTRACT: u32 = 45;
 
 /// Numeric contract revision (for a cheap equality check from Swift).
 #[uniffi::export]

@@ -337,6 +337,10 @@ private func tempDir() throws -> URL {
         m.secretEntry = "new"
         m.saveClient()
         #expect(m.message == "The Keychain refused the client secret.")
+        // A Keychain that won't delete the secret: nothing changes, and it says so.
+        m.removeClient()
+        #expect(m.message == "Your client secret couldn't be removed from your Keychain.")
+        #expect(m.hasSecret && secret.current == "GOCSPX-x" && s.clientID == "odd")
         secret.refuse = false
         m.removeClient()
         #expect(m.clientID.isEmpty && !m.hasSecret && secret.current == nil && s.clientID.isEmpty)
@@ -370,6 +374,12 @@ private func tempDir() throws -> URL {
         #expect(m.message == "Signed out.")
         await m.signOut()
         #expect(google.revoked.count == 1)
+        // The token can't be removed: still signed in, and it says so.
+        await m.signInNow()
+        refresh.refuse = true
+        await m.signOut()
+        #expect(m.isSignedIn && refresh.current == "tok")
+        #expect(m.message == "The sign-in couldn't be removed from your Keychain.")
     }
 
     @Test func signInCancelAndFailureAreExplained() async {

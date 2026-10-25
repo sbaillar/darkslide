@@ -275,14 +275,21 @@ private struct RecipeEditor: View {
             Toggle("Include metadata (EXIF)", isOn: $recipe.includeMetadata)
             Toggle("Remove location (GPS, city, place)", isOn: $recipe.stripGPS).disabled(!recipe.includeMetadata)
                 .help("Leave out the GPS position and the city, state, country and sublocation fields")
-            Section("Google Photos") {
-                Toggle("Also upload to Google Photos", isOn: Binding(
-                    get: { recipe.googlePhotos != nil },
-                    set: { recipe.googlePhotos = $0 ? (recipe.googlePhotos ?? GooglePhotosTarget()) : nil }))
-                    .help("Upload this recipe's JPEG or HEIC files into an album in your Google Photos")
-                if let binding = Binding($recipe.googlePhotos) {
-                    GooglePhotosAlbumPicker(target: binding, model: model)
+            Toggle("Colour label and pick as keywords", isOn: $recipe.labelTags).disabled(!recipe.includeMetadata)
+                .help("Darkslide/Label/Red, Darkslide/Pick, Darkslide/Reject: photo servers such as Immich show them as tags")
+            if model.offersGooglePhotos(recipe) {
+                Section("Google Photos") {
+                    Toggle("Also upload to Google Photos", isOn: Binding(
+                        get: { recipe.googlePhotos != nil },
+                        set: { recipe.googlePhotos = $0 ? (recipe.googlePhotos ?? GooglePhotosTarget()) : nil }))
+                        .help("Upload this recipe's JPEG or HEIC files into an album in your Google Photos")
+                    if let binding = Binding($recipe.googlePhotos) {
+                        GooglePhotosAlbumPicker(target: binding, model: model)
+                    }
                 }
+            } else {
+                // The one hint for the optional integrations: where uploads are turned on.
+                Text(ExportModel.moreDestinationsHint).font(DS.Font.caption).foregroundStyle(DS.textSecondary)
             }
             Section("Watermark") {
                 Toggle("Add a watermark", isOn: Binding(get: { recipe.watermark != nil },

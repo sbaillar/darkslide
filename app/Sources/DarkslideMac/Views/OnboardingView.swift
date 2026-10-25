@@ -11,7 +11,7 @@ struct OnboardingView: View {
 
     init(model: AppModel) {
         self.model = model
-        _onboarding = State(initialValue: OnboardingModel(settings: model.settings))
+        _onboarding = State(initialValue: OnboardingModel(settings: model.settings, features: model.features))
     }
 
     var body: some View {
@@ -68,7 +68,8 @@ struct OnboardingView: View {
                 feature("externaldrive.badge.checkmark", "Archived in the background",
                         model.archive is UnavailableArchiveService
                             ? "Archiving isn't available in this mode."
-                            : "Sessions sync to your NAS while you work.")
+                            : model.features.isOn(.archive) ? "Sessions sync to your NAS while you work."
+                            : "If you like, sessions sync to your NAS while you work (next steps).")
             }
         case .familiar:
             VStack(alignment: .leading, spacing: DS.Space.m) {
@@ -87,8 +88,9 @@ struct OnboardingView: View {
             }
         case .archive:
             VStack(alignment: .leading, spacing: DS.Space.m) {
-                Text("Darkslide copies sessions here in the background with rsync. It never deletes anything in the archive.")
+                Text("Darkslide can copy sessions to another disk or a NAS in the background with rsync. It never deletes anything in the archive. Optional: turn it on or off any time in Settings ▸ Plugins.")
                     .foregroundStyle(DS.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Toggle("Archive sessions automatically", isOn: $onboarding.archiveEnabled)
                 if onboarding.archiveEnabled {
                     HStack {
@@ -200,8 +202,12 @@ struct SettingsView: View {
                 ForEach(AppearancePreference.allCases, id: \.self) { Text($0.rawValue) }
             }
             .pickerStyle(.segmented)
+            Picker("Open in", selection: $settings.startView) { // [library]
+                ForEach(StartView.allCases, id: \.self) { Text($0.title) }
+            }
+            .help("At launch: the last session, or the Library of every session's photos (no session is opened until you need one)")
             LabeledContent("Sessions folder", value: settings.sessionsFolder.path)
-            LabeledContent("Archive and Amazon Photos", value: "Archive tab")
+            LabeledContent("Archive, Amazon Photos, Immich, Google Photos", value: "Plugins tab")
             Toggle("Open the import sheet when a card is inserted", isOn: $settings.autoOpenImport)
             TextField("Artist", text: $settings.artist, prompt: Text("Your name"))
                 .help("Written into exported files (EXIF Artist)")

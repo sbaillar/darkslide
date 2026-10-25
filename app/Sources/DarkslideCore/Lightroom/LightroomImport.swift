@@ -192,6 +192,8 @@ public struct LRImportSummary: Sendable, Equatable {
     public var skipped: [Skipped] = []
     public var notes: [Note] = []
     public var warnings: [String] = []
+    /// The application the photos come from, as the lines name it.
+    public var source = "Lightroom"
 
     public init(dryRun: Bool = true, writtenBy: String? = nil, photos: Int = 0, matched: Int = 0, matchedByPath: Int = 0,
                 matchedByHash: Int = 0, matchedByName: Int = 0, ambiguous: [String] = [], notFound: [String] = [],
@@ -348,7 +350,7 @@ public struct LRImportSummary: Sendable, Equatable {
         }
         if deletedInDarkslide > 0 { out.append("\(deletedInDarkslide) variant\(deletedInDarkslide == 1 ? "" : "s") deleted in Darkslide (not recreated)") }
         if readOnly > 0 { out.append("\(Self.photos(readOnly)) saved by a newer Darkslide (left alone)") }
-        if keptDarkslide > 0 { out.append("\(keptDarkslide) Darkslide change\(keptDarkslide == 1 ? "" : "s") kept (unchanged in Lightroom since the last import)") }
+        if keptDarkslide > 0 { out.append("\(keptDarkslide) Darkslide change\(keptDarkslide == 1 ? "" : "s") kept (unchanged in \(source) since the last import)") }
         out += skipped.map { "\u{201c}\($0.name)\u{201d}: \($0.reason)" }
         out += warnings
         return out
@@ -374,8 +376,12 @@ public struct LRRevertSummary: Sendable, Equatable {
     public var variantsRemoved = 0
     public var albumsRemoved = 0
     public var albumsTrimmed = 0
+    /// What was reverted, as the message names it.
+    public var what = "Lightroom import"
 
-    public init(restored: Int = 0, kept: Int = 0, variantsRemoved: Int = 0, albumsRemoved: Int = 0, albumsTrimmed: Int = 0) {
+    public init(restored: Int = 0, kept: Int = 0, variantsRemoved: Int = 0, albumsRemoved: Int = 0, albumsTrimmed: Int = 0,
+                what: String = "Lightroom import") {
+        self.what = what
         self.restored = restored
         self.kept = kept
         self.variantsRemoved = variantsRemoved
@@ -384,7 +390,7 @@ public struct LRRevertSummary: Sendable, Equatable {
     }
 
     public var message: String {
-        var parts = ["Lightroom import reverted: \(LRImportSummary.photos(restored)) restored"]
+        var parts = ["\(what) reverted: \(LRImportSummary.photos(restored)) restored"]
         if variantsRemoved > 0 { parts.append("\(variantsRemoved) imported variant\(variantsRemoved == 1 ? "" : "s") removed") }
         let albums = albumsRemoved + albumsTrimmed
         if albums > 0 { parts.append("\(albums) album\(albums == 1 ? "" : "s") undone") }

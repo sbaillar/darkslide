@@ -178,7 +178,7 @@ import Testing
                                     "body": "## What's new\n\n- New things.\n",
                                     "assets": [["name": "Darkslide-\(version)-macos-arm64.zip", "size": size ?? Int64(zip.count),
                                                 "digest": "sha256:\(try digest ?? sha(zip))",
-                                                "browser_download_url": "https://example.invalid/Darkslide.zip"]]]
+                                                "browser_download_url": "https://github.com/sbaillar/darkslide/releases/download/v\(version)/Darkslide.zip"]]]
         let feed = try JSONSerialization.data(withJSONObject: [entry])
         let r = try rig(feed: feed, downloader: downloader ?? Serves(data: zip), signature: signature)
         await r.updater.check(manual: true)
@@ -226,11 +226,15 @@ import Testing
         // A digest that isn't SHA-256, a wrong asset name or plain http: not an update.
         let odd = try Self.feedJSON(extra: [
             ["tag_name": "v9.0.0", "prerelease": false, "draft": false, "assets": [["name": "Darkslide-9.0.0-macos-arm64.zip",
-                "size": 1, "digest": "md5:abc", "browser_download_url": "https://x.invalid/a.zip"]]],
+                "size": 1, "digest": "md5:abc", "browser_download_url": "https://github.com/x/a.zip"]]],
             ["tag_name": "v9.0.1", "prerelease": false, "draft": false, "assets": [["name": "Darkslide-9.0.1-linux.zip",
-                "size": 1, "digest": "sha256:\(String(repeating: "b", count: 64))", "browser_download_url": "https://x.invalid/a.zip"]]],
+                "size": 1, "digest": "sha256:\(String(repeating: "b", count: 64))", "browser_download_url": "https://github.com/x/a.zip"]]],
             ["tag_name": "v9.0.2", "prerelease": false, "draft": false, "assets": [["name": "Darkslide-9.0.2-macos-arm64.zip",
-                "size": 1, "digest": "sha256:\(String(repeating: "b", count: 64))", "browser_download_url": "http://x.invalid/a.zip"]]],
+                "size": 1, "digest": "sha256:\(String(repeating: "b", count: 64))", "browser_download_url": "http://github.com/x/a.zip"]]],
+            // Not on github.com.
+            ["tag_name": "v9.0.3", "prerelease": false, "draft": false, "assets": [["name": "Darkslide-9.0.3-macos-arm64.zip",
+                "size": 1, "digest": "sha256:\(String(repeating: "b", count: 64))",
+                "browser_download_url": "https://github.com.example.org/x/a.zip"]]],
         ])
         #expect(try ReleaseFeed.releases(from: odd).map(\.version.description) == ["0.1.19-beta.2", "0.1.19-beta.1", "0.1.18"])
         #expect(throws: (any Error).self) { try ReleaseFeed.releases(from: Data("{}".utf8)) }
@@ -252,7 +256,7 @@ import Testing
         let release = try ReleaseFeed.releases(from: Self.feedJSON(extra: [
             ["tag_name": "v0.1.19", "prerelease": false, "draft": false, "body": "",
              "assets": [["name": "Darkslide-0.1.19-macos-arm64.zip", "size": 1, "digest": "sha256:\(String(repeating: "c", count: 64))",
-                         "browser_download_url": "https://x.invalid/a.zip"]]],
+                         "browser_download_url": "https://github.com/x/a.zip"]]],
         ]))
         #expect(ReleaseFeed.newest(release, after: v("0.1.19-beta.2"), beta: false)?.version == v("0.1.19"))
         #expect(ReleaseFeed.newest(release, after: v("0.1.19-beta.2"), beta: true)?.version == v("0.1.19"))
@@ -663,6 +667,31 @@ import Testing
         #expect(Self.marker(backup) == "# old", "the replaced app is the one backup (the older one is gone)")
         #expect(!FileManager.default.fileExists(atPath: new.path))
         #expect(opened == old.path + "\n")
+        let left = try FileManager.default.contentsOfDirectory(atPath: old.deletingLastPathComponent().path)
+        #expect(left == ["Darkslide.app"], "no staged or set-aside copy is left next to the app")
+    }
+
+    /// The old app is never deleted before the new one is in place: if it can't go to the
+    /// backup folder, it stays next to the new one.
+    @Test func theRelauncherKeepsTheOldAppWhenTheBackupCantBeWritten() async throws {
+        let dir = Self.temp("backup refused")
+        let locked = dir.appendingPathComponent("Locked")
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+        let old = try Self.fakeApp(at: dir.appendingPathComponent("Applications/Darkslide.app"), version: "0.1.18", marker: "old")
+        let new = try Self.fakeApp(at: dir.appendingPathComponent("Ready/Darkslide.app"), version: "0.1.19", marker: "new")
+        try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked.path)
+        let backup = locked.appendingPathComponent("Previous Version/Darkslide.app")
+        let (status, _) = try await Self.runRelauncher(old: old, new: new, backup: backup, relaunch: false, in: dir)
+        #expect(status == 0)
+        #expect(Self.marker(old) == "# new")
+        let apps = old.deletingLastPathComponent()
+        let aside = try FileManager.default.contentsOfDirectory(atPath: apps.path).filter { $0.hasPrefix(".Darkslide.app.previous-") }
+        #expect(aside.count == 1)
+        #expect(Self.marker(apps.appendingPathComponent(aside.first ?? "")) == "# old", "kept, hidden next to the new one")
     }
 
     @Test func theRelauncherPutsTheOldAppBackWhenTheMoveFails() async throws {
@@ -740,8 +769,50 @@ import Testing
         let rel = UpdateRelease(version: AppVersion("1.0.0")!, isPrerelease: false, notes: [], page: nil,
                                 asset: .init(name: "z.zip", url: URL(string: "https://x.invalid/z.zip")!, size: 4, sha256: ""))
         await #expect(throws: UpdateError("The download doesn’t contain Darkslide.")) {
-            try await Updater.verify(zip: z, in: two, release: rel, identifier: "casa.test.darkslide", tools: tools)
+            try await Updater.verify(zip: z, in: two, release: rel, identifier: "casa.test.darkslide", running: dir,
+                                     tools: tools)
         }
+    }
+
+    @Test func anUpdateMustBeSignedLikeTheRunningApp() async throws {
+        let teamA = CodeSigner.team("AAAA"), teamB = CodeSigner.team("BBBB")
+        let certA = CodeSigner.certificate(Data([1])), certB = CodeSigner.certificate(Data([2]))
+        #expect(teamA.accepts(teamA) && certA.accepts(certA))
+        #expect(!teamA.accepts(teamB) && !teamA.accepts(.adHoc) && !teamA.accepts(certA))
+        #expect(!certA.accepts(certB) && !certA.accepts(.adHoc) && !certA.accepts(teamA))
+        #expect(CodeSigner.adHoc.accepts(.adHoc) && CodeSigner.adHoc.accepts(teamA), "an ad-hoc app has nothing to pin")
+        #expect(CodeSigner.signer(team: "T", leaf: Data([1])) == .team("T"))
+        #expect(CodeSigner.signer(team: "", leaf: Data([1])) == .certificate(Data([1])))
+        #expect(CodeSigner.signer(team: nil, leaf: nil) == .adHoc)
+        // Real signatures: Apple's own binaries have a certificate; an ad-hoc signed copy has none.
+        let dir = Self.temp("signers")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let copy = dir.appendingPathComponent("true")
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: "/usr/bin/true"), to: copy)
+        let (signed, _) = try await UpdateTools.run("/usr/bin/codesign", ["--force", "--sign", "-", copy.path])
+        #expect(signed == 0)
+        #expect(try CodeSigner.of(copy) == .adHoc)
+        if case .certificate = try CodeSigner.of(URL(fileURLWithPath: "/usr/bin/true")) {} else {
+            Issue.record("an Apple binary has a certificate")
+        }
+        #expect(throws: UpdateError.self) { try CodeSigner.of(dir.appendingPathComponent("missing")) }
+        // The download is checked against the running app's signer.
+        let zip = dir.appendingPathComponent("u.zip")
+        try await Self.zipOfApp(version: "1.0.0").write(to: zip)
+        let size = Int64(try Data(contentsOf: zip).count)
+        let rel = UpdateRelease(version: AppVersion("1.0.0")!, isPrerelease: false, notes: [], page: nil,
+                                asset: .init(name: "u.zip", url: URL(string: "https://github.com/x/u.zip")!, size: size, sha256: ""))
+        let running = dir.appendingPathComponent("Running.app")
+        var tools = System().tools()
+        tools.signer = { $0 == running ? teamA : teamB }
+        await #expect(throws: UpdateError("The download isn’t signed the way this copy of Darkslide is. Nothing was installed.")) {
+            try await Updater.verify(zip: zip, in: dir.appendingPathComponent("s1"), release: rel,
+                                     identifier: "casa.test.darkslide", running: running, tools: tools)
+        }
+        tools.signer = { _ in teamA }
+        let app = try await Updater.verify(zip: zip, in: dir.appendingPathComponent("s2"), release: rel,
+                                           identifier: "casa.test.darkslide", running: running, tools: tools)
+        #expect(app.lastPathComponent == "Darkslide.app")
     }
 
     @Test func theFeedIsFetchedOverHTTPSWithOnlyTheVersion() async throws {

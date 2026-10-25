@@ -118,6 +118,9 @@ fn viewer_drag_stays_fast_while_a_full_size_export_runs() {
                 artist: None,
                 copyright: None,
                 adjustments_json: None,
+                rating: None,
+                label: None,
+                pick: None,
             })
             .collect();
         let exported = sources.len();
@@ -137,6 +140,7 @@ fn viewer_drag_stays_fast_while_a_full_size_export_runs() {
             ai_upscale: false,
             watermark: None,
             post_process: vec![],
+            label_tags: true,
         };
         let done = Arc::new(AtomicBool::new(false));
         let export = {

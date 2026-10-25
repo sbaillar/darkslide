@@ -7,6 +7,19 @@ public enum CopyMode: String, CaseIterable, Sendable {
     case edited, custom
 }
 
+/// [library] The view the app starts in: the last session (the default), or the Library
+/// (every session's photos), which opens no session until one is needed.
+public enum StartView: String, CaseIterable, Sendable {
+    case session, library
+
+    public var title: String {
+        switch self {
+        case .session: "Session"
+        case .library: "Library (catalog)"
+        }
+    }
+}
+
 public enum AppearancePreference: String, CaseIterable, Sendable {
     case dark = "Dark", light = "Light", system = "System"
 }
@@ -36,6 +49,22 @@ public final class AppSettings {
     /// recorded; an existing folder still works). A different volume mounted at
     /// the same path is then "offline", never written to.
     public var archiveTargetVolume: String? { didSet { defaults.set(archiveTargetVolume, forKey: Keys.archiveTargetVolume) } }
+    /// Settings ▸ Archive: rsync into a folder, or S3-compatible object storage.
+    public var archiveDestination: ArchiveDestinationKind {
+        didSet { defaults.set(archiveDestination.rawValue, forKey: Keys.archiveDestination) }
+    }
+    /// Object storage settings. The keys are not here: they live only in the Keychain
+    /// (`ArchiveObjectKeys`).
+    public var archiveObjectStore: ObjectStoreSettings {
+        didSet {
+            let o = archiveObjectStore
+            defaults.set(o.endpoint, forKey: Keys.objectEndpoint)
+            defaults.set(o.region, forKey: Keys.objectRegion)
+            defaults.set(o.bucket, forKey: Keys.objectBucket)
+            defaults.set(o.prefix, forKey: Keys.objectPrefix)
+            defaults.set(o.pathStyle, forKey: Keys.objectPathStyle)
+        }
+    }
     /// Rejected photos are handed to Amazon Photos too (off by default).
     public var amazonRejected: Bool { didSet { defaults.set(amazonRejected, forKey: Keys.amazonRejected) } }
     /// Folder watched by the Amazon Photos app (PLAN D3 option A); `nil` = off.
@@ -47,6 +76,8 @@ public final class AppSettings {
         didSet { defaults.set(amazonPhotosFolderBookmark, forKey: Keys.amazonBookmark) }
     }
     public var appearance: AppearancePreference { didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) } }
+    /// [library] Settings › General › Open in: the last session or the Library.
+    public var startView: StartView { didSet { defaults.set(startView.rawValue, forKey: Keys.startView) } }
     public var autoOpenImport: Bool { didSet { defaults.set(autoOpenImport, forKey: Keys.autoImport) } }
     /// How Copy picks its groups: the source's edited ones (Capture One's auto-select,
     /// the default) or the user's own ticks in `copyGroups`.
@@ -172,8 +203,15 @@ public final class AppSettings {
         static let archiveRejected = "archiveRejectedPhotos"
         static let amazonRejected = "amazonRejectedPhotos"
         static let archiveTargetVolume = "archiveTargetVolume"
+        static let archiveDestination = "archiveDestination"
+        static let objectEndpoint = "archiveObjectEndpoint"
+        static let objectRegion = "archiveObjectRegion"
+        static let objectBucket = "archiveObjectBucket"
+        static let objectPrefix = "archiveObjectPrefix"
+        static let objectPathStyle = "archiveObjectPathStyle"
         static let appearance = "appearance"
         static let autoImport = "autoOpenImport"
+        static let startView = "startView"
         // N6: v2 selections hold crop/spots/layers only when the user ticked them.
         static let copyGroups = "rememberedCopyGroups.v2"
         static let legacyCopyGroups = "rememberedCopyGroups"
@@ -220,10 +258,17 @@ public final class AppSettings {
         archiveRejected = legacyRejected ?? true
         amazonRejected = defaults.object(forKey: Keys.amazonRejected) as? Bool ?? legacyRejected ?? false
         archiveTargetVolume = defaults.string(forKey: Keys.archiveTargetVolume)
+        archiveDestination = defaults.string(forKey: Keys.archiveDestination).flatMap(ArchiveDestinationKind.init) ?? .folder
+        archiveObjectStore = ObjectStoreSettings(endpoint: defaults.string(forKey: Keys.objectEndpoint) ?? "",
+                                                 region: defaults.string(forKey: Keys.objectRegion) ?? "",
+                                                 bucket: defaults.string(forKey: Keys.objectBucket) ?? "",
+                                                 prefix: defaults.string(forKey: Keys.objectPrefix) ?? "darkslide/",
+                                                 pathStyle: defaults.bool(forKey: Keys.objectPathStyle))
         amazonPhotosFolder = defaults.string(forKey: Keys.amazon).map { URL(fileURLWithPath: $0) }
         amazonPhotosFolderBookmark = defaults.data(forKey: Keys.amazonBookmark)
         appearance = defaults.string(forKey: Keys.appearance).flatMap(AppearancePreference.init) ?? .dark
         autoOpenImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? true
+        startView = defaults.string(forKey: Keys.startView).flatMap(StartView.init(rawValue:)) ?? .session
         // N6: older selections may hold crop/spots/layers that were preselected, not ticked: drop those.
         func groups(_ names: [String]?, legacy: Bool) -> Set<AdjustGroup> {
             Set((names ?? []).compactMap(AdjustGroup.init(rawValue:)).filter { !legacy || !$0.isOptIn })
@@ -319,9 +364,12 @@ public struct ArchiveSettingsSnapshot: Sendable, Equatable {
     public var amazonRejected: Bool
     /// N3: the confirmed target's volume identity (see `AppSettings.archiveTargetVolume`).
     public var targetVolume: String?
+    /// Object storage instead of the folder `target` (nil: the folder).
+    public var objectStore: ObjectStoreSettings?
 
     public init(enabled: Bool, target: String, intervalMinutes: Int, amazonFolder: URL?, archiveRejected: Bool = true,
-                amazonRejected: Bool = false, targetVolume: String? = nil) {
+                amazonRejected: Bool = false, targetVolume: String? = nil, objectStore: ObjectStoreSettings? = nil) {
+        self.objectStore = objectStore
         self.targetVolume = targetVolume
         self.enabled = enabled
         self.target = target
@@ -331,8 +379,13 @@ public struct ArchiveSettingsSnapshot: Sendable, Equatable {
         self.amazonRejected = amazonRejected
     }
 
-    /// Archiving runs only when switched on and a target is set.
-    public var isActive: Bool { enabled && !target.trimmingCharacters(in: .whitespaces).isEmpty }
+    /// Archiving runs only when switched on and a target (a folder, or a bucket) is set.
+    public var isActive: Bool { enabled && hasTarget }
+
+    public var hasTarget: Bool {
+        if let objectStore { return !objectStore.bucket.trimmingCharacters(in: .whitespaces).isEmpty }
+        return !target.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 }
 
 extension AppSettings {
@@ -340,7 +393,8 @@ extension AppSettings {
         ArchiveSettingsSnapshot(enabled: archiveEnabled, target: archiveTarget.trimmingCharacters(in: .whitespaces),
                                 intervalMinutes: archiveIntervalMinutes, amazonFolder: amazonPhotosFolder,
                                 archiveRejected: archiveRejected, amazonRejected: amazonRejected,
-                                targetVolume: archiveTargetVolume)
+                                targetVolume: archiveTargetVolume,
+                                objectStore: archiveDestination == .object ? archiveObjectStore : nil)
     }
 
     /// N3: the user confirmed the archive target (onboarding Finish, Settings):

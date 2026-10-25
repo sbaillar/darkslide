@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Security
 
 /// Fetches the releases list (seam for tests).
 public protocol ReleaseFetching: Sendable {
@@ -45,6 +46,46 @@ public struct UpdateError: Error, Equatable, LocalizedError {
     public var errorDescription: String? { message }
 }
 
+/// Who signed an app, as far as an update needs to know: an update must be signed the
+/// way the running app is, so a valid signature by someone else is refused.
+public enum CodeSigner: Equatable, Sendable {
+    /// A Developer ID (or other Apple-issued) identity: its team.
+    case team(String)
+    /// A certificate without a team, such as a self-signed "Darkslide Dev": its leaf certificate.
+    case certificate(Data)
+    /// Ad hoc (or unsigned): no identity to compare.
+    case adHoc
+
+    /// Whether an update signed by `update` may replace an app signed like this. An ad-hoc
+    /// app has no identity to pin, so any valid signature passes (the download already
+    /// matched GitHub's digest); otherwise the same team or certificate.
+    public func accepts(_ update: CodeSigner) -> Bool {
+        self == .adHoc || self == update
+    }
+
+    /// The signer of the bundle (or binary) at `url`.
+    public static func of(_ url: URL) throws -> CodeSigner {
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code else {
+            throw UpdateError("“\(url.lastPathComponent)” isn’t an app Darkslide can check.")
+        }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+              let dict = info as? [String: Any] else {
+            throw UpdateError("The signature of “\(url.lastPathComponent)” couldn’t be read.")
+        }
+        return signer(team: dict[kSecCodeInfoTeamIdentifier as String] as? String,
+                      leaf: (dict[kSecCodeInfoCertificates as String] as? [SecCertificate])?.first
+                          .map { SecCertificateCopyData($0) as Data })
+    }
+
+    static func signer(team: String?, leaf: Data?) -> CodeSigner {
+        if let team, !team.isEmpty { return .team(team) }
+        if let leaf { return .certificate(leaf) }
+        return .adHoc
+    }
+}
+
 /// The updater's contact with the system: unpacking, the signature check, the relauncher,
 /// Finder and quitting. Tests replace the parts that would touch the running app.
 public struct UpdateTools: Sendable {
@@ -56,6 +97,8 @@ public struct UpdateTools: Sendable {
     /// Quit through the normal path (`applicationShouldTerminate`: saves flush, running
     /// imports and exports are asked about).
     public var terminate: @MainActor @Sendable () -> Void
+    /// Who signed a bundle (the running app, the downloaded one).
+    public var signer: @Sendable (_ bundle: URL) throws -> CodeSigner = CodeSigner.of
 
     public static let live = UpdateTools(
         unzip: { zip, into in
@@ -100,26 +143,36 @@ public struct UpdateTools: Sendable {
     /// `$1` the app's pid, `$2` the installed bundle, `$3` the verified new bundle, `$4` where
     /// the old one goes ("Previous Version", replacing an older one), `$5` 1 to reopen the app,
     /// `$6` the program that reopens it (`/usr/bin/open`). It waits for the pid to exit (60 s
-    /// at most), moves the old bundle aside and the new one into its exact path; if that move
-    /// fails, the old bundle goes back. Paths are arguments, never spliced into the script.
+    /// at most), then:
+    /// 1. moves the new bundle next to the old one (a copy when it is on another volume; the old
+    ///    app is untouched until that is done);
+    /// 2. renames the old bundle aside and the new one to its exact path, two renames in one
+    ///    folder; if the second fails, the old bundle is renamed back;
+    /// 3. moves the old bundle to `$4`. If that fails it stays next to the new one, hidden: the
+    ///    previous version is never deleted before the new one is in place.
+    /// Paths are arguments, never spliced into the script.
     public static let relauncher = """
         pid="$1"; old="$2"; new="$3"; backup="$4"; relaunch="$5"; opener="$6"
         [ -n "$pid" ] && [ -n "$old" ] && [ -n "$new" ] && [ -n "$backup" ] && [ -n "$opener" ] || exit 2
-        case "$backup" in *.app) ;; *) exit 2 ;; esac
+        for p in "$old" "$new" "$backup"; do case "$p" in *.app) ;; *) exit 2 ;; esac; done
         i=0
         while kill -0 "$pid" 2>/dev/null; do
           i=$((i + 1)); [ "$i" -gt 600 ] && exit 3
           sleep 0.1
         done
         reopen() { [ "$relaunch" = 1 ] && "$opener" "$old"; exit "$1"; }
-        [ -d "$new" ] || reopen 4
-        mkdir -p "$(dirname "$backup")" || reopen 4
-        if [ -e "$backup" ]; then rm -rf -- "$backup" || reopen 4; fi
-        mv -- "$old" "$backup" || reopen 5
-        if ! mv -- "$new" "$old"; then
-          mv -- "$backup" "$old"
+        [ -d "$new" ] && [ -d "$old" ] || reopen 4
+        dir="$(dirname "$old")"; name="$(basename "$old")"
+        staged="$dir/.$name.update-$$"; aside="$dir/.$name.previous-$$"
+        [ -e "$staged" ] || [ -e "$aside" ] && reopen 4
+        if ! mv -- "$new" "$staged"; then rm -rf -- "$staged"; reopen 6; fi
+        if ! mv -- "$old" "$aside"; then rm -rf -- "$staged"; reopen 5; fi
+        if ! mv -- "$staged" "$old"; then
+          mv -- "$aside" "$old"
+          rm -rf -- "$staged"
           reopen 6
         fi
+        mkdir -p "$(dirname "$backup")" && { [ ! -e "$backup" ] || rm -rf -- "$backup"; } && mv -- "$aside" "$backup"
         reopen 0
         """
 }

@@ -47,10 +47,16 @@ private struct LibrarySidebar: View {
 
     var body: some View {
         let o = library.overview
-        List(selection: Binding(get: { library.scope }, set: { if let s = $0 { library.scope = s } })) {
+        // ⌘-click several sessions to see them as one.
+        List(selection: Binding(get: { LibraryModel.sidebarSelection(library.scope) },
+                                set: { if let s = LibraryModel.scope(sidebar: $0, current: library.scope) { library.scope = s } })) {
             Label("All Photographs", systemImage: "photo.on.rectangle")
                 .badge(Int(o?.total ?? 0))
                 .tag(LibraryModel.Scope.all)
+            Label("Opened Sessions", systemImage: "clock.arrow.circlepath")
+                .badge(library.openedCount)
+                .help("The sessions you have opened (File ▸ Open Recent), as one")
+                .tag(LibraryModel.Scope.opened)
             Section("Collections") {
                 ForEach(library.collections, id: \.id) { c in
                     Label(c.name, systemImage: c.rules == nil ? "rectangle.stack" : "gearshape.2")
@@ -77,7 +83,7 @@ private struct LibrarySidebar: View {
                     Label(s.name, systemImage: s.available ? "folder" : "externaldrive.badge.xmark")
                         .foregroundStyle(s.available ? .primary : DS.textSecondary)
                         .badge(Int(s.count))
-                        .help(s.available ? s.root : "\(s.root) is offline: its photos are listed, not shown")
+                        .help(s.available ? "\(s.root) (⌘-click to add sessions)" : "\(s.root) is offline: its photos are listed, not shown")
                         .tag(LibraryModel.Scope.session(s.id))
                 }
             }

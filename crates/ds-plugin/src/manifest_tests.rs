@@ -386,3 +386,77 @@ fn aprons_are_for_post_processors() {
         .contains("apron_rows")
     );
 }
+
+const FEATURE: &str = "[[contributes.native_feature]]\nid = \"immich\"\ncontract = 1\nuses = [\"Your Immich server\"]\n";
+
+fn builtin(extra: &str) -> String {
+    format!(
+        "manifest = 1\nid = \"darkslide.immich\"\nname = \"Immich\"\nversion = \"1.0.0\"\napi = 1\n{extra}"
+    )
+}
+
+#[test]
+fn a_native_feature_is_a_switch_without_files() {
+    let m = parse(&builtin(&format!(
+        "permissions = [\"network:immich.example.org\"]\n{FEATURE}"
+    )))
+    .unwrap();
+    let c = &m.contributions[0];
+    assert_eq!(
+        (c.kind, c.id.as_str(), c.contract),
+        (Kind::NativeFeature, "immich", 1)
+    );
+    assert_eq!(c.uses, ["Your Immich server"]);
+    assert!(m.files().is_empty() && !m.has_code());
+    assert_eq!(m.native_features().collect::<Vec<_>>(), ["immich"]);
+    // Its permissions describe the app's own code: no "never used" warning.
+    assert!(m.warnings.is_empty(), "{:?}", m.warnings);
+    assert!(!Kind::NativeFeature.has_file() && Kind::Looks.has_file());
+    assert_eq!(Kind::NativeFeature.key(), "native_feature");
+}
+
+#[test]
+fn only_bundled_plugins_declare_native_features() {
+    // A third-party package is refused (at validation, so at install and at load).
+    assert!(err(&with(FEATURE)).contains("only for Darkslide's own"));
+    // Strict (author time) as well.
+    assert!(
+        Manifest::parse_with(&with(FEATURE), &v("0.2.0"), true)
+            .unwrap_err()
+            .to_string()
+            .contains("only for Darkslide's own")
+    );
+}
+
+#[test]
+fn native_features_are_checked() {
+    let e = |extra: &str| err(&builtin(extra));
+    assert!(
+        e(&FEATURE.replace("contract = 1", "contract = 1\nfile = \"x.json\"")).contains("names no")
+    );
+    assert!(
+        e(&FEATURE.replace("contract = 1", "contract = 1\nmodule = \"x.wasm\""))
+            .contains("names no")
+    );
+    assert!(
+        e(&FEATURE.replace(
+            "contract = 1",
+            "contract = 1\nparams = [{ key = \"a\", type = \"bool\", default = true }]"
+        ))
+        .contains("no `params`")
+    );
+    assert!(e(&FEATURE.replace("contract = 1", "contract = 2")).contains("newer Darkslide"));
+    // `uses` belongs to native features only.
+    assert!(
+        err(&with(
+            "[[contributes.looks]]\nid = \"l\"\nfile = \"l.json\"\ncontract = 1\nuses = [\"x\"]\n"
+        ))
+        .contains("`uses` is for native features")
+    );
+    // A feature this Darkslide doesn't have is skipped with a warning (an error at author time).
+    let newer = builtin(&FEATURE.replace("\"immich\"", "\"teleport\""));
+    let m = parse(&newer).unwrap();
+    assert_eq!(m.contributions.len(), 0);
+    assert!(m.warnings[0].contains("not a feature of this Darkslide"));
+    assert!(Manifest::parse_with(&newer, &v("0.2.0"), true).is_err());
+}

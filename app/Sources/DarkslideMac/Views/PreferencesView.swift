@@ -3,12 +3,17 @@ import DarkslideCore
 import DarkslideUI
 import SwiftUI
 
-/// ⌘, window: General, Familiar, Shortcuts, RAW, Archive, Google Photos, AI, Voice, Devices, Plugins, Updates.
+/// ⌘, window: General, Familiar, Shortcuts, RAW, the integrations that are on (Archive,
+/// Amazon Photos, Google Photos, Immich), AI, Voice, Devices, Plugins, Updates.
 struct PreferencesView: View {
     @Bindable var settings: AppSettings
+    /// Settings ▸ Plugins: an integration that is off has no tab (its settings are kept).
+    let features: FeatureGates
     let voice: VoiceController
     let remote: RemoteLinkModel
     var googlePhotos: (any GooglePhotosService)?
+    /// Settings ▸ Immich (live only).
+    var immich: ImmichModel?
     let updater: Updater
 
     var body: some View {
@@ -21,11 +26,22 @@ struct PreferencesView: View {
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             RawSettingsView(helper: RawlerHelper.shared)
                 .tabItem { Label("RAW", systemImage: "camera.aperture") }
-            ArchiveSettingsView(model: ArchiveSettingsModel(settings: settings))
-                .tabItem { Label("Archive", systemImage: "externaldrive.badge.icloud") }
-            if let googlePhotos {
+            if features.isOn(.archive) {
+                ArchiveSettingsView(model: ArchiveSettingsModel(settings: settings))
+                    .tabItem { Label("Archive", systemImage: "externaldrive.badge.icloud") }
+            }
+            if features.isOn(.amazonPhotos) {
+                AmazonPhotosSettingsView(model: ArchiveSettingsModel(settings: settings))
+                    .tabItem { Label("Amazon Photos", systemImage: "icloud.and.arrow.up") }
+            }
+            if let googlePhotos, features.isOn(.googlePhotos) {
                 GooglePhotosSettingsView(settings: GooglePhotosSettings(defaults: settings.userDefaults), service: googlePhotos)
                     .tabItem { Label("Google Photos", systemImage: "photo.on.rectangle.angled") }
+            }
+            if let immich, features.isOn(.immich) {
+                ImmichSettingsView(model: immich, archiveTarget: settings.archiveTarget,
+                                   objectStorage: settings.archiveDestination == .object)
+                    .tabItem { Label("Immich", systemImage: "photo.stack") }
             }
             AISettingsView(model: AISettingsModel(jev: JevSettings(defaults: settings.userDefaults))) // [nl9]
                 .tabItem { Label("AI", systemImage: "sparkles") }

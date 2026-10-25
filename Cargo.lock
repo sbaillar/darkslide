@@ -739,7 +739,7 @@ dependencies = [
 
 [[package]]
 name = "ds-ai"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "bytemuck",
  "criterion",
@@ -756,18 +756,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "ds-archive"
-version = "0.1.21"
+name = "ds-apple"
+version = "0.1.23"
 dependencies = [
+ "blake3",
+ "ds-core",
+ "ds-lr",
+ "ds-session",
+ "plist",
+ "rusqlite",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "ds-archive"
+version = "0.1.23"
+dependencies = [
+ "base64",
  "blake3",
  "chrono",
  "ds-core",
  "ds-fsutil",
  "ds-template",
+ "hmac",
+ "md-5",
+ "percent-encoding",
  "reflink-copy",
+ "roxmltree",
  "rustix",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror",
  "tracing",
@@ -775,7 +795,7 @@ dependencies = [
 
 [[package]]
 name = "ds-c1"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "ds-core",
@@ -794,7 +814,7 @@ dependencies = [
 
 [[package]]
 name = "ds-cache"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "criterion",
@@ -807,7 +827,7 @@ dependencies = [
 
 [[package]]
 name = "ds-core"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "half",
  "proptest",
@@ -818,7 +838,7 @@ dependencies = [
 
 [[package]]
 name = "ds-export"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "chrono",
  "criterion",
@@ -835,6 +855,7 @@ dependencies = [
  "png",
  "rayon",
  "rustix",
+ "serde_json",
  "tempfile",
  "thiserror",
  "tiff",
@@ -842,13 +863,14 @@ dependencies = [
 
 [[package]]
 name = "ds-ffi"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "bytemuck",
  "chrono",
  "criterion",
  "ds-ai",
+ "ds-apple",
  "ds-archive",
  "ds-c1",
  "ds-cache",
@@ -856,6 +878,7 @@ dependencies = [
  "ds-export",
  "ds-fsutil",
  "ds-gphotos",
+ "ds-immich",
  "ds-import",
  "ds-lr",
  "ds-merge",
@@ -885,7 +908,7 @@ dependencies = [
 
 [[package]]
 name = "ds-fsutil"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "rustix",
  "tempfile",
@@ -894,7 +917,7 @@ dependencies = [
 
 [[package]]
 name = "ds-gphotos"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "percent-encoding",
  "serde",
@@ -904,8 +927,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ds-immich"
+version = "0.1.23"
+dependencies = [
+ "blake3",
+ "ds-fsutil",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "ds-import"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "chrono",
@@ -926,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "ds-lr"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "ds-core",
@@ -943,7 +979,7 @@ dependencies = [
 
 [[package]]
 name = "ds-merge"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "criterion",
  "ds-core",
@@ -956,7 +992,7 @@ dependencies = [
 
 [[package]]
 name = "ds-pipeline"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -976,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "ds-plugin"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -997,7 +1033,7 @@ dependencies = [
 
 [[package]]
 name = "ds-raw"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "criterion",
  "ds-core",
@@ -1018,7 +1054,7 @@ dependencies = [
 
 [[package]]
 name = "ds-rawler"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "ds-core",
  "ds-raw",
@@ -1028,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "ds-remote"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "ds-core",
@@ -1051,7 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "ds-session"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "blake3",
  "criterion",
@@ -1068,7 +1104,7 @@ dependencies = [
 
 [[package]]
 name = "ds-template"
-version = "0.1.21"
+version = "0.1.23"
 dependencies = [
  "chrono",
  "thiserror",
@@ -1077,7 +1113,7 @@ dependencies = [
 
 [[package]]
 name = "ds-testdata"
-version = "0.1.21"
+version = "0.1.23"
 
 [[package]]
 name = "dunce"
@@ -1843,6 +1879,16 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+
+[[package]]
+name = "md-5"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
+dependencies = [
+ "cfg-if",
+ "digest",
+]
 
 [[package]]
 name = "md5"
@@ -3098,7 +3144,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

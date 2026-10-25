@@ -445,6 +445,45 @@ fn queries_filter_by_every_criterion() {
     );
 }
 
+/// The Library's multi-session scopes (⌘-click, Opened Sessions): only those
+/// sessions' photos, whatever else the index holds, filters and sort applied.
+#[test]
+fn a_query_over_several_sessions_returns_only_theirs() {
+    let mut l = lib();
+    let mut beach = Session::create(&l.dir.path().join("Beach"), "Beach").unwrap();
+    add(&mut beach, "Capture/B1.ARW", Some(day(2022, 7, 1)), "X-T5");
+    assert!(sync(&mut l.g, &beach));
+    let hike = session_id(&mut l.g, "Fall Hike");
+    let city = session_id(&mut l.g, "City Walk");
+    let beach_id = session_id(&mut l.g, "Beach");
+    let two = LibraryQuery {
+        sessions: vec![city, beach_id],
+        ..LibraryQuery::default()
+    };
+    assert_eq!(names(&mut l.g, &two), ["B1.ARW", "IMG1.ARW", "IMG2.ARW"]);
+    let sessions: Vec<i64> = items_of(&mut l.g, &two)
+        .iter()
+        .map(|i| i.session_id)
+        .collect();
+    assert!(sessions.iter().all(|s| *s == city || *s == beach_id));
+    let rated = LibraryQuery {
+        sessions: vec![hike, city],
+        min_rating: 4,
+        sort: LibrarySort::Name,
+        ..LibraryQuery::default()
+    };
+    assert_eq!(names(&mut l.g, &rated), ["DSC2.ARW", "IMG1.ARW"]);
+    let unknown = LibraryQuery {
+        sessions: vec![beach_id, 9_999],
+        ..LibraryQuery::default()
+    };
+    assert_eq!(
+        names(&mut l.g, &unknown),
+        ["B1.ARW"],
+        "an id the index doesn't have matches nothing"
+    );
+}
+
 #[test]
 fn queries_sort() {
     let mut l = lib();

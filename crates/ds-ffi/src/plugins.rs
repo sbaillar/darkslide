@@ -128,10 +128,13 @@ pub struct PluginPermissionInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct PluginContributionInfo {
-    /// `looks`, `styles`, `voice_phrases`, `export_post_process`, `export_destination`.
+    /// `looks`, `styles`, `voice_phrases`, `export_post_process`, `export_destination`,
+    /// `native_feature`.
     pub kind: String,
     pub id: String,
     pub name: String,
+    /// A native feature: what it reaches beyond the app, in words ("Your Immich server").
+    pub uses: Vec<String>,
 }
 
 /// One plug-in folder for Settings ▸ Plugins.
@@ -303,6 +306,7 @@ fn contributions(m: &ds_plugin::Manifest) -> Vec<PluginContributionInfo> {
             kind: c.kind.key().into(),
             id: c.id.clone(),
             name: c.name.clone(),
+            uses: c.uses.clone(),
         })
         .collect()
 }
@@ -319,11 +323,24 @@ fn current() -> &'static Mutex<Option<Arc<PluginHost>>> {
 }
 
 impl PluginHost {
-    fn lock(&self) -> std::sync::MutexGuard<'_, Host> {
+    /// A host export never resolves through (tests running beside the export tests).
+    #[cfg(test)]
+    pub(crate) fn unshared(builtin_dir: Option<PathBuf>, user_dir: PathBuf) -> Arc<Self> {
+        Arc::new(Self {
+            host: Mutex::new(Host::open(
+                builtin_dir,
+                user_dir,
+                ds_plugin::darkslide_version(),
+                Platform::Macos,
+            )),
+        })
+    }
+
+    pub(crate) fn lock(&self) -> std::sync::MutexGuard<'_, Host> {
         self.host.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn with<T>(
+    pub(crate) fn with<T>(
         &self,
         f: impl FnOnce(&mut Host) -> Result<T, ds_plugin::PluginError>,
     ) -> Result<T, DsError> {
@@ -781,3 +798,7 @@ pub fn edit_keys() -> Vec<EditKeyInfo> {
 #[cfg(test)]
 #[path = "plugins_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "plugins_e2e_tests.rs"]
+mod e2e_tests;

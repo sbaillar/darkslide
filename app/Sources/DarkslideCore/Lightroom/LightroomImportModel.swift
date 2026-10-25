@@ -252,8 +252,13 @@ public final class LightroomImportModel {
 
     public var folderRows: [FolderRow] {
         guard let s = preview ?? { if case .done(let d) = phase { return d } else { return nil } }() else { return [] }
-        let sessions = knownSessions()
-        return s.notFoundFolders.map { f in
+        return Self.folderRows(s, sessions: knownSessions())
+    }
+
+    /// The report's folders of photos not in the session: in another session, there to
+    /// open, or gone (shared with the Aperture / iPhoto import).
+    static func folderRows(_ s: LRImportSummary, sessions: [SessionInfo]) -> [FolderRow] {
+        s.notFoundFolders.map { f in
             let path = (f.path as NSString).standardizingPath
             if let hit = sessions.first(where: { Self.contains($0.url.standardizedFileURL.path, path) }) {
                 return FolderRow(path: f.path, photos: f.photos, state: .inSession(hit.name))

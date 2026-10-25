@@ -1,6 +1,12 @@
-//! Archive (rsync to a mounted target, e.g. the NAS at `/Volumes/pics`) and
-//! the Amazon Photos folder hand-off (`ds-archive`), for the app.
+//! Archive (`ds-archive`) and the Amazon Photos folder hand-off, for the app.
 //!
+//! - **Destinations.** [`ArchiveConfig::object_store`] picks one: `None` archives
+//!   with rsync into [`ArchiveConfig::target`], a folder (a mounted volume such as
+//!   the NAS at `/Volumes/pics`, or a local folder); `Some` archives to
+//!   S3-compatible object storage through the app's [`ArchiveHttp`], with the keys
+//!   from [`ArchiveManager::set_object_store`] (the app keeps them in the Keychain).
+//!   Everything below works the same for both, through `ds_archive::Destination`.
+//!   Switching never moves or deletes what is already archived.
 //! - [`ArchiveManager`] owns one [`Scheduler`] per registered session and a
 //!   driver thread that decides what runs: after an import, every interval
 //!   when changes are pending, on session close, on "Sync now". Swift only
@@ -51,11 +57,13 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use ds_archive::object::{Credentials, ObjectDestination, ObjectStoreConfig, Transport};
 use ds_archive::scheduler::TargetLock;
 use ds_archive::{
-    AmazonBackup, ArchiveError, ArchiveTarget, Archiver, Clock, CommandOutput, CommandRunner,
-    CommandSpec, Original, RsyncProgress, RsyncRunner, RunRecord, Scheduler, SchedulerConfig,
-    Snapshotter, SystemClock, SystemRunner, Trigger, VolumeId,
+    AmazonBackup, ArchiveError, ArchiveTarget, Clock, CommandOutput, CommandRunner, CommandSpec,
+    Destination, DestinationKind, FolderDestination, Original, RsyncProgress, RsyncRunner,
+    RunRecord, Scheduler, SchedulerConfig, SessionSource, Snapshotter, SystemClock, SystemRunner,
+    Trigger, VolumeId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -88,8 +96,12 @@ pub struct TargetCheck {
     pub timed_out: bool,
     /// Why it isn't available.
     pub reason: Option<String>,
-    /// File system of the target (`apfs`, `nfs`, `smbfs`, `exfat`, …).
+    /// File system of the target (`apfs`, `nfs`, `smbfs`, `exfat`, …), or
+    /// `object storage`.
     pub fs_type: Option<String>,
+    /// `volume` (must be mounted), `local` (a folder on this Mac) or `object`.
+    #[uniffi(default = None)]
+    pub kind: Option<String>,
 }
 
 /// The file-system work of a check (a seam: tests block it to simulate a hung mount),
@@ -97,13 +109,46 @@ pub struct TargetCheck {
 type CheckFn = dyn Fn(&Path, Option<&VolumeId>) -> Result<Option<String>, String> + Send + Sync;
 
 fn real_check(root: &Path, volume: Option<&VolumeId>) -> Result<Option<String>, String> {
-    let mut target = ArchiveTarget::new(root);
-    target.volume = volume.cloned();
-    target.check_available().map_err(|e| match e {
+    folder_destination(root, volume.cloned(), None, protected())
+        .check(&AtomicBool::new(false))
+        .map_err(reason)
+}
+
+/// Why a destination isn't available, in words (an offline reason as is).
+fn reason(e: ArchiveError) -> String {
+    match e {
         ArchiveError::TargetUnavailable { reason, .. } => reason,
         other => other.to_string(),
-    })?;
-    Ok(ds_archive::target::fs_type(root))
+    }
+}
+
+/// The folder destination for `root` on `volume`.
+fn folder_destination(
+    root: &Path,
+    volume: Option<VolumeId>,
+    rsync: Option<RsyncRunner>,
+    protected: Vec<PathBuf>,
+) -> FolderDestination {
+    let mut target = ArchiveTarget::new(root);
+    target.volume = volume;
+    FolderDestination::new(target, rsync).protecting(protected)
+}
+
+/// Darkslide's support folder (`~/Library/Application Support/Darkslide`): never
+/// an archive target.
+fn protected() -> Vec<PathBuf> {
+    ds_archive::scheduler::default_lock_dir()
+        .and_then(|d| d.parent().map(Path::to_path_buf))
+        .into_iter()
+        .collect()
+}
+
+/// `volume` or `local` for a folder target (no file-system call).
+fn folder_kind(root: &Path, volume: Option<VolumeId>) -> String {
+    folder_destination(root, volume, None, Vec::new())
+        .kind()
+        .as_str()
+        .to_owned()
 }
 
 /// Paths whose check thread has not come back yet.
@@ -120,6 +165,20 @@ fn check_with(
     timeout: Duration,
     check: Arc<CheckFn>,
 ) -> TargetCheck {
+    let kind = folder_kind(root, volume.clone());
+    let mut c = check_bounded(root, timeout, move |key| check(key, volume.as_ref()));
+    c.kind = Some(kind);
+    c
+}
+
+/// Run `check` for the destination keyed `root` on a detached thread, waiting at
+/// most `timeout`. A check that is still stuck from an earlier call is not
+/// duplicated (reported as timed out).
+fn check_bounded(
+    root: &Path,
+    timeout: Duration,
+    check: impl FnOnce(&Path) -> Result<Option<String>, String> + Send + 'static,
+) -> TargetCheck {
     let path = root.to_string_lossy().into_owned();
     let timed_out = |reason: &str| TargetCheck {
         path: path.clone(),
@@ -127,6 +186,7 @@ fn check_with(
         timed_out: true,
         reason: Some(reason.to_owned()),
         fs_type: None,
+        kind: None,
     };
     if root.as_os_str().is_empty() {
         return TargetCheck {
@@ -135,6 +195,7 @@ fn check_with(
             timed_out: false,
             reason: Some("no archive target set".into()),
             fs_type: None,
+            kind: None,
         };
     }
     if !lock(in_flight()).insert(root.to_path_buf()) {
@@ -145,7 +206,7 @@ fn check_with(
     let spawned = std::thread::Builder::new()
         .name("ds-archive-check".into())
         .spawn(move || {
-            let r = check(&key, volume.as_ref());
+            let r = check(&key);
             lock(in_flight()).remove(&key);
             let _ = tx.send(r);
         });
@@ -160,6 +221,7 @@ fn check_with(
             timed_out: false,
             reason: None,
             fs_type,
+            kind: None,
         },
         Ok(Err(reason)) => TargetCheck {
             path,
@@ -167,6 +229,7 @@ fn check_with(
             timed_out: false,
             reason: Some(reason),
             fs_type: None,
+            kind: None,
         },
         Err(_) => timed_out("the volume did not respond in time"),
     }
@@ -212,6 +275,194 @@ pub fn amazon_photos_app_installed() -> Result<bool, DsError> {
     guard(|| Ok(ds_archive::amazon_app_installed()))
 }
 
+// ---------------------------------------------------------- object storage ---
+
+/// S3-compatible object storage settings (Settings ▸ Archive). The keys are not
+/// here: they live in the Keychain and reach Rust as [`ObjectCredentials`].
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ObjectStoreSettings {
+    /// `https://s3.eu-central-003.backblazeb2.com`, … Empty: AWS S3 in `region`.
+    pub endpoint: String,
+    /// `us-east-1`, `auto` (R2), … Empty: `us-east-1`.
+    pub region: String,
+    pub bucket: String,
+    /// Key prefix ("path"): `darkslide/` → `darkslide/<session>/<file>`.
+    pub prefix: String,
+    /// `https://host/bucket/key` instead of `https://bucket.host/key`.
+    pub path_style: bool,
+}
+
+impl ObjectStoreSettings {
+    fn config(&self) -> ObjectStoreConfig {
+        ObjectStoreConfig {
+            endpoint: self.endpoint.clone(),
+            region: self.region.clone(),
+            bucket: self.bucket.clone(),
+            prefix: self.prefix.clone(),
+            path_style: self.path_style,
+        }
+    }
+}
+
+/// An access key pair, from the Keychain. The secret never appears in `Debug`.
+#[derive(Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ObjectCredentials {
+    pub access_key_id: String,
+    pub secret_access_key: String,
+}
+
+impl std::fmt::Debug for ObjectCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ObjectCredentials")
+            .field("access_key_id", &self.access_key_id)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ObjectCredentials {
+    fn credentials(&self) -> Credentials {
+        Credentials {
+            access_key_id: self.access_key_id.trim().to_owned(),
+            secret_access_key: self.secret_access_key.trim().to_owned(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ArchiveHeader {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ArchiveHttpRequest {
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<ArchiveHeader>,
+    /// At most one upload part (8 MB, more only for files over 80 GB).
+    pub body: Vec<u8>,
+}
+
+impl std::fmt::Debug for ArchiveHttpRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArchiveHttpRequest")
+            .field("method", &self.method)
+            .field("url", &self.url)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ArchiveHttpResponse {
+    pub status: u16,
+    /// Every header (`ETag`, `Content-Length`, `x-amz-meta-*`, `Date`, …).
+    pub headers: Vec<ArchiveHeader>,
+    pub body: Vec<u8>,
+}
+
+/// Implemented in Swift with `URLSession`. Called on a worker thread, one request
+/// at a time; blocks until the answer. Must not follow redirects.
+#[uniffi::export(with_foreign)]
+pub trait ArchiveHttp: Send + Sync {
+    /// Any HTTP answer is `Ok` (whatever its status); `Err` means no answer.
+    fn send(&self, request: ArchiveHttpRequest) -> Result<ArchiveHttpResponse, DsError>;
+}
+
+/// [`ArchiveHttp`] as ds-archive's transport.
+struct HttpBridge(Arc<dyn ArchiveHttp>);
+
+impl Transport for HttpBridge {
+    fn send(&self, r: ds_archive::object::Request) -> Result<ds_archive::object::Response, String> {
+        let header = |(name, value)| ArchiveHeader { name, value };
+        let answer = self
+            .0
+            .send(ArchiveHttpRequest {
+                method: r.method,
+                url: r.url,
+                headers: r.headers.into_iter().map(header).collect(),
+                body: r.body,
+            })
+            .map_err(|e| e.to_string())?;
+        Ok(ds_archive::object::Response {
+            status: answer.status,
+            headers: answer
+                .headers
+                .into_iter()
+                .map(|h| (h.name, h.value))
+                .collect(),
+            body: answer.body,
+        })
+    }
+}
+
+/// What is wrong with `settings`, in words (`None`: they can be used): the bucket
+/// name, region, endpoint address and path, checked as the archive will use them.
+#[uniffi::export]
+#[allow(clippy::needless_pass_by_value)] // UniFFI hands exports owned values
+pub fn archive_object_settings_problem(settings: ObjectStoreSettings) -> Option<String> {
+    let c = settings.config();
+    c.endpoint().and(c.normalized_prefix()).err()
+}
+
+/// What "Test Connection" did.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ObjectConnectionTest {
+    /// The small test object it left (the next test overwrites it).
+    pub test_key: String,
+    /// `s3://bucket/prefix` (and the host).
+    pub location: String,
+}
+
+/// Settings ▸ Archive ▸ Test Connection: `HeadBucket`, then a small `PutObject` under
+/// `<prefix>.ds-archive-test/` and a `HeadObject` of it. The test object stays.
+/// Wrong keys, a missing bucket, a skewed clock or bad settings are
+/// `InvalidArgument`; no answer is `Io`.
+#[uniffi::export]
+pub async fn archive_object_test_connection(
+    http: Arc<dyn ArchiveHttp>,
+    settings: ObjectStoreSettings,
+    credentials: ObjectCredentials,
+    token: Arc<CancelToken>,
+) -> Result<ObjectConnectionTest, DsError> {
+    crate::jobs::run_job_on_thread("ds-archive-test", token, move |cancelled| {
+        test_object_store(
+            Arc::new(HttpBridge(http)),
+            &settings,
+            &credentials,
+            cancelled,
+        )
+    })
+    .await
+}
+
+fn test_object_store(
+    transport: Arc<dyn Transport>,
+    settings: &ObjectStoreSettings,
+    credentials: &ObjectCredentials,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<ObjectConnectionTest, DsError> {
+    let invalid = |e: ArchiveError| match e {
+        ArchiveError::TargetNotUsable { reason, .. } => {
+            DsError::InvalidArgument { message: reason }
+        }
+        ArchiveError::TargetUnavailable { reason, .. } => DsError::Io { message: reason },
+        ArchiveError::Cancelled => DsError::Cancelled,
+        e => DsError::Io {
+            message: e.to_string(),
+        },
+    };
+    let dest = ObjectDestination::new(settings.config(), transport, credentials.credentials())
+        .map_err(invalid)?;
+    let cancel = AtomicBool::new(cancelled());
+    let r = dest
+        .test_connection(SystemTime::now(), &cancel)
+        .map_err(invalid)?;
+    Ok(ObjectConnectionTest {
+        test_key: r.test_key,
+        location: r.location,
+    })
+}
+
 // ----------------------------------------------------------------- records ---
 
 /// Archive settings.
@@ -243,6 +494,21 @@ pub struct ArchiveConfig {
     /// outside `/Volumes` is never created.
     #[uniffi(default = None)]
     pub target_volume: Option<String>,
+    /// Archive to S3-compatible object storage instead of `target` (the keys come
+    /// from [`ArchiveManager::set_object_store`]).
+    #[uniffi(default = None)]
+    pub object_store: Option<ObjectStoreSettings>,
+}
+
+impl ArchiveConfig {
+    /// What identifies the destination (lock files, saved state, the schedulers):
+    /// the folder path, or `s3://<host>/<bucket>/<prefix>`.
+    fn target_key(&self) -> String {
+        match &self.object_store {
+            Some(o) => o.config().lock_key(),
+            None => self.target.clone(),
+        }
+    }
 }
 
 /// One session's archive state.
@@ -415,6 +681,14 @@ fn load_identity(store: &Path) -> io::Result<ArchiveIdentity> {
     Ok(id)
 }
 
+/// A session's archive id and the folder its runs claimed under the target, once
+/// a run has (`None` before, or when the identity can't be read).
+pub(crate) fn archived_as(store: &Path) -> Option<(String, String)> {
+    let b = std::fs::read(store.join(IDENTITY_REL)).ok()?;
+    let id = serde_json::from_slice::<ArchiveIdentity>(&b).ok()?;
+    Some((id.id, id.folder?))
+}
+
 fn save_identity(store: &Path, id: &ArchiveIdentity) -> io::Result<()> {
     let bytes = serde_json::to_vec_pretty(id).map_err(io::Error::other)?;
     write_atomic(&store.join(IDENTITY_REL), &bytes)
@@ -499,23 +773,6 @@ fn human_bytes(n: u64) -> String {
     }
 }
 
-/// Originals (under `source`) that `dest` on the target doesn't hold with the
-/// same size: what a failed run verifiably left out. Stats the target, so it
-/// runs on the run's worker thread (the watchdog covers a hung share).
-fn missing_on_target(source: &Path, dest: &Path, originals: &[PathBuf]) -> u64 {
-    let size = |p: &Path| std::fs::metadata(p).ok().map(|m| m.len());
-    originals
-        .iter()
-        .filter(|p| {
-            let Ok(rel) = p.strip_prefix(source) else {
-                return false;
-            };
-            let there = size(&dest.join(rel));
-            there.is_none() || there != size(p)
-        })
-        .count() as u64
-}
-
 /// Why a run failed, in words: never rsync's raw stderr (final-journeys2
 /// N1c; the raw text goes behind "Details"). `missing`: originals verified
 /// missing on the target (`None`: not known, so no number is given); `free`:
@@ -536,6 +793,9 @@ fn human_error(
         ArchiveError::Cancelled => return "Cancelled.".into(),
         ArchiveError::Incomplete { problems } => {
             return format!("{} not archived.", files(problems.len() as u64));
+        }
+        ArchiveError::Storage(message) => {
+            return format!("The storage service refused the upload: {message}.");
         }
         _ => {}
     }
@@ -571,6 +831,19 @@ fn human_error(
         format!("The connection to the archive was lost{not_archived}.")
     } else {
         format!("The archive copy failed{not_archived}.")
+    }
+}
+
+/// An object-storage failure in words (`None`: the same words as a folder's).
+fn object_error(e: &ArchiveError) -> Option<String> {
+    match e {
+        ArchiveError::TargetUnavailable { .. } => {
+            Some("The storage service can't be reached.".into())
+        }
+        ArchiveError::TargetNotUsable { reason, .. } => {
+            Some(format!("The bucket can't be used: {reason}."))
+        }
+        _ => None,
     }
 }
 
@@ -717,6 +990,8 @@ struct TargetState {
 
 struct Inner {
     cfg: Mutex<ArchiveConfig>,
+    /// Settings ▸ Plugins: the archive, Amazon and Immich features may be turned off.
+    features: crate::features::FeatureGate,
     entries: Mutex<Vec<Entry>>,
     runs: Mutex<VecDeque<ArchiveRun>>,
     target: Mutex<TargetState>,
@@ -728,6 +1003,14 @@ struct Inner {
     amazon_serial: Mutex<()>,
     amazon_worker: Mutex<Option<Arc<AtomicBool>>>,
     amazon_swept_at: Mutex<Option<Duration>>,
+    /// Immich publishing (`crate::immich`): sidecars refreshed before each run;
+    /// `None` while Immich isn't set up.
+    immich: Mutex<Option<crate::immich::ArchivePublish>>,
+    /// Sessions archived since the last Immich album sync (only while publishing).
+    immich_archived: Mutex<Vec<Arc<SessionHandle>>>,
+    /// Object storage: the app's HTTP and the keys (from the Keychain).
+    object_http: Mutex<Option<Arc<dyn Transport>>>,
+    object_creds: Mutex<Option<Credentials>>,
     stop: AtomicBool,
     /// Cancels the rsync and the hand-off in flight (quit).
     cancel: AtomicBool,
@@ -859,6 +1142,7 @@ impl ArchiveManager {
         });
         let inner = Arc::new(Inner {
             cfg: Mutex::new(config),
+            features: crate::features::FeatureGate::default(),
             entries: Mutex::default(),
             runs: Mutex::default(),
             target: Mutex::new(TargetState {
@@ -872,6 +1156,10 @@ impl ArchiveManager {
             amazon_serial: Mutex::default(),
             amazon_worker: Mutex::default(),
             amazon_swept_at: Mutex::default(),
+            immich: Mutex::default(),
+            immich_archived: Mutex::default(),
+            object_http: Mutex::default(),
+            object_creds: Mutex::default(),
             stop: AtomicBool::new(false),
             cancel: AtomicBool::new(false),
             recheck: AtomicBool::new(true),
@@ -914,6 +1202,66 @@ impl ArchiveManager {
         };
         f(&mut entries[i])
     }
+
+    pub(crate) fn feature_gate(&self) -> &crate::features::FeatureGate {
+        &self.inner.features
+    }
+
+    /// Turn Immich publishing on (sidecars before each run, album sync queue)
+    /// or off (the queue is dropped).
+    pub(crate) fn set_immich_publish(&self, publish: Option<crate::immich::ArchivePublish>) {
+        if publish.is_none() {
+            lock(&self.inner.immich_archived).clear();
+        }
+        *lock(&self.inner.immich) = publish;
+    }
+
+    /// The archive target's root, and the sessions to sync albums for: those
+    /// archived since the last sync (taken off the queue), plus with `every` all
+    /// registered archivable ones. Each with the folder it archives.
+    pub(crate) fn immich_sessions(
+        &self,
+        every: bool,
+    ) -> (PathBuf, Vec<(Arc<SessionHandle>, PathBuf)>) {
+        if !self.archives_to_folder() {
+            // Immich indexes a folder: object storage gives it nothing to read.
+            lock(&self.inner.immich_archived).clear();
+            return (PathBuf::new(), Vec::new());
+        }
+        let root = PathBuf::from(&lock(&self.inner.cfg).target);
+        let mut handles: Vec<Arc<SessionHandle>> =
+            std::mem::take(&mut *lock(&self.inner.immich_archived));
+        if every {
+            for e in lock(&self.inner.entries).iter() {
+                if !handles.iter().any(|h| Arc::ptr_eq(h, &e.handle)) {
+                    handles.push(e.handle.clone());
+                }
+            }
+        }
+        let sessions = handles
+            .into_iter()
+            .filter_map(|h| h.archive_source().ok().map(|s| (h, s)))
+            .collect();
+        (root, sessions)
+    }
+
+    /// Put sessions back on the album sync queue (a sync that couldn't reach
+    /// Immich tries them again).
+    pub(crate) fn immich_requeue(&self, handles: &[Arc<SessionHandle>]) {
+        for h in handles {
+            self.inner.queue_album_sync(h);
+        }
+    }
+
+    /// Sessions waiting for an album sync.
+    pub(crate) fn immich_queued(&self) -> usize {
+        lock(&self.inner.immich_archived).len()
+    }
+
+    /// The archive goes to a folder (which Immich can index), not to object storage.
+    pub(crate) fn archives_to_folder(&self) -> bool {
+        lock(&self.inner.cfg).object_store.is_none()
+    }
 }
 
 impl Inner {
@@ -941,7 +1289,7 @@ impl Inner {
         let name = Path::new(&name)
             .file_name()
             .map_or(name.clone(), |n| n.to_string_lossy().into_owned());
-        let target = lock(&self.cfg).target.clone();
+        let target = lock(&self.cfg).target_key();
         let imported = handle.is_imported();
         let store = PathBuf::from(handle.root().unwrap_or_default());
         let scheduler = Arc::new(Scheduler::new(
@@ -983,6 +1331,48 @@ impl Inner {
             store,
             saved: Arc::new(Mutex::new(saved)),
         }
+    }
+
+    /// The configured destination (for a run). A folder needs rsync (detected on first
+    /// use); object storage needs the app's HTTP and the keys.
+    fn destination(&self) -> Result<Arc<dyn Destination>, ArchiveError> {
+        let cfg = lock(&self.cfg).clone();
+        match &cfg.object_store {
+            Some(o) => {
+                let not_usable = |reason: &str| ArchiveError::TargetNotUsable {
+                    root: PathBuf::from(o.config().location()),
+                    reason: reason.into(),
+                };
+                let http = lock(&self.object_http)
+                    .clone()
+                    .ok_or_else(|| not_usable("object storage isn't connected yet"))?;
+                let creds = lock(&self.object_creds)
+                    .clone()
+                    .ok_or_else(|| not_usable("the access key isn't set"))?;
+                Ok(Arc::new(ObjectDestination::new(o.config(), http, creds)?))
+            }
+            // No rsync: the run fails before anything is claimed on the target.
+            None => Ok(Arc::new(folder_destination(
+                Path::new(&cfg.target),
+                self.target_volume(),
+                Some(self.rsync().map_err(|_| ArchiveError::RsyncNotFound)?),
+                protected(),
+            ))),
+        }
+    }
+
+    /// Check the destination keyed `root` without waiting longer than `timeout`.
+    fn check_target(&self, root: &Path, timeout: Duration) -> TargetCheck {
+        if lock(&self.cfg).object_store.is_none() {
+            return check_with(root, self.target_volume(), timeout, self.check.clone());
+        }
+        let dest = self.destination();
+        let mut c = check_bounded(root, timeout, move |_| {
+            dest.and_then(|d| d.check(&AtomicBool::new(false)))
+                .map_err(reason)
+        });
+        c.kind = Some(DestinationKind::ObjectStorage.as_str().into());
+        c
     }
 
     fn poke(&self) {
@@ -1043,8 +1433,8 @@ impl Inner {
             let (enabled, root, timeout) = {
                 let c = lock(&self.cfg);
                 (
-                    c.enabled,
-                    PathBuf::from(&c.target),
+                    c.enabled && self.features.allows(crate::features::ARCHIVE),
+                    PathBuf::from(c.target_key()),
                     Duration::from_millis(u64::from(c.check_timeout_ms)),
                 )
             };
@@ -1056,7 +1446,9 @@ impl Inner {
                 }
                 self.drop_closed();
             }
-            self.maybe_amazon();
+            if self.features.allows(crate::features::AMAZON_PHOTOS) {
+                self.maybe_amazon();
+            }
             self.sleep(self.wait_time(enabled));
         }
     }
@@ -1092,7 +1484,7 @@ impl Inner {
         if !wanted {
             return;
         }
-        let check = check_with(root, self.target_volume(), timeout, self.check.clone());
+        let check = self.check_target(root, timeout);
         let mut t = lock(&self.target);
         t.offline_backoff = if check.available {
             self.timing.offline_base
@@ -1103,6 +1495,22 @@ impl Inner {
         };
         t.check = Some(check);
         t.checked_at = Some(self.clock.monotonic());
+    }
+
+    /// A run of `handle`'s session archived it: its albums are synced next
+    /// (only while Immich publishing is on, so no closed session is kept alive).
+    fn queue_album_sync(&self, handle: &Arc<SessionHandle>) {
+        // With object storage Immich has no folder to index: no album sync.
+        if lock(&self.immich).is_none()
+            || !self.features.allows(crate::features::IMMICH)
+            || lock(&self.cfg).object_store.is_some()
+        {
+            return;
+        }
+        let mut q = lock(&self.immich_archived);
+        if !q.iter().any(|h| Arc::ptr_eq(h, handle)) {
+            q.push(handle.clone());
+        }
     }
 
     /// The configured target's recorded volume.
@@ -1197,7 +1605,9 @@ impl Inner {
         };
         // rsync is detected once (a local `rsync --version`), so the watchdog
         // knows whether silence means trouble.
-        let progress_capable = self.rsync().is_ok_and(|r| r.flavor().supports_progress2());
+        // Object storage reports progress after every request.
+        let progress_capable = lock(&self.cfg).object_store.is_some()
+            || self.rsync().is_ok_and(|r| r.flavor().supports_progress2());
         *lock(&self.active) = Some(Active {
             name: e.name.clone(),
             trigger: ticket.trigger,
@@ -1227,6 +1637,7 @@ impl Inner {
 
     /// One archive run (on its worker thread): identity, claimed folder,
     /// snapshot, rsync. Records the outcome.
+    #[allow(clippy::too_many_lines)] // one run, start to record
     fn run_job(&self, job: RunJob, ticket: ds_archive::Ticket) {
         let started = self.clock.wall();
         let t0 = self.clock.monotonic();
@@ -1235,42 +1646,52 @@ impl Inner {
         let archive_rejected = lock(&self.cfg).archive_rejected;
         let (originals, rejected) = job.handle.original_counts().unwrap_or_default();
         let excluded = if archive_rejected { 0 } else { rejected };
-        let mut dest = None;
+        let mut claimed_at: Option<(Arc<dyn Destination>, ds_archive::ClaimedDest)> = None;
         let mut result = (|| -> Result<(), ArchiveError> {
-            let rsync = self.rsync().map_err(|_| ArchiveError::RsyncNotFound)?;
+            let dest = self.destination()?;
             let store = PathBuf::from(job.handle.root().unwrap_or_default());
             let io_err = |e| ArchiveError::Io {
                 path: store.join(IDENTITY_REL),
                 source: e,
             };
             let mut identity = load_identity(&store).map_err(io_err)?;
-            let mut target = ArchiveTarget::new(&job.root);
-            target.volume = self.target_volume();
-            // The archive keeps the session's current layout (no duplicate after a
-            // Move to Selects; the displaced copy goes to the archive trash).
-            target.mirror_folders = job.handle.archive_mirror_folders();
-            if !archive_rejected {
-                // H7: rejected photos and the session Trash stay out of the archive.
-                target
-                    .excludes
-                    .extend(job.handle.reject_excludes().unwrap_or_default());
+            dest.check(&job.cancel)?;
+            // Immich: the sidecars match the photos in this very run.
+            let publish = lock(&self.immich).clone();
+            if let Some(publish) = publish.filter(|_| self.features.allows(crate::features::IMMICH))
+            {
+                warnings.extend(crate::immich::before_archive(&job.handle, &publish));
             }
-            target.check_available()?;
-            let claimed =
-                target.claim_dest(&job.source, &identity.id, identity.folder.as_deref())?;
+            let claimed = dest.claim(
+                &job.source,
+                &identity.id,
+                identity.folder.as_deref(),
+                &job.cancel,
+            )?;
             if identity.folder.as_deref() != Some(claimed.folder.as_str()) {
                 identity.folder = Some(claimed.folder.clone());
                 save_identity(&store, &identity).map_err(io_err)?;
             }
             *lock(&job.archive_folder) = Some(claimed.folder.clone());
-            dest = Some(claimed.dest.clone());
-            let archiver = Archiver::new(rsync, Some(Arc::new(HandleSnapshot(job.handle.clone()))));
+            claimed_at = Some((dest.clone(), claimed.clone()));
+            let source = SessionSource {
+                dir: job.source.clone(),
+                // H7: rejected photos and the session Trash stay out of the archive.
+                excludes: if archive_rejected {
+                    Vec::new()
+                } else {
+                    job.handle.reject_excludes().unwrap_or_default()
+                },
+                // The archive keeps the session's current layout (no duplicate after a
+                // Move to Selects; the displaced copy goes to the archive trash).
+                mirror_folders: job.handle.archive_mirror_folders(),
+                snapshotter: Some(Arc::new(HandleSnapshot(job.handle.clone()))),
+            };
             let activity = self.activity.clone();
             let clock = self.clock.clone();
-            let out = archiver.archive_to(
-                &job.source,
-                &target,
-                &claimed.dest,
+            let out = dest.archive(
+                &source,
+                &claimed,
                 self.clock.wall(),
                 &mut |p| {
                     activity.store(dur_ms(clock.monotonic()), Ordering::Relaxed);
@@ -1292,23 +1713,32 @@ impl Inner {
         if job.cancel.load(Ordering::Relaxed) && result.is_err() {
             result = Err(ArchiveError::Cancelled);
         }
+        let object = lock(&self.cfg).object_store.is_some();
         // N1c: the error in words (the raw text stays available as detail),
         // with the originals the target verifiably lacks, when it answered.
         let error = result.as_ref().err().map(|e| {
-            let missing = match (e, &dest) {
-                (ArchiveError::Rsync { .. } | ArchiveError::Io { .. }, Some(dest)) => job
+            let missing = match (e, &claimed_at) {
+                (
+                    ArchiveError::Rsync { .. } | ArchiveError::Io { .. } | ArchiveError::Storage(_),
+                    Some((dest, claimed)),
+                ) => job
                     .handle
                     .archive_originals(archive_rejected)
                     .ok()
-                    .map(|o| missing_on_target(&job.source, dest, &o)),
+                    .and_then(|o| dest.missing(&job.source, claimed, &o)),
                 _ => None,
             };
-            (
-                human_error(e, missing, || free_space(&job.root)),
-                e.to_string(),
-            )
+            let words = if object {
+                object_error(e).unwrap_or_else(|| human_error(e, missing, || None))
+            } else {
+                human_error(e, missing, || free_space(&job.root))
+            };
+            (words, e.to_string())
         });
         let rec = job.scheduler.finish(ticket, result);
+        if matches!(rec, RunRecord::Succeeded(_) | RunRecord::Incomplete(..)) {
+            self.queue_album_sync(&job.handle);
+        }
         job.not_responding.store(false, Ordering::Relaxed);
         job.save_result(&rec, error.clone(), (originals, excluded));
         let (message, detail) = error.map_or((None, None), |(h, raw)| (Some(h), Some(raw)));
@@ -1370,7 +1800,7 @@ impl Inner {
             ))
         } else if probe {
             // Bounded: never holds a lock while the check waits.
-            let check = check_with(root, self.target_volume(), timeout, self.check.clone());
+            let check = self.check_target(root, timeout);
             let bad = (!check.available).then(|| {
                 format!(
                     "the archive target is not responding ({}); the run was stopped and will be retried",
@@ -1575,13 +2005,14 @@ impl Inner {
             Some(Err(e)) => (None, Some(e.clone())),
             None => (None, None),
         };
-        let target_path = lock(&self.cfg).target.clone();
+        let target_path = lock(&self.cfg).target_key();
         let target = lock(&self.target).check.clone().unwrap_or(TargetCheck {
             path: target_path,
             available: false,
             timed_out: false,
             reason: Some("checking…".into()),
             fs_type: None,
+            kind: None,
         });
         let sessions = lock(&self.entries)
             .iter()
@@ -1660,17 +2091,20 @@ impl ArchiveManager {
     pub fn set_config(&self, config: ArchiveConfig) -> Result<(), DsError> {
         guard(|| {
             let old = std::mem::replace(&mut *lock(&self.inner.cfg), config.clone());
-            let schedule_changed = old.target != config.target
+            let schedule_changed = old.target_key() != config.target_key()
                 || old.interval_secs != config.interval_secs
                 || old.debounce_secs != config.debounce_secs
                 || old.lock_dir != config.lock_dir;
             if schedule_changed {
                 let cfg = self.inner.scheduler_config();
                 for e in lock(&self.inner.entries).iter() {
-                    e.scheduler.reconfigure(cfg.clone(), config.target.clone());
+                    e.scheduler.reconfigure(cfg.clone(), config.target_key());
                 }
             }
-            if old.target != config.target || old.enabled != config.enabled {
+            if old.target_key() != config.target_key()
+                || old.object_store != config.object_store
+                || old.enabled != config.enabled
+            {
                 let mut t = lock(&self.inner.target);
                 t.check = None;
                 t.checked_at = None;
@@ -1696,6 +2130,27 @@ impl ArchiveManager {
                 drop(cur);
                 // A new folder: catch up every imported session.
                 *lock(&self.inner.amazon_swept_at) = None;
+                self.inner.poke();
+            }
+            Ok(())
+        })
+    }
+
+    /// Object storage: the app's HTTP and the keys from the Keychain (`None`: not
+    /// set; runs then say so). Used while [`ArchiveConfig::object_store`] is set.
+    #[allow(clippy::needless_pass_by_value)] // UniFFI hands exports owned values
+    pub fn set_object_store(
+        &self,
+        http: Arc<dyn ArchiveHttp>,
+        credentials: Option<ObjectCredentials>,
+    ) -> Result<(), DsError> {
+        guard(|| {
+            let creds = credentials.as_ref().map(ObjectCredentials::credentials);
+            let changed = *lock(&self.inner.object_creds) != creds;
+            *lock(&self.inner.object_http) = Some(Arc::new(HttpBridge(http)));
+            *lock(&self.inner.object_creds) = creds;
+            if changed {
+                self.inner.recheck.store(true, Ordering::Relaxed);
                 self.inner.poke();
             }
             Ok(())
@@ -1805,6 +2260,11 @@ impl ArchiveManager {
         album: String,
         token: Arc<CancelToken>,
     ) -> Result<AmazonStatus, DsError> {
+        if !self.inner.features.allows(crate::features::AMAZON_PHOTOS) {
+            return Err(DsError::invalid(
+                "Amazon Photos is turned off (Settings ▸ Plugins)",
+            ));
+        }
         let inner = self.inner.clone();
         crate::jobs::run_job_on_thread("ds-amazon", token, move |cancelled| {
             let key = entry_key(&session);
@@ -1887,3 +2347,6 @@ impl Drop for ArchiveManager {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod feature_tests;

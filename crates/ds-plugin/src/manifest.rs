@@ -26,7 +26,13 @@ pub const CONTRACTS: &[(Kind, u32, u32)] = &[
     (Kind::VoicePhrases, 1, 1),
     (Kind::ExportPostProcess, 1, 1),
     (Kind::ExportDestination, 1, 1),
+    (Kind::NativeFeature, 1, 1),
 ];
+
+/// The app's own optional integrations a bundled `native_feature` plug-in switches on
+/// and off (see docs/PLUGINS.md, "Native features"). The code is native; the plug-in is
+/// the switch and the catalogue entry.
+pub const NATIVE_FEATURES: &[&str] = &["archive", "amazon-photos", "immich", "google-photos"];
 
 /// What a contribution adds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,6 +42,8 @@ pub enum Kind {
     VoicePhrases,
     ExportPostProcess,
     ExportDestination,
+    /// One of the app's own optional integrations (bundled plug-ins only).
+    NativeFeature,
 }
 
 impl Kind {
@@ -48,6 +56,7 @@ impl Kind {
             Self::VoicePhrases => "voice_phrases",
             Self::ExportPostProcess => "export_post_process",
             Self::ExportDestination => "export_destination",
+            Self::NativeFeature => "native_feature",
         }
     }
 
@@ -55,6 +64,13 @@ impl Kind {
     #[must_use]
     pub fn is_code(self) -> bool {
         matches!(self, Self::ExportPostProcess | Self::ExportDestination)
+    }
+
+    /// Whether it names a file in the package (a data file or a module). A native feature
+    /// names none: its code is part of the app.
+    #[must_use]
+    pub fn has_file(self) -> bool {
+        self != Self::NativeFeature
     }
 
     /// The contract range this host supports.
@@ -218,6 +234,9 @@ pub struct Contribution {
     pub max_file_mb: Option<u32>,
     /// Post-processors: rows of context above and below each strip (0–256).
     pub apron_rows: u32,
+    /// Native features: what the feature reaches beyond the app, in words, for the
+    /// Plugins pane ("Your Immich server").
+    pub uses: Vec<String>,
 }
 
 /// A validated manifest.
@@ -249,7 +268,19 @@ impl Manifest {
     /// Every path the manifest names (data files and modules).
     #[must_use]
     pub fn files(&self) -> BTreeSet<&str> {
-        self.contributions.iter().map(|c| c.file.as_str()).collect()
+        self.contributions
+            .iter()
+            .filter(|c| c.kind.has_file())
+            .map(|c| c.file.as_str())
+            .collect()
+    }
+
+    /// The native features this plug-in switches (`[[contributes.native_feature]]` ids).
+    pub fn native_features(&self) -> impl Iterator<Item = &str> {
+        self.contributions
+            .iter()
+            .filter(|c| c.kind == Kind::NativeFeature)
+            .map(|c| c.id.as_str())
     }
 
     /// Parse and validate `plugin.toml`'s text at load: unknown keys are warnings, so a
@@ -334,6 +365,8 @@ struct RawContribution {
     max_file_mb: Option<u32>,
     #[serde(default)]
     apron_rows: Option<u32>,
+    #[serde(default)]
+    uses: Vec<String>,
     #[serde(flatten)]
     extra: BTreeMap<String, toml::Value>,
 }
@@ -422,7 +455,20 @@ impl RawManifest {
                 ));
                 continue;
             };
+            if kind == Kind::NativeFeature && !builtin {
+                return bad(
+                    "[[contributes.native_feature]] is only for Darkslide's own bundled plug-ins"
+                        .into(),
+                );
+            }
             for raw in list {
+                if kind == Kind::NativeFeature && !NATIVE_FEATURES.contains(&raw.id.as_str()) {
+                    warnings.push(format!(
+                        "[[contributes.native_feature]] `{}` is not a feature of this Darkslide and was skipped",
+                        raw.id
+                    ));
+                    continue;
+                }
                 let c = raw.validate(kind, &self.accounts, &permissions, &mut warnings)?;
                 if !ids.insert(c.id.clone()) {
                     return bad(format!("two contributions share the id `{}`", c.id));
@@ -438,7 +484,9 @@ impl RawManifest {
         if platforms.is_empty() {
             return bad("`platforms` is empty".into());
         }
-        if !code && permissions.iter().any(|p| p != &Permission::PhotoMetadata) {
+        // A native feature's permissions describe the app's own code (shown, never asked for).
+        let native = contributions.iter().any(|c| c.kind == Kind::NativeFeature);
+        if !code && !native && permissions.iter().any(|p| p != &Permission::PhotoMetadata) {
             warnings
                 .push("a data-only plug-in runs no code, so its permissions are never used".into());
         }
@@ -493,7 +541,12 @@ impl RawContribution {
         for key in self.extra.keys() {
             warnings.push(format!("{at}: unknown key `{key}` ignored"));
         }
-        let file = if kind.is_code() {
+        let file = if !kind.has_file() {
+            if self.file.is_some() || self.module.is_some() || self.entry.is_some() {
+                return bad("a native feature names no `file`, `module` or `entry`".into());
+            }
+            String::new()
+        } else if kind.is_code() {
             if self.file.is_some() {
                 return bad("code contributions name a `module`, not a `file`".into());
             }
@@ -506,7 +559,9 @@ impl RawContribution {
             self.file
                 .ok_or_else(|| PluginError::Manifest(format!("{at}: `file` is missing")))?
         };
-        check_relative(&file).map_err(|m| PluginError::Manifest(format!("{at}: {m}")))?;
+        if kind.has_file() {
+            check_relative(&file).map_err(|m| PluginError::Manifest(format!("{at}: {m}")))?;
+        }
         if kind.is_code() && !(has_ext(&file, "wasm") || has_ext(&file, "wat")) {
             return bad(format!("module `{file}` must be a .wasm (or .wat) file"));
         }
@@ -519,6 +574,9 @@ impl RawContribution {
         } else {
             None
         };
+        if kind == Kind::NativeFeature && !self.params.is_empty() {
+            return bad("a native feature has no `params` (its settings are the app's)".into());
+        }
         let mut params = Vec::new();
         for p in self.params {
             let p = p
@@ -563,6 +621,15 @@ impl RawContribution {
                 ));
             }
         }
+        if kind != Kind::NativeFeature && !self.uses.is_empty() {
+            return bad("`uses` is for native features".into());
+        }
+        let uses: Vec<String> = self
+            .uses
+            .iter()
+            .map(|u| text::clean(u, text::SUMMARY_MAX))
+            .filter(|u| !u.is_empty())
+            .collect();
         let apron_rows = self.apron_rows.unwrap_or(0);
         if apron_rows > 256 || (apron_rows > 0 && kind != Kind::ExportPostProcess) {
             return bad("`apron_rows` is 0–256, for export post-processors".into());
@@ -582,6 +649,7 @@ impl RawContribution {
             formats: self.formats,
             max_file_mb: self.max_file_mb,
             apron_rows,
+            uses,
         })
     }
 }

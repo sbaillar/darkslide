@@ -3,10 +3,17 @@
 //! UTF-8) in a Photoshop APP13 segment for JPEG, so both XMP readers (Lightroom,
 //! Capture One) and IPTC readers (Photos, Finder) see them. HEIC and the app's JPEG
 //! encoder get them through the encoder hook.
+//!
+//! The packet also carries what photo servers such as Immich read ([`Organize`]):
+//! the star rating (`xmp:Rating`) and the tags as `dc:subject` (leaves),
+//! `lr:hierarchicalSubject` (`Parent|Child`) and `digiKam:TagsList`
+//! (`Parent/Child`), with the colour label and pick flag as `Darkslide/…` tags.
+//! [`sidecar`] wraps the same fields (plus GPS) in a standalone `.xmp` file for an
+//! original, marked as Darkslide's own ([`is_darkslide_sidecar`]).
 
 use std::fmt::Write;
 
-use ds_core::{IptcField, IptcMeta};
+use ds_core::{ColorTag, GeoPoint, IptcField, IptcMeta, PickState};
 
 /// JPEG APP1 identifier of an XMP packet.
 pub const XMP_JPEG_HEADER: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
@@ -49,13 +56,95 @@ fn items(out: &mut String, values: &[&str], lang: bool) {
     }
 }
 
-/// An XMP packet carrying the `keywords` as `dc:subject` and the set IPTC fields
-/// (Dublin Core, Photoshop, IPTC Core, XMP Rights); `None` when there is nothing.
-pub fn packet(keywords: &[String], iptc: &IptcMeta) -> Option<Vec<u8>> {
-    if keywords.is_empty() && iptc.is_empty() {
-        return None;
+/// Root of the tags Darkslide derives from its own fields.
+pub const TAG_ROOT: &str = "Darkslide";
+
+/// Organizing metadata beyond IPTC: the star rating and hierarchical tags.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Organize {
+    /// `xmp:Rating`, 0 (unrated) to 5; `None`: not written.
+    pub rating: Option<u8>,
+    /// Hierarchical tags as path components, e.g. `["Darkslide", "Label", "Red"]`.
+    pub tags: Vec<Vec<String>>,
+}
+
+impl Organize {
+    pub fn is_empty(&self) -> bool {
+        self.rating.is_none() && self.tags.is_empty()
     }
+}
+
+/// The colour label and pick flag as tags: `Darkslide/Label/Red`,
+/// `Darkslide/Pick`, `Darkslide/Reject` (none for no label, unflagged).
+pub fn label_pick_tags(label: ColorTag, pick: PickState) -> Vec<Vec<String>> {
+    let path = |parts: &[&str]| parts.iter().map(|p| (*p).to_owned()).collect::<Vec<_>>();
+    let mut out = Vec::new();
+    let colour = match label {
+        ColorTag::None => None,
+        ColorTag::Red => Some("Red"),
+        ColorTag::Orange => Some("Orange"),
+        ColorTag::Yellow => Some("Yellow"),
+        ColorTag::Green => Some("Green"),
+        ColorTag::Blue => Some("Blue"),
+        ColorTag::Pink => Some("Pink"),
+        ColorTag::Purple => Some("Purple"),
+    };
+    if let Some(c) = colour {
+        out.push(path(&[TAG_ROOT, "Label", c]));
+    }
+    match pick {
+        PickState::Picked => out.push(path(&[TAG_ROOT, "Pick"])),
+        PickState::Rejected => out.push(path(&[TAG_ROOT, "Reject"])),
+        PickState::Unflagged => {}
+    }
+    out
+}
+
+/// Push `v` unless it is empty or already there.
+fn push_unique(out: &mut Vec<String>, v: &str) {
+    if !v.is_empty() && !out.iter().any(|o| o == v) {
+        out.push(v.to_owned());
+    }
+}
+
+/// Flat keywords: the `keywords`, then each tag's leaf (`dc:subject`, IPTC 2:25).
+pub fn subjects(keywords: &[String], org: &Organize) -> Vec<String> {
+    let mut out = Vec::new();
+    for k in keywords {
+        push_unique(&mut out, k.trim());
+    }
+    for t in &org.tags {
+        if let Some(leaf) = t.iter().rev().map(|p| p.trim()).find(|p| !p.is_empty()) {
+            push_unique(&mut out, leaf);
+        }
+    }
+    out
+}
+
+/// Hierarchical keywords: each keyword as a top-level entry, then each tag's path
+/// joined with `sep` (`|` for `lr:hierarchicalSubject`, `/` for `digiKam:TagsList`).
+pub fn hierarchical(keywords: &[String], org: &Organize, sep: char) -> Vec<String> {
+    let mut out = Vec::new();
+    for k in keywords {
+        push_unique(&mut out, k.trim());
+    }
+    for t in &org.tags {
+        let parts: Vec<&str> = t
+            .iter()
+            .map(|p| p.trim())
+            .filter(|p| !p.is_empty())
+            .collect();
+        push_unique(&mut out, &parts.join(&sep.to_string()));
+    }
+    out
+}
+
+/// The `<rdf:Description>` properties shared by [`packet`] and [`sidecar`].
+fn properties(keywords: &[String], iptc: &IptcMeta, org: &Organize) -> String {
     let mut body = String::new();
+    if let Some(r) = org.rating {
+        let _ = writeln!(body, "   <xmp:Rating>{}</xmp:Rating>", r.min(5));
+    }
     // Language alternatives, a sequence (creators), the keyword bag.
     let mut container = |name: &str, kind: &str, values: &[&str]| {
         let values: Vec<&str> = values.iter().copied().filter(|v| !v.is_empty()).collect();
@@ -70,9 +159,26 @@ pub fn packet(keywords: &[String], iptc: &IptcMeta) -> Option<Vec<u8>> {
     container("dc:description", "Alt", &[&iptc.caption]);
     container("dc:creator", "Seq", &[&iptc.creator]);
     container("dc:rights", "Alt", &[&iptc.copyright]);
-    let kws: Vec<&str> = keywords.iter().map(String::as_str).collect();
+    let flat = subjects(keywords, org);
+    let kws: Vec<&str> = flat.iter().map(String::as_str).collect();
     container("dc:subject", "Bag", &kws);
     container("xmpRights:UsageTerms", "Alt", &[&iptc.usage_terms]);
+    if !org.tags.is_empty() {
+        // Immich reads `digiKam:TagsList` first, then `lr:hierarchicalSubject`, so
+        // both carry every keyword, not only the hierarchical tags.
+        let lr = hierarchical(keywords, org, '|');
+        container(
+            "lr:hierarchicalSubject",
+            "Bag",
+            &lr.iter().map(String::as_str).collect::<Vec<_>>(),
+        );
+        let dk = hierarchical(keywords, org, '/');
+        container(
+            "digiKam:TagsList",
+            "Seq",
+            &dk.iter().map(String::as_str).collect::<Vec<_>>(),
+        );
+    }
     for (name, v) in [
         ("photoshop:Headline", &iptc.headline),
         ("photoshop:Credit", &iptc.credit),
@@ -86,19 +192,114 @@ pub fn packet(keywords: &[String], iptc: &IptcMeta) -> Option<Vec<u8>> {
             let _ = writeln!(body, "   <{name}>{}</{name}>", escape(v));
         }
     }
-    Some(
-        format!(
-            "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n\
-             <x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n \
-             <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n  \
-             <rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n    \
-             xmlns:photoshop=\"http://ns.adobe.com/photoshop/1.0/\"\n    \
-             xmlns:Iptc4xmpCore=\"http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/\"\n    \
-             xmlns:xmpRights=\"http://ns.adobe.com/xap/1.0/rights/\">\n\
-             {body}  </rdf:Description>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>"
-        )
-        .into_bytes(),
+    body
+}
+
+/// Namespace of Darkslide's own XMP properties (the sidecar marker). A reserved
+/// `.invalid` host: an identifier only, never fetched.
+pub const DARKSLIDE_NS: &str = "http://darkslide.invalid/ns/xmp/1.0/";
+
+/// `xmp:CreatorTool` of the sidecars Darkslide writes.
+pub const CREATOR_TOOL: &str = "Darkslide";
+
+/// The packet around `body`, declaring every namespace the properties use
+/// (`extra_ns`: more `xmlns:` attributes).
+fn wrap(body: &str, extra_ns: &str) -> Vec<u8> {
+    format!(
+        "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n\
+         <x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n \
+         <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n  \
+         <rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n    \
+         xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n    \
+         xmlns:photoshop=\"http://ns.adobe.com/photoshop/1.0/\"\n    \
+         xmlns:Iptc4xmpCore=\"http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/\"\n    \
+         xmlns:xmpRights=\"http://ns.adobe.com/xap/1.0/rights/\"\n    \
+         xmlns:lr=\"http://ns.adobe.com/lightroom/1.0/\"\n    \
+         xmlns:digiKam=\"http://www.digikam.org/ns/1.0/\"{extra_ns}>\n\
+         {body}  </rdf:Description>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>"
     )
+    .into_bytes()
+}
+
+/// An XMP packet carrying the `keywords` and tags (`dc:subject`, and with tags
+/// `lr:hierarchicalSubject` and `digiKam:TagsList`), the rating and the set IPTC
+/// fields (Dublin Core, Photoshop, IPTC Core, XMP Rights); `None` when there is
+/// nothing.
+pub fn packet(keywords: &[String], iptc: &IptcMeta, org: &Organize) -> Option<Vec<u8>> {
+    if keywords.is_empty() && iptc.is_empty() && org.is_empty() {
+        return None;
+    }
+    Some(wrap(&properties(keywords, iptc, org), ""))
+}
+
+/// `deg` as an XMP GPS coordinate, `"DDD,MM.mmmmmmR"` (EXIF in XMP, as exiftool
+/// and Lightroom write it).
+fn xmp_coordinate(deg: f64, pos: char, neg: char) -> String {
+    let r = if deg < 0.0 { neg } else { pos };
+    let a = deg.abs();
+    let whole = a.trunc();
+    let minutes = (a - whole) * 60.0;
+    format!("{},{minutes:.6}{r}", whole as u32)
+}
+
+/// A standalone `.xmp` sidecar for an original (`IMG_0001.ARW.xmp`): the
+/// [`packet`] fields plus the position set in Darkslide (`exif:GPS…`), marked as
+/// Darkslide's own (`xmp:CreatorTool` and a `darkslide:` property) so it is never
+/// mistaken for a Lightroom or Capture One sidecar ([`is_darkslide_sidecar`]).
+pub fn sidecar(
+    keywords: &[String],
+    iptc: &IptcMeta,
+    org: &Organize,
+    gps: Option<GeoPoint>,
+) -> Vec<u8> {
+    let mut body = format!(
+        "   <xmp:CreatorTool>{CREATOR_TOOL}</xmp:CreatorTool>\n   <darkslide:Sidecar>1</darkslide:Sidecar>\n"
+    );
+    body.push_str(&properties(keywords, iptc, org));
+    if let Some(g) = gps.filter(GeoPoint::is_valid) {
+        body.push_str("   <exif:GPSVersionID>2.3.0.0</exif:GPSVersionID>\n");
+        let _ = writeln!(
+            body,
+            "   <exif:GPSLatitude>{}</exif:GPSLatitude>",
+            xmp_coordinate(g.latitude, 'N', 'S')
+        );
+        let _ = writeln!(
+            body,
+            "   <exif:GPSLongitude>{}</exif:GPSLongitude>",
+            xmp_coordinate(g.longitude, 'E', 'W')
+        );
+        if let Some(alt) = g.altitude_m {
+            let _ = writeln!(
+                body,
+                "   <exif:GPSAltitudeRef>{}</exif:GPSAltitudeRef>",
+                u8::from(alt < 0.0)
+            );
+            let _ = writeln!(
+                body,
+                "   <exif:GPSAltitude>{}/100</exif:GPSAltitude>",
+                (alt.abs() * 100.0).round() as u64
+            );
+        }
+    }
+    wrap(
+        &body,
+        &format!(
+            "\n    xmlns:exif=\"http://ns.adobe.com/exif/1.0/\"\n    xmlns:darkslide=\"{DARKSLIDE_NS}\""
+        ),
+    )
+}
+
+/// Whether `bytes` is a sidecar Darkslide wrote ([`sidecar`]): its marker
+/// namespace and Darkslide as `xmp:CreatorTool`. A sidecar another app rewrote
+/// (Lightroom names itself as the creator tool) is not.
+pub fn is_darkslide_sidecar(bytes: &[u8]) -> bool {
+    let Ok(s) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    s.contains(&format!("xmlns:darkslide=\"{DARKSLIDE_NS}\""))
+        && s.contains(&format!(
+            "<xmp:CreatorTool>{CREATOR_TOOL}</xmp:CreatorTool>"
+        ))
 }
 
 /// One IIM dataset: 0x1C, record, dataset, 2-byte big-endian length, data.
@@ -218,8 +419,10 @@ fn cut_fields(iptc: &IptcMeta, cap: usize) -> IptcMeta {
 pub fn packet_fit(
     keywords: &[String],
     iptc: &IptcMeta,
+    org: &Organize,
     max: usize,
 ) -> Option<(Vec<u8>, Option<String>)> {
+    let packet = |kw: &[String], m: &IptcMeta| packet(kw, m, org);
     let full = packet(keywords, iptc)?;
     if full.len() <= max {
         return Some((full, None));
@@ -364,7 +567,7 @@ pub(crate) mod tests {
         .map(String::from)
         .to_vec();
         let none = IptcMeta::default();
-        let p = packet(&kw, &none).unwrap();
+        let p = packet(&kw, &none, &Organize::default()).unwrap();
         assert!(
             std::str::from_utf8(&p)
                 .unwrap()
@@ -387,13 +590,15 @@ pub(crate) mod tests {
             iim_keywords(&iptc_app13(&long, &none).unwrap()),
             ["é".repeat(32)]
         );
-        assert!(packet(&[], &none).is_none() && iptc_app13(&[], &none).is_none());
+        assert!(
+            packet(&[], &none, &Organize::default()).is_none() && iptc_app13(&[], &none).is_none()
+        );
     }
 
     #[test]
     fn iptc_fields_round_trip_through_xmp_and_iim() {
         let m = iptc();
-        let p = packet(&[], &m).unwrap();
+        let p = packet(&[], &m, &Organize::default()).unwrap();
         for (name, want) in [
             ("dc:title", "Morning <Surf>"),
             ("dc:description", "Surfers & friends at dawn"),
@@ -427,7 +632,10 @@ pub(crate) mod tests {
             ..IptcMeta::default()
         };
         assert_eq!(
-            xmp_values(&packet(&[], &one).unwrap(), "photoshop:City"),
+            xmp_values(
+                &packet(&[], &one, &Organize::default()).unwrap(),
+                "photoshop:City"
+            ),
             ["Akureyri"]
         );
         assert_eq!(
@@ -445,5 +653,242 @@ pub(crate) mod tests {
         assert_eq!(ds[0], (5, "東".repeat(21)), "64 bytes: 21 three-byte chars");
         assert_eq!(ds[1].1.len(), 32);
         assert_eq!(ds[2], (90, "©".repeat(16)));
+    }
+
+    pub(crate) fn organized() -> Organize {
+        Organize {
+            rating: Some(4),
+            tags: label_pick_tags(ColorTag::Red, PickState::Picked),
+        }
+    }
+
+    #[test]
+    fn rating_and_hierarchical_tags_in_the_packet() {
+        let kw: Vec<String> = vec!["beach".into(), " Crete ".into(), "Red".into()];
+        let p = packet(&kw, &IptcMeta::default(), &organized()).unwrap();
+        assert_eq!(xmp_values(&p, "xmp:Rating"), ["4"]);
+        assert_eq!(
+            xmp_values(&p, "dc:subject"),
+            ["beach", "Crete", "Red", "Pick"],
+            "keywords, then each tag's leaf, once"
+        );
+        assert_eq!(
+            xmp_values(&p, "lr:hierarchicalSubject"),
+            [
+                "beach",
+                "Crete",
+                "Red",
+                "Darkslide|Label|Red",
+                "Darkslide|Pick"
+            ]
+        );
+        assert_eq!(
+            xmp_values(&p, "digiKam:TagsList"),
+            [
+                "beach",
+                "Crete",
+                "Red",
+                "Darkslide/Label/Red",
+                "Darkslide/Pick"
+            ]
+        );
+        let s = String::from_utf8(p).unwrap();
+        assert!(s.contains("<digiKam:TagsList>\n    <rdf:Seq>"), "{s}");
+        assert!(s.contains("xmlns:lr=\"http://ns.adobe.com/lightroom/1.0/\""));
+        // A rating alone is a packet; out-of-range ratings are clamped; 0 is written
+        // (it clears a rating a server read before).
+        let only = Organize {
+            rating: Some(9),
+            ..Organize::default()
+        };
+        let p = packet(&[], &IptcMeta::default(), &only).unwrap();
+        assert_eq!(xmp_values(&p, "xmp:Rating"), ["5"]);
+        assert_eq!(
+            xmp_values(&p, "lr:hierarchicalSubject"),
+            Vec::<String>::new()
+        );
+        assert_eq!(xmp_values(&p, "digiKam:TagsList"), Vec::<String>::new());
+        let zero = Organize {
+            rating: Some(0),
+            ..Organize::default()
+        };
+        assert_eq!(
+            xmp_values(
+                &packet(&[], &IptcMeta::default(), &zero).unwrap(),
+                "xmp:Rating"
+            ),
+            ["0"]
+        );
+        // Keywords only: no hierarchical lists, as before.
+        let p = packet(&kw, &IptcMeta::default(), &Organize::default()).unwrap();
+        assert_eq!(xmp_values(&p, "xmp:Rating"), Vec::<String>::new());
+        assert_eq!(xmp_values(&p, "digiKam:TagsList"), Vec::<String>::new());
+        assert!(Organize::default().is_empty() && !organized().is_empty());
+    }
+
+    #[test]
+    fn labels_and_picks_become_tags() {
+        let names = |l, p| {
+            label_pick_tags(l, p)
+                .into_iter()
+                .map(|t| t.join("/"))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            names(ColorTag::None, PickState::Unflagged),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            names(ColorTag::None, PickState::Rejected),
+            ["Darkslide/Reject"]
+        );
+        for (tag, name) in [
+            (ColorTag::Red, "Red"),
+            (ColorTag::Orange, "Orange"),
+            (ColorTag::Yellow, "Yellow"),
+            (ColorTag::Green, "Green"),
+            (ColorTag::Blue, "Blue"),
+            (ColorTag::Pink, "Pink"),
+            (ColorTag::Purple, "Purple"),
+        ] {
+            assert_eq!(
+                names(tag, PickState::Picked),
+                [format!("Darkslide/Label/{name}"), "Darkslide/Pick".into()]
+            );
+        }
+        // Blank path parts are skipped; a tag of nothing adds nothing.
+        let odd = Organize {
+            rating: None,
+            tags: vec![
+                vec![" A ".into(), String::new(), "B".into()],
+                vec![" ".into()],
+            ],
+        };
+        assert_eq!(super::subjects(&[], &odd), ["B"]);
+        assert_eq!(hierarchical(&[], &odd, '|'), ["A|B"]);
+    }
+
+    #[test]
+    fn sidecars_are_marked_and_carry_gps() {
+        let gps = GeoPoint::new(-33.856_8, 151.215_3, Some(-12.345));
+        let x = sidecar(&["beach".into()], &iptc(), &organized(), gps);
+        assert!(is_darkslide_sidecar(&x));
+        assert_eq!(xmp_values(&x, "xmp:CreatorTool"), ["Darkslide"]);
+        assert_eq!(xmp_values(&x, "xmp:Rating"), ["4"]);
+        assert_eq!(xmp_values(&x, "dc:title"), ["Morning <Surf>"]);
+        assert_eq!(
+            xmp_values(&x, "dc:description"),
+            ["Surfers & friends at dawn"]
+        );
+        assert_eq!(xmp_values(&x, "exif:GPSLatitude"), ["33,51.408000S"]);
+        assert_eq!(xmp_values(&x, "exif:GPSLongitude"), ["151,12.918000E"]);
+        assert_eq!(xmp_values(&x, "exif:GPSAltitudeRef"), ["1"]);
+        assert_eq!(xmp_values(&x, "exif:GPSAltitude"), ["1235/100"]);
+        assert_eq!(
+            xmp_values(&x, "digiKam:TagsList"),
+            ["beach", "Darkslide/Label/Red", "Darkslide/Pick"]
+        );
+        // No position, or one edited out of range: no GPS at all.
+        let none = sidecar(&[], &IptcMeta::default(), &Organize::default(), None);
+        assert!(is_darkslide_sidecar(&none));
+        assert_eq!(xmp_values(&none, "exif:GPSLatitude"), Vec::<String>::new());
+        let bad = GeoPoint {
+            latitude: 120.0,
+            longitude: 0.0,
+            altitude_m: None,
+        };
+        let x = sidecar(&[], &IptcMeta::default(), &Organize::default(), Some(bad));
+        assert_eq!(xmp_values(&x, "exif:GPSLatitude"), Vec::<String>::new());
+        let north = GeoPoint::new(64.15, -21.94, None);
+        let x = sidecar(&[], &IptcMeta::default(), &Organize::default(), north);
+        assert_eq!(xmp_values(&x, "exif:GPSLatitude"), ["64,9.000000N"]);
+        assert_eq!(xmp_values(&x, "exif:GPSLongitude"), ["21,56.400000W"]);
+        assert_eq!(xmp_values(&x, "exif:GPSAltitude"), Vec::<String>::new());
+    }
+
+    #[test]
+    fn foreign_sidecars_are_not_ours() {
+        let lightroom = br#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:CreatorTool="Adobe Photoshop Lightroom Classic" xmp:Rating="3"/></rdf:RDF></x:xmpmeta>"#;
+        assert!(!is_darkslide_sidecar(lightroom));
+        assert!(!is_darkslide_sidecar(&[0xFF, 0xFE, 0x00]));
+        // Ours, then rewritten by another app that kept our namespace.
+        let ours = String::from_utf8(sidecar(
+            &[],
+            &IptcMeta::default(),
+            &Organize::default(),
+            None,
+        ))
+        .unwrap();
+        let taken = ours.replace(
+            "<xmp:CreatorTool>Darkslide</xmp:CreatorTool>",
+            "<xmp:CreatorTool>Adobe Photoshop Lightroom Classic</xmp:CreatorTool>",
+        );
+        assert!(!is_darkslide_sidecar(taken.as_bytes()));
+        let unmarked = ours.replace(DARKSLIDE_NS, "http://example.invalid/other/");
+        assert!(!is_darkslide_sidecar(unmarked.as_bytes()));
+    }
+
+    #[test]
+    fn packet_fit_keeps_the_tags() {
+        let kw: Vec<String> = (0..2000).map(|i| format!("keyword number {i}")).collect();
+        let (p, note) = packet_fit(&kw, &IptcMeta::default(), &organized(), 20_000).unwrap();
+        assert!(p.len() <= 20_000 && note.unwrap().contains("keywords left out"));
+        assert_eq!(xmp_values(&p, "xmp:Rating"), ["4"]);
+        let tags = xmp_values(&p, "digiKam:TagsList");
+        assert!(tags.contains(&"Darkslide/Pick".to_owned()), "{tags:?}");
+    }
+
+    /// The sidecar as exiftool (what Immich uses to read it) sees it. Runs only
+    /// where `exiftool` is on the PATH.
+    #[test]
+    fn exiftool_reads_the_sidecar() {
+        let Ok(out) = std::process::Command::new("exiftool").arg("-ver").output() else {
+            return;
+        };
+        if !out.status.success() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("IMG_0001.ARW.xmp");
+        let gps = GeoPoint::new(-33.856_8, 151.215_3, None);
+        std::fs::write(
+            &path,
+            sidecar(&["beach".into()], &iptc(), &organized(), gps),
+        )
+        .unwrap();
+        let out = std::process::Command::new("exiftool")
+            .args([
+                "-j",
+                "-n",
+                "-Rating",
+                "-Subject",
+                "-HierarchicalSubject",
+                "-TagsList",
+                "-Title",
+                "-Description",
+                "-GPSLatitude",
+                "-GPSLongitude",
+                "-CreatorTool",
+            ])
+            .arg(&path)
+            .output()
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let v = &v[0];
+        assert_eq!(v["Rating"], 4);
+        assert_eq!(v["CreatorTool"], "Darkslide");
+        assert_eq!(v["Title"], "Morning <Surf>");
+        assert_eq!(v["Description"], "Surfers & friends at dawn");
+        assert_eq!(
+            v["TagsList"],
+            serde_json::json!(["beach", "Darkslide/Label/Red", "Darkslide/Pick"])
+        );
+        assert_eq!(
+            v["HierarchicalSubject"],
+            serde_json::json!(["beach", "Darkslide|Label|Red", "Darkslide|Pick"])
+        );
+        assert_eq!(v["Subject"], serde_json::json!(["beach", "Red", "Pick"]));
+        assert!((v["GPSLatitude"].as_f64().unwrap() + 33.8568).abs() < 1e-6);
+        assert!((v["GPSLongitude"].as_f64().unwrap() - 151.2153).abs() < 1e-6);
     }
 }

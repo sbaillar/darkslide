@@ -1,6 +1,6 @@
 # Plug-ins and extensions
 
-Status: **v1 built** (2026-10-10), revised after the design review (`H1`–`H9` and the v1 MEDs are folded in; the rest is the v2 list at the end). "What v1 ships" lists what works today; the rest is the plan the contracts are shaped for. The code is `crates/ds-plugin` (host, runtime, CLI), `crates/ds-core/src/edit_keys.rs` (the edit vocabulary), the `PostProcess` seam in `crates/ds-export/src/post.rs`, `crates/ds-ffi/src/plugins.rs` (FFI contract 34) and `app/Sources/DarkslideCore/Plugins/`. The reference plug-ins are in `plugins/`.
+Status: **v1 built** (2026-10-10), revised after the design review (`H1`–`H9` and the v1 MEDs are folded in; the rest is the v2 list at the end). "What v1 ships" lists what works today; the rest is the plan the contracts are shaped for. The code is `crates/ds-plugin` (host, runtime, CLI), `crates/ds-core/src/edit_keys.rs` (the edit vocabulary), the `PostProcess` seam in `crates/ds-export/src/post.rs`, `crates/ds-ffi/src/plugins.rs` and `features.rs` (FFI contract 43) and `app/Sources/DarkslideCore/Plugins/`. The reference plug-ins are in `plugins/`.
 
 Darkslide is extended with **plug-ins**: packages named `*.dsplugin` that declare what they add in a manifest. A plug-in can be pure data (looks, styles, voice phrases, later export recipes, profiles, Core ML models) or carry code (a WebAssembly module; later, on macOS, a helper program). The app's own optional features are packaged the same way, so the core stays small and every extension point has at least one real user.
 
@@ -118,6 +118,7 @@ Each contribution kind has a contract number. The host supports a range per kind
 | `voice_phrases` | data | Phrases for voice commands ("keeper" → Pick) | `phrases@1`, below |
 | `export_post_process` | code | A step on each exported image at its final size, before the watermark | See "Post-process contract" |
 | `export_destination` | code (WASM) | Where exports go: an online service through host-mediated HTTP and OAuth, or a local hand-off folder | Specified; see "Online destinations" |
+| `native_feature` | switch (bundled only) | Turns one of the app's own optional integrations on or off (Archive, Amazon Photos, Immich, Google Photos) | `feature@1`, see "Native features" |
 | `export_recipes` | data | Ready-made export recipes | Later |
 | `profiles` | data | ICC and DCP profiles | Later |
 | `keywords` | data | A keyword vocabulary | Later |
@@ -161,6 +162,38 @@ Sections appear in the order of first appearance. Third-party UUIDs are derived 
 - **Failure:** a step that fails, traps, runs out of fuel, panics (native or WebAssembly: every call is isolated with `catch_unwind`) or asks for an impossible canvas **fails that file's export**: nothing is written, and the export report names the plug-in and its message. A recipe naming a plug-in that is missing, disabled or not approved **can't start** ("the plug-in step … isn't available"), in the sheet's own check. A contribution that failed three times in a row stops for the rest of the session, so the rest of the batch fails with that message.
 - **Versions:** each recipe step remembers the plug-in version it was set up with; after an update the recipe editor says so ("Set up with Film Border 1.0.0; 1.1.0 is installed"). A stored value the update's params no longer allow is clamped into the new range (or the default is used) with a note in the editor; the recipe keeps exporting.
 - **Cancel:** the export's Cancel reaches a running step: `progress()` returns 1 (polled every 10 ms by the host), and the host checks it between strips.
+
+### Native features (`native_feature`, contract 1)
+
+Darkslide's own optional integrations are bundled plug-ins whose code stays native: the plug-in is the **switch** and the **catalogue entry** (name, summary, what it reaches). Settings ▸ Plugins lists them first, under **Integrations**, each with an on/off switch.
+
+```toml
+manifest = 1
+id = "darkslide.immich"
+name = "Immich"
+version = "1.0.0"
+api = 1
+summary = "Keeps developed copies and XMP sidecars of your photos in the archive for Immich, …"
+permissions = ["files.write:developed-copies"]   # shown, never asked for (built in)
+
+[[contributes.native_feature]]
+id = "immich"                       # one of: archive, amazon-photos, immich, google-photos
+contract = 1
+uses = ["Your Immich server (the address and API key you enter)"]   # what it reaches, in words
+```
+
+- **Bundled only.** Only a package under a `darkslide.*` id may declare `native_feature`, and those load only from the app bundle with the hashes compiled in. A third-party manifest declaring it is refused when it is validated, so at `ds-plugin validate`, at install and at load; a `darkslide.*` id outside the bundle is refused as before, and a tampered bundled folder doesn't load (its feature stays off).
+- **No files, no params.** A native feature names no `file`, `module`, `entry` or `params`; `uses` (plain text, cleaned like a summary) is allowed only here. Its `permissions` describe the app's own code: listed, never asked for, and no "never used" warning. A feature id this Darkslide doesn't know is skipped with a warning (an error at author time).
+- **Off until turned on.** A bundled plug-in with a native feature is off until the user turns it on (other bundled plug-ins are on until turned off). The first launch with feature plug-ins decides each one once (`Host::seed_features`): **on when the user had already set the feature up** (Archive: a target; Amazon Photos: a folder; Immich: a server address; Google Photos: signed in, or their own OAuth client entered; the client built into the app doesn't count), otherwise off. The decision is written to `state.json`, so later launches never re-decide it and read no preferences or Keychain items for it (`undecided_features` is empty). Onboarding offers the archive (off until the user turns it on there) and shows the Amazon Photos step only while that integration is on; Finish turns on what was set up in it.
+- **What "off" means.** The feature's Settings tab, menu and context-menu items, toolbar and status-bar entries, badges, tool panels and Export-sheet section go away (the Export sheet keeps one quiet line saying where uploads are turned on), and nothing it would do runs: the app asks `PluginHost.native_features` after every change (`FeatureGates`), and Rust code that runs on its own asks the registry itself (`ds_ffi::features::FeatureGate`: the archive driver starts no rsync run, Amazon hand-off or Immich sidecar or album step while its feature is off). Work already going finishes rather than stopping half-way (an rsync run, a hand-off batch, a developed-copy render, an album sync, the current recipe's Google upload); nothing new starts. A recipe that uploads to Google Photos can't start while Google Photos is off ("turn it on in Settings ▸ Plugins, or turn the upload off"), like a recipe naming a disabled post-process step.
+- **Nothing is deleted.** Turning a feature off keeps its settings, credentials (Keychain) and data; turning it on restores it exactly, at once, without a relaunch. Changes pending while the archive was off are archived when it comes back.
+
+| Plug-in | Feature | Gated in Swift | Gated in Rust |
+|---|---|---|---|
+| `darkslide.archive` | `archive` | Settings ▸ Archive, the toolbar badge and popover, the Import & Archive panel, the quit and delete-rejected notes | the archive driver (no run starts, not even Sync Now) |
+| `darkslide.amazon-photos` | `amazon-photos` | Settings ▸ Amazon Photos, the Output panel, the popover's hand-off lines, the onboarding step | the hand-off pass and `mirror_to_amazon` |
+| `darkslide.immich` | `immich` | Settings ▸ Immich, Photo-menu and context-menu items, thumbnail badges, the status line, the album watch and renders | sidecars before archive runs, the album-sync queue |
+| `darkslide.google-photos` | `google-photos` | Settings ▸ Google Photos, the Export sheet's upload section, the album list, each recipe's upload | (uploads run only when the app asks) |
 
 ## Execution model
 
@@ -270,7 +303,7 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
 - **`manifest`**: the manifest's format. Adding an optional key doesn't change it (older hosts warn and ignore it); renaming or removing a key does.
 - **`api`**: the host API major. Within a major the host only adds imports; a module importing something this Darkslide lacks fails to load ("needs a newer Darkslide"). `ds_api()` must return the manifest's `api`.
 - **`contract` per kind**: the shape of one extension point. Additive fields don't bump it; a changed meaning does. A data item that uses something this host doesn't know is left out, not half-applied.
-- **`FFI_CONTRACT`** (Rust ↔ Swift) is internal; this branch uses 28, and the number is assigned at merge.
+- **`FFI_CONTRACT`** (Rust ↔ Swift) is internal (43 with native features); the number is assigned at merge.
 - A plug-in's own `version` is semver: updates, downgrades and clashes use it.
 
 ## Built-ins as plug-ins
@@ -287,16 +320,18 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
 | **Looks** (18) and **styles** (20) | `looks` / `style` data packs | **Done in v1** (below) |
 | **Voice phrases** | `voice_phrases` packs | Easy: the loader exists; the built-in catalog stays the parser |
 | **Watermark** | `export_post_process` | Medium: it is the seam's native provider today; a WASM port needs a host text rasteriser and would be seconds per export in an interpreter, so it stays native |
-| **Google Photos destination** (`feat/gphotos`) | `export_destination` (OAuth + network) | Medium: its narrow uploader fits the contract above; it registers as a built-in provider once destinations run, and moves to WASM once the host HTTP/OAuth imports ship |
-| **Amazon Photos hand-off** | `export_destination` (local folder) | Medium: a mirror into a watched folder with `files.write` |
-| **rsync archive** | helper | Medium–hard: its volume-safety logic must stay in the host |
+| **Google Photos destination** | `native_feature` today; `export_destination` (OAuth + network) later | **Optional in v1.1** (`darkslide.google-photos`, off by default). Its narrow uploader fits the destination contract; it moves to WASM once the host HTTP/OAuth imports ship |
+| **Amazon Photos hand-off** | `native_feature` today; `export_destination` (local folder) later | **Optional in v1.1** (`darkslide.amazon-photos`, off by default) |
+| **Immich** | `native_feature` | **Optional in v1.1** (`darkslide.immich`, off by default); it rides on the archive's runs, so its code stays native |
+| **rsync archive** | `native_feature` (a helper later) | **Optional in v1.1** (`darkslide.archive`, off until turned on); its volume-safety logic stays in the host |
 | **Capture One importer** | `import_source` (native built-in) | Hard: it writes deeply into sessions |
 | **AI Upscale model** | `ai_models` (`upscale@1`) | Medium: only where the model comes from changes (~33 MB out of the bundle) |
 | **Soft proof**, **Map** | stay core | Not candidates (profiles and overlays can extend them) |
 
-**Reference plug-ins in v1:**
+**Reference plug-ins:**
 1. **`plugins/builtin/darkslide-looks.dsplugin`** — the 18 looks and 20 styles moved out of Swift, generated from the old tables. `PluginTests` checks every one **field for field** against those tables (kept as test data in `LegacyBuiltIns.swift`: id, name, summary, groups, relative, absolute fields, edit, category, order), applies each to a corrected photo against a recorded fixture, and checks Intensity 0 restores the photo exactly for every look. Look ids and UUIDs are unchanged, so sidecars and thumbnails keep working.
 2. **`plugins/film-border.dsplugin`** — a WASM export step written in WAT, the code template: a border around the photo (growing the canvas) or over its edge, any colour with alpha.
+3. **`plugins/builtin/darkslide-{archive,amazon-photos,immich,google-photos}.dsplugin`** — manifest-only `native_feature` switches for the optional integrations (v1.1).
 
 ## SDK and authoring
 
@@ -308,6 +343,10 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
   - `contracts`.
 - **Looks, 2 minutes:** in Darkslide, set a photo up as you like and click **Styles ▸ Copy as Look JSON** (amounts only; the toast says what a look can't carry). `ds-plugin new "My Looks" --kind looks`, paste the item into `looks.json`, `ds-plugin validate`, and drop the folder on Settings ▸ Plugins. Data packs need no signature.
 - **Post-process:** `ds-plugin new "Frame" --kind post-process --id com.example.frame`, turn on "Allow unsigned code plug-ins", **Add Development Folder…** to load it in place, edit `border.wat`, Reload, export. When it's done: `keygen`, `sign`, `pack --zip`.
+
+## What v1.1 adds
+
+- **Native features:** the `native_feature` kind (bundled only), the four integration plug-ins, off by default with the one-time migration for existing users, `Host::feature_enabled` / `native_features` / `undecided_features` / `seed_features`, the archive driver's gate (`ArchiveManager.set_plugin_host`), Settings ▸ Plugins ▸ Integrations, and the app's `FeatureGates`.
 
 ## What v1 ships
 

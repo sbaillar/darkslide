@@ -26,7 +26,9 @@ use crate::recipe::ExportFormat;
 pub trait HeicEncoder: Send + Sync {
     /// Encode 16-bit RGB (output-encoded) to HEIC bytes, embedding `icc` and,
     /// when given, the TIFF-structured `exif` block, the `keywords` and the
-    /// `iptc` fields (IPTC/XMP).
+    /// `iptc` fields (IPTC/XMP), and the XMP packet `xmp` (the same fields plus the
+    /// rating and hierarchical tags, see [`crate::xmp::packet`]), merged with them.
+    #[allow(clippy::too_many_arguments)] // one call per output, mirrored across the FFI
     fn encode(
         &self,
         img: &Image16,
@@ -35,6 +37,7 @@ pub trait HeicEncoder: Send + Sync {
         exif: Option<&[u8]>,
         keywords: &[String],
         iptc: &IptcMeta,
+        xmp: Option<&[u8]>,
     ) -> Result<Vec<u8>, String>;
 }
 
@@ -94,11 +97,26 @@ pub fn encode_pixels_to<W: Write + Seek>(
             let img = img.as_ref();
             let enc = heic.ok_or(ExportError::NoHeicEncoder)?;
             let blob = exif.map(exif::to_tiff_bytes);
-            let keywords = exif.map(|d| d.keywords.as_slice()).unwrap_or_default();
+            let keywords = exif
+                .map(|d| crate::xmp::subjects(&d.keywords, &d.organize))
+                .unwrap_or_default();
             let none = IptcMeta::default();
             let iptc = exif.map_or(&none, |d| &d.iptc);
+            // One JPEG segment's worth (the hook also writes JPEG).
+            let room = crate::xmp::JPEG_SEGMENT_MAX - crate::xmp::XMP_JPEG_HEADER.len();
+            let xmp = exif
+                .and_then(|d| crate::xmp::packet_fit(&d.keywords, &d.iptc, &d.organize, room))
+                .map(|(p, _)| p);
             let bytes = ds_fsutil::catch_panic(|| {
-                enc.encode(img, quality, icc, blob.as_deref(), keywords, iptc)
+                enc.encode(
+                    img,
+                    quality,
+                    icc,
+                    blob.as_deref(),
+                    &keywords,
+                    iptc,
+                    xmp.as_deref(),
+                )
             })
             .map_err(|p| format!("HEIC encoder panicked: {p}"))
             .and_then(|r| r)
@@ -161,21 +179,24 @@ fn jpeg<W: Write>(
             // A packet or IIM block past one segment would corrupt the file, so
             // long text and trailing keywords are cut to fit, and said so in `notes`.
             let room = crate::xmp::JPEG_SEGMENT_MAX - crate::xmp::XMP_JPEG_HEADER.len();
-            if let Some((p, note)) = crate::xmp::packet_fit(&d.keywords, &d.iptc, room) {
+            if let Some((p, note)) =
+                crate::xmp::packet_fit(&d.keywords, &d.iptc, &d.organize, room)
+            {
                 s.write_marker(
                     mozjpeg::Marker::APP(1),
                     &[crate::xmp::XMP_JPEG_HEADER, &p].concat(),
                 );
                 notes.extend(note);
             }
+            let keywords = crate::xmp::subjects(&d.keywords, &d.organize);
             if let Some((a, dropped)) =
-                crate::xmp::iptc_app13_fit(&d.keywords, &d.iptc, crate::xmp::JPEG_SEGMENT_MAX)
+                crate::xmp::iptc_app13_fit(&keywords, &d.iptc, crate::xmp::JPEG_SEGMENT_MAX)
             {
                 s.write_marker(mozjpeg::Marker::APP(13), &a);
                 if dropped > 0 {
                     notes.push(format!(
                         "IPTC: {dropped} of {} keywords left out (they do not fit one JPEG segment)",
-                        d.keywords.len()
+                        keywords.len()
                     ));
                 }
             }
@@ -230,7 +251,7 @@ fn png<W: Write>(
     };
     info.icc_profile = Some(icc.into());
     info.exif_metadata = exif.map(|d| exif::to_tiff_bytes(d).into());
-    if let Some(p) = exif.and_then(|d| crate::xmp::packet(&d.keywords, &d.iptc)) {
+    if let Some(p) = exif.and_then(|d| crate::xmp::packet(&d.keywords, &d.iptc, &d.organize)) {
         let xml = String::from_utf8(p).map_err(enc_err)?;
         info.utf8_text.push(png::text_metadata::ITXtChunk::new(
             crate::xmp::XMP_PNG_KEYWORD,
@@ -318,7 +339,7 @@ fn tiff16<W: Write + Seek>(
         .write_entry_bytes(Type::UNDEFINED, icc)
         .map_err(enc_err)?;
     t.extend([(Tag::IccProfile, icc_entry)]);
-    if let Some(p) = exif.and_then(|d| crate::xmp::packet(&d.keywords, &d.iptc)) {
+    if let Some(p) = exif.and_then(|d| crate::xmp::packet(&d.keywords, &d.iptc, &d.organize)) {
         let entry = dir.write_entry_bytes(Type::BYTE, &p).map_err(enc_err)?;
         t.extend([(Tag::from_u16_exhaustive(crate::xmp::TAG_XMP), entry)]);
     }
@@ -939,12 +960,16 @@ mod tests {
             exif: Option<&[u8]>,
             keywords: &[String],
             iptc: &IptcMeta,
+            xmp: Option<&[u8]>,
         ) -> Result<Vec<u8>, String> {
             if q == 13 {
                 return Err("encoder refused".into());
             }
+            let rating = xmp
+                .map(|x| crate::xmp::tests::xmp_values(x, "xmp:Rating").join(","))
+                .unwrap_or_default();
             Ok(format!(
-                "{}x{} q{q} icc{} exif{} kw{} title{}",
+                "{}x{} q{q} icc{} exif{} kw{} rating{rating} title{}",
                 img.size.width,
                 img.size.height,
                 icc.len(),
@@ -953,6 +978,95 @@ mod tests {
                 iptc.title
             )
             .into_bytes())
+        }
+    }
+
+    #[test]
+    fn the_hook_gets_the_rating_and_tags() {
+        let img = gradient(4, 2);
+        let meta = ExifMeta {
+            organize: crate::xmp::tests::organized(),
+            ..sample()
+        };
+        let out = encode(
+            &img,
+            ExportFormat::Heic { quality: 80 },
+            icc(),
+            Some(&meta.dirs(false)),
+            Some(&FakeHeic),
+        )
+        .unwrap();
+        let s = String::from_utf8(out).unwrap();
+        assert!(
+            s.contains("kwbeach|Crete & friends|Red|Pick rating4 "),
+            "{s}"
+        );
+    }
+
+    #[test]
+    fn jpeg_carries_rating_and_tags_in_xmp_and_leaves_in_iptc() {
+        use crate::xmp::tests::{iim_keywords, xmp_values};
+        let meta = ExifMeta {
+            organize: crate::xmp::tests::organized(),
+            ..sample()
+        };
+        let out = encode(
+            &gradient(8, 8),
+            ExportFormat::Jpeg { quality: 90 },
+            icc(),
+            Some(&meta.dirs(false)),
+            None,
+        )
+        .unwrap();
+        let xmp = jpeg_segments(&out, 0xE1)
+            .into_iter()
+            .find(|s| s.starts_with(crate::xmp::XMP_JPEG_HEADER))
+            .unwrap()[crate::xmp::XMP_JPEG_HEADER.len()..]
+            .to_vec();
+        let app13 = jpeg_segments(&out, 0xED).remove(0);
+        assert_eq!(xmp_values(&xmp, "xmp:Rating"), ["4"]);
+        assert_eq!(
+            xmp_values(&xmp, "lr:hierarchicalSubject"),
+            [
+                "beach",
+                "Crete & friends",
+                "Darkslide|Label|Red",
+                "Darkslide|Pick"
+            ]
+        );
+        assert_eq!(
+            iim_keywords(&app13),
+            ["beach", "Crete & friends", "Red", "Pick"]
+        );
+        // As exiftool (what Immich reads files with) sees it, where it is installed.
+        if std::process::Command::new("exiftool")
+            .arg("-ver")
+            .output()
+            .is_ok_and(|o| o.status.success())
+        {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("x.jpg");
+            std::fs::write(&path, &out).unwrap();
+            let o = std::process::Command::new("exiftool")
+                .args(["-j", "-n", "-XMP:Rating", "-XMP:TagsList", "-IPTC:Keywords"])
+                .arg(&path)
+                .output()
+                .unwrap();
+            let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+            assert_eq!(v[0]["Rating"], 4);
+            assert_eq!(
+                v[0]["TagsList"],
+                serde_json::json!([
+                    "beach",
+                    "Crete & friends",
+                    "Darkslide/Label/Red",
+                    "Darkslide/Pick"
+                ])
+            );
+            assert_eq!(
+                v[0]["Keywords"],
+                serde_json::json!(["beach", "Crete & friends", "Red", "Pick"])
+            );
         }
     }
 

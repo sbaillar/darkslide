@@ -1,0 +1,21 @@
+# Google Photos as an optional, built-in integration: this plug-in is its switch.
+# The code is native (crates/ds-gphotos, the Export sheet's upload); see docs/PLUGINS.md,
+# "Native features".
+manifest = 1
+id = "darkslide.google-photos"
+name = "Google Photos"
+version = "1.0.0"
+api = 1
+authors = ["Darkslide"]
+summary = "Uploads exported photos into an album in your Google Photos, from the Export sheet."
+permissions = [
+  "network:accounts.google.com",
+  "network:oauth2.googleapis.com",
+  "network:photoslibrary.googleapis.com",
+]
+
+[[contributes.native_feature]]
+id = "google-photos"
+name = "Google Photos"
+contract = 1
+uses = ["Your Google account (you sign in in Settings ▸ Google Photos)"]

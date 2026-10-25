@@ -17,6 +17,8 @@ public enum ActiveSheet: Identifiable, Equatable, Sendable {
     case captureOneSettings(C1SettingsImportModel)
     /// File ▸ Import Lightroom… (catalog, XMP sidecars or presets).
     case lightroomImport(LightroomImportModel)
+    /// File ▸ Import Aperture or iPhoto Library…
+    case appleLibraryImport(AppleLibraryImportModel)
     /// Photo ▸ Merge to HDR… / Merge to Panorama…
     case merge(MergeModel)
 
@@ -30,6 +32,7 @@ public enum ActiveSheet: Identifiable, Equatable, Sendable {
         case .captureOneImport: "capture-one-import"
         case .captureOneSettings: "capture-one-settings"
         case .lightroomImport: "lightroom-import"
+        case .appleLibraryImport: "apple-library-import"
         case .merge: "merge"
         }
     }
@@ -82,6 +85,11 @@ public final class AppModel {
     @ObservationIgnored public var exporter: any ExportService = UnavailableExportService()
     /// Google Photos export destination (live: ds-gphotos); nil in the demo.
     @ObservationIgnored public var googlePhotos: (any GooglePhotosService)?
+    /// Immich: developed copies, sidecars and album sync (live: ds-immich, set by `AppModel.make`).
+    public let immich: ImmichModel
+    /// The optional integrations that are on (Settings ▸ Plugins in the app; every one
+    /// in the demo and in tests unless they say otherwise).
+    public let features = FeatureGates()
     /// The open Export sheet's model.
     public private(set) var exportModel: ExportModel?
     /// AI Optimize: measured, explained proposals (ds-pipeline); `nil` without files (demo).
@@ -143,6 +151,9 @@ public final class AppModel {
     /// Whether the open session has a Lightroom import to revert (see `refreshLightroom()`).
     public internal(set) var lightroom = LightroomStatus()
     public var confirmingLightroomRevert = false
+    /// Whether the open session has an Aperture / iPhoto import to revert (see `refreshAppleLibrary()`).
+    public internal(set) var appleLibrary = AppleLibraryStatus()
+    public var confirmingAppleRevert = false
     /// Where imported Lightroom presets go (tests use their own).
     @ObservationIgnored var lightroomPresetStore: PresetStore = .shared
     /// Reads Capture One's settings folder (seam: ds-c1 live, a fake in tests).
@@ -224,7 +235,9 @@ public final class AppModel {
     @ObservationIgnored var switchDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: .seconds(30)) }
 
     // MARK: UI state
-    public var browserMode: BrowserMode = .filmstrip
+    public var browserMode: BrowserMode = .filmstrip {
+        didSet { if oldValue == .library, browserMode != .library { openDeferredSession() } } // [library]
+    }
     public var toolTab: ToolTab = .exposure
     /// Styles & Presets (about 20 rows) starts collapsed so the tools under it stay in view.
     public var collapsedPanels: Set<ToolPanelID> = ToolWorkspace.defaultCollapsed
@@ -334,6 +347,8 @@ public final class AppModel {
     /// Where the user was before an update restarted the app (`ResumeState`): `start()`
     /// reopens that session and `open(_:)` focuses that photo, once.
     @ObservationIgnored public var pendingResume: ResumeState?
+    /// [library] The session a Library start left closed: it opens when the user leaves the Library.
+    @ObservationIgnored public internal(set) var deferredSession: SessionInfo?
 
     public init(sessions: any SessionStore, images: any ImageProvider, renderer: any Renderer,
                 importer: any ImportService, archive: any ArchiveService, ai: any AIService, settings: AppSettings,
@@ -349,6 +364,7 @@ public final class AppModel {
         self.settings = settings
         filmstrip = settings.filmstripLayout(window: AppWindows.main)
         remote = RemoteLinkModel(defaults: settings.userDefaults)
+        immich = ImmichModel(settings: ImmichSettings(defaults: settings.userDefaults))
         thumbnails = ThumbnailCache(provider: images)
         saver = SaveCoordinator(store: sessions)
         viewer = ViewerModel(renderer: renderer, previews: previews)
@@ -375,6 +391,7 @@ public final class AppModel {
         voice.pushToTalk = settings.voicePushToTalk
         voice.pushToTalkKey = settings.voicePushToTalkKey
         voice.customPhrases = VoicePhraseBook.effective(user: settings.voicePhrases).actions
+        features.onChange = { [weak self] feature, on in self?.featureChanged(feature, on) }
         // A plug-in turned on or off changes the phrases voice hears.
         PluginStore.shared.onContentChanged = { [weak self] in
             guard let self else { return }
@@ -397,6 +414,9 @@ public final class AppModel {
         }
         // Imported profiles register off the main thread before the first render.
         _ = await CameraProfileLibrary.loading?.value
+        // [library] Starting in the Library opens no session (its photos aren't needed there).
+        let inLibrary = startsInLibrary()
+        if inLibrary { browserMode = .library }
         do {
             sessionList = try await sessions.listSessions()
             // Never reopen a folder that's gone or holds no photos: the welcome state lists
@@ -406,6 +426,8 @@ public final class AppModel {
             if currentSession == nil, !settings.sessionClosed, let last = sessionToReopen() {
                 if let why = last.unavailable {
                     AppLog.session.notice("not reopening \(last.url.path, privacy: .private(mask: .hash)): \(why.label, privacy: .public)")
+                } else if inLibrary {
+                    deferredSession = last
                 } else {
                     await open(last)
                 }
@@ -735,6 +757,7 @@ public final class AppModel {
     @ObservationIgnored var missingCountCache: (version: Int, count: Int) = (-1, 0)
 
     public func open(_ session: SessionInfo) async {
+        deferredSession = nil // [library] a session the user opened replaces the one a Library start kept
         openToken += 1
         let token = openToken
         let switching = currentSession != nil && currentSession?.id != session.id
@@ -814,6 +837,7 @@ public final class AppModel {
             people.sessionOpened(session) // faces in the background
             map.sessionChanged()
             archiveSessionChanged(from: previous, to: session)
+            immich.sessionOpened()
             self.albums = albums
             // Edits come back from the store (sidecars in live mode).
             edits = stored.filter { !$0.value.isDefault }
@@ -835,6 +859,7 @@ public final class AppModel {
             await noteOpened(session) // the recents' "Opened …" date, on every open
             await refreshCaptureOne()
             await refreshLightroom()
+            await refreshAppleLibrary()
             Task { await self.refreshVolumes() } // is its drive (and each missing photo's) there?
             AppLog.session.notice("""
                 opened \(session.url.path, privacy: .private(mask: .hash)): \(loaded.count) photos, \
@@ -922,6 +947,8 @@ public final class AppModel {
         confirmingCaptureOneRevert = false
         lightroom = LightroomStatus() // the closed session's Lightroom state
         confirmingLightroomRevert = false
+        appleLibrary = AppleLibraryStatus() // and its Aperture / iPhoto state
+        confirmingAppleRevert = false
         albums = []
         edits = [:]
         history = EditHistory()
@@ -1011,6 +1038,7 @@ public final class AppModel {
         guard n > 0, let session = currentSession else { return }
         let archive = archive
         Task { await archive.noteChanges(n, in: session) }
+        immich.photosChanged() // developed copies follow edits, ratings and keywords
     }
 
     /// Quit (after saves): stop background archiving, cancelling a running rsync (bounded).
@@ -1187,6 +1215,8 @@ public final class PhotoItem: Identifiable {
     /// Its original was found missing while the session is open (a render failed on a
     /// deleted, moved or unmounted file): badged, and the viewer says so.
     public var originalMissing = false
+    /// Its developed copy for Immich, if it has one (`ImmichModel`).
+    public var immichCopy: ImmichCopyBadge?
 
     /// The original isn't there (per the store, or found so since).
     public var isOriginalMissing: Bool { originalMissing || photo.isMissing }
@@ -1208,7 +1238,8 @@ extension AppModel {
         selectedIDs.compactMap { id in photo(id).flatMap { p in p.isVideo ? nil : p.url.map { (p, $0) } } }
             .enumerated().map {
                 ExportJobItem(photoID: $1.0.id, url: $1.1, seq: $0 + 1, edit: edit(for: $1.0.id), keywords: $1.0.keywords,
-                              metadata: $1.0.metadata, location: $1.0.location)
+                              metadata: $1.0.metadata, location: $1.0.location, rating: $1.0.rating,
+                              colorTag: $1.0.colorTag, pick: $1.0.pick)
             }
     }
 
@@ -1229,7 +1260,8 @@ extension AppModel {
         let model = ExportModel(items: items, defaultFolder: nil, service: exporter,
                                 store: store ?? ExportRecipeStore(defaults: settings.userDefaults),
                                 skippedVideos: exportSkippedVideos, previewSource: watermarkPreviewSource(items),
-                                googlePhotos: googlePhotos)
+                                googlePhotos: googlePhotos,
+                                googlePhotosOn: { [weak self] in self?.features.isOn(.googlePhotos) ?? false })
         model.aiUpscaleUnavailable = upscaler.map { $0.modelUnavailableReason } ?? UpscaleModelDescriptor.reasons.missing
         model.prepare(session: currentSession)
         exportModel = model
@@ -1271,7 +1303,7 @@ extension AppModel {
         let running = imports.running.count
         if running > 0 { return .importRunning(count: running) }
         if exportModel?.isRunning == true { return .exportRunning }
-        return Self.archiveQuitDecision(archiveStatus.state)
+        return features.isOn(.archive) ? Self.archiveQuitDecision(archiveStatus.state) : .ok
     }
 
     /// Quitting after a failed archive run asks first (the photos are safe

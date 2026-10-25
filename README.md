@@ -51,7 +51,7 @@ Darkslide detects memory cards, copies in parallel and verifies each file's chec
 
 ### Library, Find and Map
 
-- **Library mode** shows every session's photos in one grid without opening each session: browse by session, date or collection, filter by rating, label, flag, camera and keyword, and make collections and smart collections that span sessions. Ratings and labels you set there are written to the photo's own session.
+- **Library mode** shows every session's photos in one grid without opening each session: browse by session, date or collection, filter by rating, label, flag, camera and keyword, and make collections and smart collections that span sessions. ⌘-click sessions to see them as one, or pick Opened Sessions to see every session you have opened together. Ratings and labels you set there are written to the photo's own session. Open it with File ▸ Browse All Sessions in Library (⇧⌘L), or set Settings ▸ General ▸ Open in to Library to start there without loading a session. Photos load as you scroll, so a large Library opens quickly.
 - **Find** (⌘F) answers searches like "pics of alex at the beach" from the people you have named, places, dates, ratings and descriptive words, with the reason each result matched. Face grouping and photo search run on device.
 - **Map** shows where photos were taken and filters the browser to an area; drag photos onto it to set their location (kept in the sidecar, never written to the RAW).
 
@@ -90,17 +90,55 @@ A GPU pipeline with Capture One–style tool tabs you can rearrange, a CPU refer
 ### Export, archive and back up
 
 - **Export recipes** (⌘E): JPEG, HEIC, 16-bit TIFF and PNG; size, sharpening, colour space, naming, watermarks and metadata per recipe, several recipes in one go, in the background. Soft proofing (⇧S) shows the photo through any ICC profile.
-- **Google Photos:** a recipe can also upload into an album in your Google Photos account ([setup](docs/GOOGLE_PHOTOS.md)).
-- **Archive:** a background rsync of sessions to a drive or NAS, on a schedule. It never deletes from the archive.
-- **Amazon Photos hand-off:** originals are copied into the folder Amazon Photos backs up.
+- **Google Photos** (optional): a recipe can also upload into an album in your Google Photos account ([setup](docs/GOOGLE_PHOTOS.md)).
+- **Archive** (optional): sessions copied in the background, on a schedule, to a folder (a NAS share, an external drive or a local folder) or to S3-compatible object storage (see [Archive](#archive) below). It never deletes from the archive.
+- **Amazon Photos hand-off** (optional): originals are copied into the folder Amazon Photos backs up.
+- **Immich** (optional): your edited photos, stars and tags in a self-hosted [Immich](https://immich.app) server that indexes the archive (see [Immich](#immich) below).
+- The optional ones are off until you turn them on in Settings ▸ Plugins (see [Optional integrations](#optional-integrations)).
+- **Metadata in every export:** star rating (`xmp:Rating`), keywords as `dc:subject`, `lr:hierarchicalSubject` and `digiKam:TagsList`, and optionally the colour label and pick flag as `Darkslide/Label/Red`, `Darkslide/Pick`, `Darkslide/Reject` tags.
 
 ![The archive popover after a run](docs/screenshots/archive-popover.png)
+
+### Archive
+
+Settings ▸ Archive picks where sessions go. Each session gets its own folder there; switching destinations never moves or deletes what is already archived.
+
+- **Folder:** rsync to a mounted volume (a NAS share under `/Volumes`, an external drive) or a local folder. Nothing is written while the volume isn't mounted: changes wait, and the archive catches up when it is back. A local folder must exist (and can't be inside a session or Darkslide's own support folder).
+- **Object storage:** any S3-compatible service: Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO. Enter the endpoint (empty for Amazon S3, which uses the region), the region, the bucket, a path (key prefix: `darkslide/` puts a session at `darkslide/<session>/…`) and, if the service needs it, path-style addressing. The access key ID and secret access key are kept only in your Keychain, never in preferences or files; the secret is never shown again. Test Connection checks the bucket and leaves one small test object under the path in `.ds-archive-test/`.
+
+Either way, the archive never deletes anything. A file that changed is archived again only after its previous version is moved aside (a folder's `.ds-archive-trash/<time>/`, or copied to `<path>.ds-archive-trash/<time>/` in the bucket). Unchanged files are skipped (on object storage by a BLAKE3 hash stored with each object); every upload is checked against its MD5 and SHA-256 by the service and verified afterwards; large files go up in 8 MB parts. The live session database is never copied, only a consistent snapshot of it, and caches and half-written files stay out. Developed copies and XMP sidecars travel with the session. Immich needs a folder it can index, so with object storage its album sync is skipped (Settings ▸ Immich says so); the Amazon Photos hand-off works with either destination.
+
+### Immich
+
+Immich can index the archive folder as an **external library** (mounted read-only is fine): Darkslide never uploads to Immich, and Immich never writes to the share. Turn it on in Settings ▸ Plugins, then set it up in Settings ▸ Immich:
+
+1. Enter the server address and an API key (Immich ▸ Account Settings ▸ API Keys; it is kept in your Keychain). Test Connection.
+2. Tell Darkslide where Immich sees the archive, e.g. `/mnt/photos` on the server is `/Volumes/photos` on this Mac. Detect fills it in from an archived photo Immich already has, or from the library's import path.
+3. Choose photos and use **Photo ▸ Keep a Developed Copy for Immich** (also in the browser's context menu): a full-size JPEG with every edit goes to the session's `Developed/` folder, is rendered again when you edit, re-rate or re-tag the photo, and the archive carries it to the NAS. A badge on the thumbnail shows the copy (orange when out of date). **Stop Updating Developed Copy** leaves the existing file alone: nothing deletes from the archive.
+4. With **XMP sidecars** on (the default), `IMG_0001.ARW.xmp` next to each archived original carries stars, title, caption, keywords and position, so RAWs show them in Immich too. A sidecar Darkslide didn't write (Lightroom, Capture One) is never touched.
+5. **Albums** follow rules ("★★★★★" → "Darkslide ★★★★★") across every archived session. After each archive run (or Sync Albums Now) Darkslide asks Immich to rescan, then adds the matching photos (the developed copy when there is one) and removes only the photos it added itself. Photos you put in an album by hand stay.
+
+Rate and tag in Darkslide: Immich shows what the sidecars and developed copies say. If you only want the developed JPEGs in Immich, add the exclusion pattern `**/*.ARW` (and your other RAW extensions) to the external library. Album changes and scan requests are the only things Darkslide asks of Immich; scans need an admin's API key (otherwise Immich finds new files on its own schedule).
+
+### Optional integrations
+
+Four integrations are built in but off until you turn them on, so Darkslide stays out of services you don't use. Turn each on or off in **Settings ▸ Plugins ▸ Integrations**; its own Settings tab appears while it is on.
+
+| Integration | What it does | Where to set it up |
+|---|---|---|
+| **Archive** | Copies sessions to a drive or NAS in the background with rsync; never deletes from the archive. Onboarding offers it. | Settings ▸ Archive |
+| **Amazon Photos** | Copies originals into the folder the Amazon Photos app backs up. | Settings ▸ Amazon Photos |
+| **Immich** | Developed copies, XMP sidecars and rule albums for an Immich server that indexes the archive (needs the archive). | Settings ▸ Immich |
+| **Google Photos** | Uploads a recipe's exports into a Google Photos album. | Settings ▸ Google Photos, then the Export sheet |
+
+Turning one off hides its menus, badges and panels and stops its background work (anything already running finishes first). Its settings, sign-ins and files are kept, and turning it back on picks up where it left off. If you used one of these before they became optional, it stays on after the update. Each is a bundled plug-in ([docs/PLUGINS.md](docs/PLUGINS.md#native-features-native_feature-contract-1)): it can be turned off but not removed.
 
 ### Plug-ins, iPad link and other apps
 
 - **Plug-ins** (Settings ▸ Plugins): add looks, styles, voice phrases, or an export step written in WebAssembly that runs sandboxed. Nothing is granted at install ([docs/PLUGINS.md](docs/PLUGINS.md)).
 - **Mac ↔ iPad link** (Settings ▸ Devices, off by default): a paired device can browse the open session and send photos and edits back over mutually authenticated TLS 1.3. The iPad app is planned; the `ds-remote` command-line client uses the link today ([docs/REMOTE.md](docs/REMOTE.md)).
 - **Coming from Capture One or Lightroom Classic?** Darkslide reads Capture One sessions and settings and Lightroom Classic catalogs, XMP sidecars and presets, with a dry run first and a revert. It never modifies their files ([C1 mapping](docs/C1_FORMAT.md), [Lightroom mapping](docs/LR_FORMAT.md)).
+- **Coming from Aperture or iPhoto?** File ▸ Import Aperture or iPhoto Library… reads an Aperture 3 library or an iPhoto library (iPhoto 6 and later). It brings over ratings, rejects and hidden photos, flags, colour labels, keywords, titles, captions, places, projects, events and albums. It also brings the edits that map: exposure, recovery, contrast, definition, saturation, vibrancy, highlights and shadows, white balance on RAW files, straighten, crop and black & white. Levels, curves, retouching, brushed-in adjustments, sharpening, noise reduction, vignettes, faces and smart albums don't carry over, and the dry run lists every one it finds. An older iPhoto library kept edits only as rendered copies, so its originals come in unedited. The library is only read. Its originals open in place as a session, with Darkslide's data kept outside the library. Originals on a disk that isn't connected are listed until you connect it. Photos libraries aren't supported ([Aperture and iPhoto mapping](docs/APPLE_FORMAT.md)).
 
 | Plug-ins | Devices |
 |---|---|
@@ -200,11 +238,11 @@ flowchart TD
     end
     subgraph Flow["Import and output"]
         direction TB
-        Import["ds-import<br/>card copy, BLAKE3 verify"] ~~~ Export["ds-export<br/>recipes, encoders"] ~~~ Archive["ds-archive<br/>rsync, Amazon Photos"]
+        Import["ds-import<br/>card copy, BLAKE3 verify"] ~~~ Export["ds-export<br/>recipes, encoders"] ~~~ Archive["ds-archive<br/>rsync or S3, Amazon Photos"]
     end
     subgraph Connect["Interop and services"]
         direction TB
-        Interop["ds-c1, ds-lr<br/>Capture One, Lightroom"] ~~~ GPhotos["ds-gphotos<br/>Google Photos"] ~~~ Remote["ds-remote<br/>Mac ↔ iPad link"] ~~~ Plugin["ds-plugin<br/>plug-ins, WebAssembly"]
+        Interop["ds-c1, ds-lr, ds-apple<br/>Capture One, Lightroom, Aperture, iPhoto"] ~~~ GPhotos["ds-gphotos<br/>Google Photos"] ~~~ Immich["ds-immich<br/>Immich albums"] ~~~ Remote["ds-remote<br/>Mac ↔ iPad link"] ~~~ Plugin["ds-plugin<br/>plug-ins, WebAssembly"]
     end
 
     Library & Render & Flow & Connect --> Core["ds-core<br/>plain data types, no I/O"]
@@ -357,7 +395,8 @@ Darkslide has no accounts, analytics or telemetry. Your photos stay on your Mac 
 | Google Photos | Only with a Google Photos export recipe, after you sign in | The exported files, to your own account |
 | Jev (TypeSafe) for Edit with words | Off by default; Settings ▸ AI with your own API key | The text you type, not the photo |
 | Mac ↔ iPad link | Off by default; Settings ▸ Devices | Your session, to devices you paired, over mutually authenticated TLS on your network |
-| Archive | When you set an archive target | Your sessions, copied by rsync to the drive or NAS you chose |
+| Archive | When you set an archive target | To a folder: your sessions, copied by rsync to the drive or NAS you chose. To object storage: your sessions' files (originals, sidecars, developed copies, a snapshot of the session database), uploaded to the bucket you chose at the S3-compatible service you chose, signed with your access key (kept in your Keychain), with each file's BLAKE3 hash and modification time as object metadata, plus one small connection-test object when you press Test Connection |
+| Immich | Only after you set up Settings ▸ Immich, at each album sync (after archive runs, or Sync Albums Now) | To your own Immich server, with your API key: the paths of the archived photos the album rules match (to find them there), album names and membership changes, and library scan requests. No photos are uploaded: Immich reads them from the archive |
 
 Amazon Photos backup is a hand-off: Darkslide copies originals into a local folder and Amazon's own app uploads it.
 
@@ -366,7 +405,7 @@ Amazon Photos backup is a hand-off: Darkslide copies originals into a local fold
 - [User guide (PDF)](docs/Darkslide-User-Guide.pdf), built from [docs/user-guide/](docs/user-guide/) with `scripts/user-guide.sh`
 - [Architecture and performance budgets](docs/ARCHITECTURE.md) · [Rust↔Swift FFI](docs/FFI.md) · [Benchmark method](docs/BENCHMARKS.md)
 - [Supported cameras](docs/CAMERAS.md) · [Plug-ins](docs/PLUGINS.md) · [Mac ↔ iPad link protocol](docs/REMOTE.md) · [Google Photos setup](docs/GOOGLE_PHOTOS.md)
-- [Capture One mapping](docs/C1_FORMAT.md) · [Lightroom mapping](docs/LR_FORMAT.md) · [AI Denoise model](docs/DENOISE_MODEL.md) · [AI Upscale model](docs/UPSCALE_MODEL.md)
+- [Capture One mapping](docs/C1_FORMAT.md) · [Lightroom mapping](docs/LR_FORMAT.md) · [Aperture and iPhoto mapping](docs/APPLE_FORMAT.md) · [AI Denoise model](docs/DENOISE_MODEL.md) · [AI Upscale model](docs/UPSCALE_MODEL.md)
 
 ## Roadmap
 

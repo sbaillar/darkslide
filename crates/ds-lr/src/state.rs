@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use ds_core::{ColorTag, PickState, Rating};
+use ds_core::{ColorTag, GeoPoint, PickState, Rating};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -37,6 +37,8 @@ pub(crate) struct Record {
     pub caption: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub copyright: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geotag: Option<GeoPoint>,
     /// Develop category key → the slice written (see `groups::slice`).
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub groups: BTreeMap<String, Value>,
@@ -70,14 +72,14 @@ pub(crate) struct State {
     pub albums: BTreeMap<String, i64>,
 }
 
-pub(crate) fn path(store: &Path) -> PathBuf {
-    store.join(".ds/settings").join(STATE_FILE)
+pub(crate) fn path(store: &Path, file: &str) -> PathBuf {
+    store.join(".ds/settings").join(file)
 }
 
 /// The saved state; a missing file is empty. An unreadable one is reported
 /// (`Err(text)`) and treated as empty by the caller, which is safe (see the module docs).
-pub(crate) fn load(store: &Path) -> Result<State, String> {
-    let p = path(store);
+pub(crate) fn load(store: &Path, file: &str) -> Result<State, String> {
+    let p = path(store, file);
     match std::fs::read(&p) {
         Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| format!("{}: {e}", p.display())),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(State::default()),
@@ -85,9 +87,9 @@ pub(crate) fn load(store: &Path) -> Result<State, String> {
     }
 }
 
-pub(crate) fn save(store: &Path, state: &mut State) -> std::io::Result<()> {
+pub(crate) fn save(store: &Path, file: &str, state: &mut State) -> std::io::Result<()> {
     state.version = VERSION;
-    let p = path(store);
+    let p = path(store, file);
     if let Some(dir) = p.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -102,7 +104,7 @@ mod tests {
     #[test]
     fn round_trips_and_tolerates_absence() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(load(dir.path()).unwrap(), State::default());
+        assert_eq!(load(dir.path(), STATE_FILE).unwrap(), State::default());
         let mut s = State::default();
         let mut rec = Record {
             variant: 7,
@@ -115,11 +117,11 @@ mod tests {
             .insert("tone".into(), serde_json::json!({"/hdr": 1}));
         s.variants.insert("K".into(), rec);
         s.albums.insert("col:3".into(), 42);
-        save(dir.path(), &mut s).unwrap();
-        let back = load(dir.path()).unwrap();
+        save(dir.path(), STATE_FILE, &mut s).unwrap();
+        let back = load(dir.path(), STATE_FILE).unwrap();
         assert_eq!(back.version, VERSION);
         assert_eq!(back, s);
-        let text = std::fs::read_to_string(path(dir.path())).unwrap();
+        let text = std::fs::read_to_string(path(dir.path(), STATE_FILE)).unwrap();
         assert!(
             !text.contains("color_tag"),
             "unset fields are omitted: {text}"
@@ -139,12 +141,16 @@ mod tests {
     #[test]
     fn unreadable_state_is_reported() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(path(dir.path()).parent().unwrap()).unwrap();
-        std::fs::write(path(dir.path()), b"{not json").unwrap();
-        assert!(load(dir.path()).unwrap_err().contains(STATE_FILE));
+        std::fs::create_dir_all(path(dir.path(), STATE_FILE).parent().unwrap()).unwrap();
+        std::fs::write(path(dir.path(), STATE_FILE), b"{not json").unwrap();
+        assert!(
+            load(dir.path(), STATE_FILE)
+                .unwrap_err()
+                .contains(STATE_FILE)
+        );
         let d2 = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(path(d2.path())).unwrap();
-        assert!(load(d2.path()).is_err());
-        assert!(save(d2.path(), &mut State::default()).is_err());
+        std::fs::create_dir_all(path(d2.path(), STATE_FILE)).unwrap();
+        assert!(load(d2.path(), STATE_FILE).is_err());
+        assert!(save(d2.path(), STATE_FILE, &mut State::default()).is_err());
     }
 }

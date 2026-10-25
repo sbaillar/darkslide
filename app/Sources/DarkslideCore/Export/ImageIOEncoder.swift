@@ -19,7 +19,7 @@ public final class ImageIOEncoder: ImageEncoder, @unchecked Sendable {
     public init() {}
 
     public func encode(format: EncodedImageFormat, width: UInt32, height: UInt32, rgb16: Data, quality: UInt8,
-                       icc: Data, exif: Data?, keywords: [String], metadata: PhotoMetadata) throws -> Data {
+                       icc: Data, exif: Data?, keywords: [String], metadata: PhotoMetadata, xmp: Data?) throws -> Data {
         if let failWith { throw DsError.Io(message: failWith) }
         let (w, h) = (Int(width), Int(height))
         guard w > 0, h > 0, rgb16.count == w * h * 6 else {
@@ -51,11 +51,23 @@ public final class ImageIOEncoder: ImageEncoder, @unchecked Sendable {
         if let exif { props.merge(Self.metadataDictionaries(exifBlob: exif)) { _, new in new } }
         // Keywords and IPTC fields: ImageIO writes them as IPTC and XMP (dc:subject, dc:title…).
         if let iptc = Self.iptcDictionary(keywords: keywords, metadata: metadata) { props[kCGImagePropertyIPTCDictionary] = iptc }
-        CGImageDestinationAddImage(dest, image, props as CFDictionary)
+        // Rust's XMP packet (rating, hierarchical tags) merged with the dictionaries above.
+        if let xmp, let packet = CGImageMetadataCreateFromXMPData(xmp as CFData) {
+            CGImageDestinationAddImageAndMetadata(dest, image, packet, props as CFDictionary)
+        } else {
+            CGImageDestinationAddImage(dest, image, props as CFDictionary)
+        }
         guard CGImageDestinationFinalize(dest) else {
             throw DsError.Io(message: "ImageIO couldn't encode \(type.preferredFilenameExtension ?? "image")")
         }
         return out as Data
+    }
+
+    /// `encode` without an XMP packet (the IPTC dictionary only).
+    public func encode(format: EncodedImageFormat, width: UInt32, height: UInt32, rgb16: Data, quality: UInt8,
+                       icc: Data, exif: Data?, keywords: [String], metadata: PhotoMetadata) throws -> Data {
+        try encode(format: format, width: width, height: height, rgb16: rgb16, quality: quality, icc: icc, exif: exif,
+                   keywords: keywords, metadata: metadata, xmp: nil)
     }
 
     /// An original's image source, stored pixel size and EXIF orientation (header only).

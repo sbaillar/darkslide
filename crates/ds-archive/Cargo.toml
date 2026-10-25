@@ -1,6 +1,6 @@
 [package]
 name = "ds-archive"
-description = "rsync archive runner/scheduler and Amazon Photos folder hand-off"
+description = "Session archive (rsync to a folder or S3-compatible object storage), its scheduler, and the Amazon Photos folder hand-off"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -20,6 +20,17 @@ blake3.workspace = true
 ds-fsutil = { path = "../ds-fsutil" }
 ds-template = { path = "../ds-template" }
 tempfile.workspace = true
+# Object storage: SigV4 (HMAC-SHA256), Content-MD5, the S3 XML answers, key encoding.
+sha2 = "0.10.9"
+hmac = "0.12.1"
+md-5 = "0.10.6"
+base64 = "0.23.1"
+roxmltree = "0.21.1"
+percent-encoding = "2.3.2"
+
+[features]
+# The in-process mock S3 server, for other crates' tests.
+mock = []
 
 [dev-dependencies]
 

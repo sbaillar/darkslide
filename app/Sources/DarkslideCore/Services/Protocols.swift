@@ -669,9 +669,15 @@ public struct ExportJobItem: Sendable, Equatable {
     /// [map] Where it was taken (the geotag, else the file's EXIF, else XMP GPS):
     /// written as the export's position (unless the recipe removes the location).
     public var location: GeoPoint?
+    /// Its star rating, colour label and pick flag, written as `xmp:Rating` and
+    /// `Darkslide/…` keywords with the metadata (nil: left out).
+    public var rating: Int?
+    public var colorTag: ColorTag
+    public var pick: PickState
 
     public init(photoID: PhotoID, url: URL, seq: Int, edit: EditState? = nil, keywords: [String] = [],
-                metadata: IPTCMetadata = IPTCMetadata(), location: GeoPoint? = nil) {
+                metadata: IPTCMetadata = IPTCMetadata(), location: GeoPoint? = nil, rating: Int? = nil,
+                colorTag: ColorTag = .none, pick: PickState = .none) {
         self.photoID = photoID
         self.url = url
         self.seq = seq
@@ -679,6 +685,9 @@ public struct ExportJobItem: Sendable, Equatable {
         self.keywords = keywords
         self.metadata = metadata
         self.location = location
+        self.rating = rating
+        self.colorTag = colorTag
+        self.pick = pick
     }
 }
 

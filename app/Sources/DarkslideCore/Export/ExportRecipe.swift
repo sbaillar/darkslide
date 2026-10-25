@@ -72,6 +72,9 @@ public struct ExportRecipe: Codable, Equatable, Identifiable, Sendable {
     public var subfolder: String
     public var includeMetadata: Bool
     public var stripGPS: Bool
+    /// With the metadata, write the colour label and pick flag as keywords
+    /// (`Darkslide/Label/Red`, `Darkslide/Pick`, `Darkslide/Reject`).
+    public var labelTags: Bool
     /// Export a straightened or lens-corrected photo at its inscribed size (1:1 sensor
     /// pixels, a few percent smaller) instead of the original size (Lightroom's default).
     public var constrainToSensorPixels: Bool
@@ -93,7 +96,7 @@ public struct ExportRecipe: Codable, Equatable, Identifiable, Sendable {
                 destination: URL? = nil, subfolder: String = "", includeMetadata: Bool = true, stripGPS: Bool = false,
                 constrainToSensorPixels: Bool = false, outputProfile: RecipeOutputProfile? = nil, aiUpscale: Bool = false,
                 watermark: ExportWatermark? = nil, googlePhotos: GooglePhotosTarget? = nil,
-                postProcess: [RecipePostProcess] = []) {
+                postProcess: [RecipePostProcess] = [], labelTags: Bool = true) {
         self.id = id
         self.name = name
         self.enabled = enabled
@@ -109,6 +112,7 @@ public struct ExportRecipe: Codable, Equatable, Identifiable, Sendable {
         self.subfolder = subfolder
         self.includeMetadata = includeMetadata
         self.stripGPS = stripGPS
+        self.labelTags = labelTags
         self.constrainToSensorPixels = constrainToSensorPixels
         self.outputProfile = outputProfile
         self.aiUpscale = aiUpscale
@@ -136,7 +140,8 @@ public struct ExportRecipe: Codable, Equatable, Identifiable, Sendable {
                   aiUpscale: try c.decodeIfPresent(Bool.self, forKey: .aiUpscale) ?? false,
                   watermark: try c.decodeIfPresent(ExportWatermark.self, forKey: .watermark),
                   googlePhotos: try c.decodeIfPresent(GooglePhotosTarget.self, forKey: .googlePhotos),
-                  postProcess: try c.decodeIfPresent([RecipePostProcess].self, forKey: .postProcess) ?? [])
+                  postProcess: try c.decodeIfPresent([RecipePostProcess].self, forKey: .postProcess) ?? [],
+                  labelTags: try c.decodeIfPresent(Bool.self, forKey: .labelTags) ?? true)
     }
 
     /// Name of the default full-resolution recipe (a full develop, e.g. 6000×4000).

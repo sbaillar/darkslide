@@ -949,6 +949,7 @@ impl Reader<'_> {
                 parents,
                 smart: row.kind == Kind::Smart,
                 members: keys,
+                unsupported: None,
             });
         }
         Ok(out)

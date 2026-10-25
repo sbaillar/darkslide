@@ -19,11 +19,13 @@ crates/ds-merge     HDR merge and panorama stitching (registration, linear merge
 crates/ds-session   sessions, variants, sidecars, SQLite index, presets, global index
 crates/ds-c1        Capture One session import (read-only parsers, mapping, idempotent import)
 crates/ds-lr        Lightroom Classic / Camera Raw import (catalog, XMP, presets; mapping, idempotent import)
+crates/ds-apple     Aperture 3 / iPhoto library import (Library.apdb, AlbumData.xml; mapping; ds-lr's import engine)
 crates/ds-cache     thumbnail/preview cache + prioritized job scheduler
 crates/ds-import    card detection, verified copy, dedupe, journal/resume
 crates/ds-archive   rsync archive scheduler, Amazon Photos folder hand-off
 crates/ds-export    export recipes and encoders
 crates/ds-gphotos   Google Photos export destination (OAuth/PKCE, uploads, albums) behind an HTTP seam
+crates/ds-immich    Immich: album sync behind an HTTP seam (fake server), path mapping, developed copies + XMP sidecar files
 crates/ds-remote    Mac ↔ iPad link: paired mutual-TLS server, client library, `ds-remote` CLI
 crates/ds-ai        culling scores, similarity grouping, NL edit parsing seam
 crates/ds-plugin    plug-in host: manifests, registry, install/trust, wasmi runtime, ds-plugin CLI (docs/PLUGINS.md)

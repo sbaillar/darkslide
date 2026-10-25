@@ -467,7 +467,9 @@ impl From<RevertReport> for LrRevertRecord {
 }
 
 /// Categories by their keys; an unknown key is an error, an empty list means none.
-fn parse_categories(keys: &[String]) -> Result<std::collections::BTreeSet<Category>, DsError> {
+pub(crate) fn parse_categories(
+    keys: &[String],
+) -> Result<std::collections::BTreeSet<Category>, DsError> {
     keys.iter()
         .map(|k| {
             Category::from_key(k).ok_or_else(|| DsError::invalid(format!("unknown category {k}")))
@@ -509,6 +511,7 @@ impl SessionHandle {
             dry_run,
             overwrite_edits,
             categories: parse_categories(&categories)?,
+            flavor: ds_lr::Flavor::LIGHTROOM,
         };
         run_job_on_thread("ds-lr-import", token, move |cancelled| {
             if cancelled() {

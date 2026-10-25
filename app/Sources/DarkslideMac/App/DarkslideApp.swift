@@ -82,8 +82,9 @@ public struct DarkslideApp: App {
         .defaultLaunchBehavior(.suppressed)
 
         Settings {
-            PreferencesView(settings: model.settings, voice: model.voice, remote: model.remote,
-                            googlePhotos: model.googlePhotos, updater: updater)
+            PreferencesView(settings: model.settings, features: model.features, voice: model.voice, remote: model.remote,
+                            googlePhotos: model.googlePhotos, immich: model.immich.service == nil ? nil : model.immich,
+                            updater: updater)
                 .preferredColorScheme(model.settings.appearance.colorScheme)
         }
     }
@@ -280,6 +281,7 @@ struct AppCommands: Commands {
             item(.newSession).help(CommandCatalog.help(.newSession, model: model) ?? "")
             item(.openFolder)
             openRecentMenu
+            item(.showLibrary).help(CommandCatalog.help(.showLibrary, model: model) ?? "") // [library]
             item(.importCard)
             item(.closeSession).help(CommandCatalog.help(.closeSession, model: model) ?? "")
             Button("Import Capture One Edits\u{2026}") { model.showCaptureOneImport() }
@@ -291,6 +293,10 @@ struct AppCommands: Commands {
                 .disabled(!model.canImportLightroom)
             Button("Revert Lightroom Import\u{2026}") { model.requestRevertLightroom() }
                 .disabled(!model.canRevertLightroom)
+            Button("Import Aperture or iPhoto Library\u{2026}") { model.showAppleLibraryImport() }
+                .disabled(!model.canImportAppleLibrary)
+            Button("Revert Aperture or iPhoto Import\u{2026}") { model.requestRevertAppleLibrary() }
+                .disabled(!model.canRevertAppleLibrary)
             Divider()
             item(.exportSelected) // [exp6]
         }
@@ -309,6 +315,10 @@ struct AppCommands: Commands {
             }
             ForEach(CommandCatalog.mergeMenu) { item($0) } // HDR and panorama merges
             Divider()
+            if model.features.isOn(.immich) { // [immich] Settings ▸ Plugins
+                ForEach(CommandCatalog.immichMenu) { item($0).help(CommandCatalog.help($0, model: model) ?? "") }
+                Divider()
+            }
             Toggle("Auto-Advance After Rating", isOn: Binding(get: { model.settings.autoAdvance },
                                                                 set: { model.settings.autoAdvance = $0 }))
         }

@@ -230,11 +230,14 @@ public final class CullFinisher {
     /// on the archive (then the Trash holds the only copy).
     public var deleteArchiveNote: String? {
         guard let app else { return nil }
+        guard app.features.isOn(.archive) else { return Self.archiveOffNote }
         return Self.archiveNote(settings: app.settings.archiveSnapshot, state: app.archiveStatus.state)
     }
 
+    static let archiveOffNote = "Archiving is off: the Trash holds the only copy."
+
     public static func archiveNote(settings: ArchiveSettingsSnapshot, state: ArchiveStatus.State) -> String? {
-        if !settings.isActive { return "Archiving is off: the Trash holds the only copy." }
+        if !settings.isActive { return archiveOffNote }
         if !settings.archiveRejected {
             return "Rejected photos aren't archived (Settings › Archive): the Trash holds the only copy."
         }

@@ -22,7 +22,9 @@
   <key>NSDownloadsFolderUsageDescription</key><string>Darkslide imports photos from your Downloads folder when you choose it, and never modifies the originals.</string>
   <key>NSRemovableVolumesUsageDescription</key><string>Darkslide imports photos from memory cards and never modifies them.</string>
   <key>NSNetworkVolumesUsageDescription</key><string>Darkslide archives sessions to your network photo share.</string>
-  <key>NSLocalNetworkUsageDescription</key><string>Darkslide archives sessions to a NAS on your local network.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>Darkslide archives sessions to a NAS on your local network and keeps albums in your Immich server up to date.</string>
+  <!-- Immich servers on the local network often have no TLS: plain http to .local and unqualified hosts (IP addresses are never blocked). -->
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
   <key>NSMicrophoneUsageDescription</key><string>Voice commands listen for culling commands like “next” and “five”. Audio stays on this Mac.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>Voice commands are recognized on this Mac by Apple’s on-device speech model. Nothing is sent to a server.</string>
   <key>UTExportedTypeDeclarations</key>

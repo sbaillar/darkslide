@@ -25,6 +25,7 @@ lcms2 = { version = "6.1.1", features = ["static"] }
 [dev-dependencies]
 ds-raw = { path = "../ds-raw", features = ["rawler"] }
 tempfile.workspace = true
+serde_json.workspace = true
 criterion.workspace = true
 kamadak-exif = "0.6.1"
 peak_alloc = "0.3.0"

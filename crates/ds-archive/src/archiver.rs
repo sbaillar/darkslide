@@ -101,26 +101,13 @@ impl Archiver {
 
         let mut warnings = Vec::new();
         let mut problems = Vec::new();
-        let mut snapshot = None;
         let mut excludes = target.excludes.clone();
-        if let Some(s) = &self.snapshotter {
-            let path = session_dir.join(SNAPSHOT_REL);
-            let res = path
-                .parent()
-                .map_or(Ok(()), std::fs::create_dir_all)
-                .map_err(|e| e.to_string())
-                .and_then(|()| s.snapshot(session_dir, &path));
-            match res {
-                Ok(()) => snapshot = Some(path),
-                Err(e) => {
-                    // Never archive a stale snapshot as if it were current.
-                    excludes.push(SNAPSHOT_REL.to_owned());
-                    problems.push(format!(
-                        "{SNAPSHOT_REL}: session DB snapshot failed (the archived copy is older): {e}"
-                    ));
-                }
-            }
-        }
+        let snapshot = take_snapshot(
+            self.snapshotter.as_deref(),
+            session_dir,
+            &mut excludes,
+            &mut problems,
+        );
 
         // The volume may have gone since `ensure_root`: never create on the boot disk.
         target.check_mounted()?;
@@ -159,6 +146,34 @@ impl Archiver {
             warnings,
             problems,
         })
+    }
+}
+
+/// Write the consistent DB snapshot to `<session>/.ds/index-snapshot.db`. When it
+/// fails, the snapshot is excluded (a stale one is never archived as if it were
+/// current) and the failure is a problem: the run is incomplete.
+pub(crate) fn take_snapshot(
+    snapshotter: Option<&dyn Snapshotter>,
+    session_dir: &Path,
+    excludes: &mut Vec<String>,
+    problems: &mut Vec<String>,
+) -> Option<PathBuf> {
+    let s = snapshotter?;
+    let path = session_dir.join(SNAPSHOT_REL);
+    let res = path
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .map_err(|e| e.to_string())
+        .and_then(|()| s.snapshot(session_dir, &path));
+    match res {
+        Ok(()) => Some(path),
+        Err(e) => {
+            excludes.push(SNAPSHOT_REL.to_owned());
+            problems.push(format!(
+                "{SNAPSHOT_REL}: session DB snapshot failed (the archived copy is older): {e}"
+            ));
+            None
+        }
     }
 }
 
@@ -330,15 +345,20 @@ pub fn prune_trash(dest: &Path, current: &str) -> std::io::Result<usize> {
     Ok(removed)
 }
 
+/// The trash folder name for a run started at `now`: UTC with microseconds.
+pub(crate) fn trash_stamp(now: SystemTime) -> String {
+    chrono::DateTime::<chrono::Utc>::from(now)
+        .format("%Y%m%dT%H%M%S%.6fZ")
+        .to_string()
+}
+
 /// Create a fresh `.ds-archive-trash/<UTC stamp with µs>[-n]` on the target
 /// (exclusively, so two runs in one second, or the repeated hour of a DST
 /// fall-back, never share one) and return it relative to `dest`.
 fn reserve_backup_dir(dest: &Path, now: SystemTime) -> std::io::Result<String> {
     let trash = dest.join(TRASH_DIR);
     std::fs::create_dir_all(&trash)?;
-    let stamp = chrono::DateTime::<chrono::Utc>::from(now)
-        .format("%Y%m%dT%H%M%S%.6fZ")
-        .to_string();
+    let stamp = trash_stamp(now);
     for n in 0u32.. {
         let name = if n == 0 {
             stamp.clone()

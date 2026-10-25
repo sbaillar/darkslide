@@ -5,7 +5,9 @@ import DarkslideUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings ▸ Plugins: what is installed, what each one waits for, Install…, Remove.
+/// Settings ▸ Plugins: the app's optional integrations (Archive, Amazon Photos, Immich,
+/// Google Photos: built in, turned on or off here), then what is installed, what each one
+/// waits for, Install…, Remove.
 struct PluginsSettingsView: View {
     @Bindable var store: PluginStore
     /// A package chosen or dropped, staged and waiting for the user to confirm.
@@ -13,10 +15,17 @@ struct PluginsSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.s) {
-            Text("Plug-ins add looks, styles, voice phrases and export steps. Install a .dsplugin folder, or drop one here.")
+            Text("Integrations are built in: turn on the ones you use. Plug-ins add looks, styles, voice phrases and export steps. Install a .dsplugin folder, or drop one here.")
                 .font(DS.Font.label).foregroundStyle(DS.textSecondary)
-            List(store.plugins, id: \.path) { PluginRow(record: $0, store: store) }
-                .frame(minHeight: 260)
+            List {
+                Section("Integrations") {
+                    ForEach(store.plugins.filter(\.isIntegration), id: \.path) { IntegrationRow(record: $0, store: store) }
+                }
+                Section("Plug-ins") {
+                    ForEach(store.plugins.filter { !$0.isIntegration }, id: \.path) { PluginRow(record: $0, store: store) }
+                }
+            }
+                .frame(minHeight: 320)
                 .dropDestination(for: URL.self) { urls, _ in
                     guard let url = urls.first else { return false }
                     choose(url)
@@ -77,6 +86,40 @@ struct PluginsSettingsView: View {
         panel.treatsFilePackagesAsDirectories = false
         panel.prompt = "Load"
         if panel.runModal() == .OK, let url = panel.url { Task { await store.addDevFolder(url) } }
+    }
+}
+
+/// One built-in integration: its name, what it does and reaches, and its switch. Off,
+/// everything it adds goes away; its settings are kept for when it is turned on again.
+private struct IntegrationRow: View {
+    let record: PluginRecord
+    let store: PluginStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(record.name).font(DS.Font.label.weight(.semibold))
+                    Text(record.summary).font(DS.Font.caption).foregroundStyle(DS.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                if record.state == .error {
+                    Text(record.stateLabel).font(DS.Font.caption).foregroundStyle(DS.warningText)
+                } else {
+                    Toggle(record.name, isOn: Binding(get: { record.state == .active },
+                                                      set: { on in Task { await store.setEnabled(record.id, on) } }))
+                        .labelsHidden().toggleStyle(.switch)
+                        .help(record.state == .active ? "Turn \(record.name) off (its settings are kept)" : "Turn \(record.name) on")
+                }
+            }
+            ForEach(record.uses, id: \.self) { u in
+                Label(u, systemImage: "arrow.up.right.square").font(DS.Font.caption).foregroundStyle(DS.textSecondary)
+            }
+            if let m = record.message { Text(m).font(DS.Font.caption).foregroundStyle(DS.warningText) }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 

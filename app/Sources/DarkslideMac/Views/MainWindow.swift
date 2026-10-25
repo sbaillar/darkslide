@@ -98,6 +98,7 @@ struct MainWindow: View {
         .modifier(CullDialogs(model: model)) // [cul9] H7: Delete Rejected… confirmation
         .modifier(CaptureOneRevertDialog(model: model))
         .modifier(LightroomRevertDialog(model: model))
+        .modifier(AppleLibraryRevertDialog(model: model))
         .overlay(alignment: .topTrailing) { SessionResultsPanel(model: model) } // [search] all sessions
         .overlay {
             if let p = model.openProgress, OpenProgressText.blocksBrowsing(p) {
@@ -166,6 +167,7 @@ struct MainWindow: View {
             case .captureOneImport(let m): CaptureOneImportSheet(app: model, model: m)
             case .captureOneSettings(let m): C1SettingsSheet(app: model, model: m)
             case .lightroomImport(let m): LightroomImportSheet(app: model, model: m)
+            case .appleLibraryImport(let m): AppleLibraryImportSheet(app: model, model: m)
             case .merge(let m): MergeSheet(model: m)
             }
         }
@@ -214,6 +216,7 @@ struct StatusBar: View {
             if model.editAllSelected {
                 Label("Editing all selected", systemImage: "square.stack.3d.up.fill").foregroundStyle(DS.accent)
             }
+            ImmichStatusLabel(immich: model.immich) // [immich]
             Spacer()
             if let p = model.focusedPhoto {
                 Text(p.filename).fontWeight(.medium)

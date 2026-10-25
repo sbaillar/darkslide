@@ -591,10 +591,7 @@ fn write_output(
     namer: &Namer,
 ) -> Result<Written, ExportError> {
     let size = img.size();
-    let dirs = recipe
-        .exif
-        .include
-        .then(|| item.meta.dirs(recipe.exif.strip_gps));
+    let dirs = recipe.exif.dirs(&item.meta);
     let vars = Vars {
         name: &item.name,
         seq: item.seq,

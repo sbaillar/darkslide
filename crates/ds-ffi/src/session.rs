@@ -549,6 +549,7 @@ pub(crate) fn read_meta(p: &Path) -> Option<(ImageMetaLite, RawMetadata)> {
 
 /// Why a Capture One session folder holds no Darkslide store.
 const CAPTURE_ONE_FOLDER: &str = "a Capture One session folder is never written to";
+const APPLE_LIBRARY: &str = "an Aperture, iPhoto or Photos library is never written to";
 
 /// File systems where the app may create `<folder>/.ds/session`.
 const SIDECAR_FS: [&str; 2] = ["apfs", "hfs"];
@@ -772,6 +773,10 @@ fn store_for(
     if volume_ok.is_ok() && !has_session(&on_volume) && ds_session::is_capture_one_session(folder) {
         volume_ok = Err(CAPTURE_ONE_FOLDER.into());
     }
+    // Nor inside an Apple photo library's package: the library is only ever read.
+    if volume_ok.is_ok() && crate::apple::inside_library(folder) {
+        volume_ok = Err(APPLE_LIBRARY.into());
+    }
     if volume_ok.is_ok() && has_session(&on_volume) {
         let migrated = Session::migrate_to_external(&on_volume, folder)?;
         let s = Session::open(&on_volume)?;
@@ -836,7 +841,7 @@ impl SessionHandle {
             None => Ok(lock(&self.session).root().to_path_buf()),
             Some(folder) if self.report.store_on_volume => Ok(folder.clone()),
             Some(_) => Err(
-                "on a card, a read-only volume or in a Capture One session, where Darkslide never writes: import it to archive it"
+                "on a card, a read-only volume, in a Capture One session or a photo library, where Darkslide never writes: import it to archive it"
                     .into(),
             ),
         }
@@ -940,6 +945,8 @@ impl SessionHandle {
             .archive_source()
             .map_err(|m| DsError::Unsupported { message: m })?;
         let s = lock(&self.session);
+        // Immich: a rejected photo's developed copies and sidecar stay out too.
+        let publish = ds_immich::publish::PublishState::load(s.root()).unwrap_or_default();
         let mut out = Vec::new();
         if self.in_place.is_none() {
             out.push("/Trash/".to_owned());
@@ -950,7 +957,16 @@ impl SessionHandle {
             }
             let path = s.original_path(img.rel_path.as_str());
             if let Ok(rel) = path.strip_prefix(&source) {
-                out.push(format!("/{}", rsync_escape(&rel.to_string_lossy())));
+                let rel = rel.to_string_lossy();
+                out.push(format!("/{}", rsync_escape(&rel)));
+                if publish.sidecars.contains_key(&format!("{rel}.xmp")) {
+                    out.push(format!("/{}", rsync_escape(&format!("{rel}.xmp"))));
+                }
+            }
+            for v in s.variants(img.id)? {
+                if let Some(f) = publish.developed.get(&v.0).and_then(|d| d.file.as_ref()) {
+                    out.push(format!("/{}", rsync_escape(f)));
+                }
             }
         }
         Ok(out)

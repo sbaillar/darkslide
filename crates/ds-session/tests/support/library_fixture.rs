@@ -133,6 +133,14 @@ pub fn queries() -> Vec<(&'static str, LibraryQuery)> {
             },
         ),
         (
+            // The Library's Opened Sessions / ⌘-click scope: a few sessions as one.
+            "three_sessions_by_capture",
+            LibraryQuery {
+                sessions: vec![3, 17, 42],
+                ..LibraryQuery::default()
+            },
+        ),
+        (
             "all_by_name_desc",
             LibraryQuery {
                 sort: ds_session::LibrarySort::Name,

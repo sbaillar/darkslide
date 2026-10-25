@@ -68,9 +68,9 @@ import Testing
     final class FullSizeOnly: ImageEncoder, @unchecked Sendable {
         let inner = ImageIOEncoder()
         func encode(format: EncodedImageFormat, width: UInt32, height: UInt32, rgb16: Data, quality: UInt8,
-                    icc: Data, exif: Data?, keywords: [String], metadata: PhotoMetadata) throws -> Data {
+                    icc: Data, exif: Data?, keywords: [String], metadata: PhotoMetadata, xmp: Data?) throws -> Data {
             try inner.encode(format: format, width: width, height: height, rgb16: rgb16, quality: quality, icc: icc,
-                             exif: exif, keywords: keywords, metadata: metadata)
+                             exif: exif, keywords: keywords, metadata: metadata, xmp: xmp)
         }
         func uprightSize(path: String) throws -> ImageDimensions { throw DsError.Io(message: "full size only") }
         func decode(path: String, space: ExportColorSpace, target: DecodeTarget?) throws -> DecodedImage {

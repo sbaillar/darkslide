@@ -193,7 +193,9 @@ pub fn normalize(
             });
             serde_json::to_string(&pack)
         }
-        Kind::ExportPostProcess | Kind::ExportDestination => return Err("not a data kind".into()),
+        Kind::ExportPostProcess | Kind::ExportDestination | Kind::NativeFeature => {
+            return Err("not a data kind".into());
+        }
     };
     Ok(Normalized {
         json: json.map_err(|e| e.to_string())?,

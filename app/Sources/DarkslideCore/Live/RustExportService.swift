@@ -64,7 +64,7 @@ public struct RustExportService: ExportService {
             },
             aiUpscale: r.aiUpscale,
             watermark: r.watermark.map(WatermarkPreview.spec),
-            postProcess: r.postProcess.map(\.spec))
+            postProcess: r.postProcess.map(\.spec), labelTags: r.labelTags)
     }
 
     public func validate(_ recipes: [ExportRecipe], defaultFolder: URL) -> String? {
@@ -146,7 +146,9 @@ public struct RustExportService: ExportService {
             ExportSource(id: id, path: item.url.path, seq: UInt64(item.seq), gps: item.location.map(Self.gps), // [map]
                          artist: job.artist, copyright: job.copyright,
                          adjustmentsJson: try item.edit.map { try AdjustmentsCodec.encode($0) }, keywords: item.keywords,
-                         metadata: item.metadata.isEmpty ? nil : RustSessionStore.record(item.metadata))
+                         metadata: item.metadata.isEmpty ? nil : RustSessionStore.record(item.metadata),
+                         rating: item.rating.map { UInt8(clamping: $0) }, label: RustSessionStore.label(item.colorTag),
+                         pick: RustSessionStore.flag(item.pick))
         }
         let maskFailures = missing.sorted { $0.key < $1.key }.compactMap { id, targets in
             byIndex[id].map { Self.maskFailure($0, targets: targets) }

@@ -8,6 +8,8 @@
 use chrono::NaiveDateTime;
 use ds_core::{IptcField, IptcMeta};
 
+use crate::xmp::Organize;
+
 /// Metadata copied from the original.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExifMeta {
@@ -37,6 +39,9 @@ pub struct ExifMeta {
     /// caption also as EXIF `ImageDescription`. Its creator and copyright win
     /// over `artist`/`copyright`, which fill them when empty.
     pub iptc: IptcMeta,
+    /// The rating and the label/pick tags (sidecar), written as XMP
+    /// (`xmp:Rating`, hierarchical tags; see [`crate::xmp::Organize`]).
+    pub organize: Organize,
 }
 
 /// Decimal-degree position; negative latitude = south, negative longitude = west.
@@ -156,6 +161,7 @@ pub struct ExifDirs {
     /// recipe includes (see [`crate::xmp`]).
     pub keywords: Vec<String>,
     pub iptc: IptcMeta,
+    pub organize: Organize,
     pub ifd0: Vec<Entry>,
     pub exif: Vec<Entry>,
     pub gps: Vec<Entry>,
@@ -335,6 +341,7 @@ impl ExifMeta {
         ExifDirs {
             keywords: self.keywords.clone(),
             iptc,
+            organize: self.organize.clone(),
             ifd0,
             exif,
             gps,
@@ -449,6 +456,7 @@ pub(crate) mod tests {
             }),
             keywords: vec!["beach".into(), "Crete & friends".into()],
             iptc: IptcMeta::default(),
+            organize: Organize::default(),
         }
     }
 

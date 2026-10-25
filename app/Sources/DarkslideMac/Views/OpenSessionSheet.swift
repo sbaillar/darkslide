@@ -40,6 +40,11 @@ struct OpenSessionSheet: View {
                     model.sheet = nil
                     OpenFolderPanel.run(model: model)
                 }
+                Button(CommandCatalogTitles.showLibrary) { // [library] the catalog: every session at once
+                    model.sheet = nil
+                    model.showLibrary()
+                }
+                .help(CommandCatalog.help(.showLibrary, model: model) ?? "")
                 Spacer()
                 Button("Cancel", role: .cancel) { model.sheet = nil }
                     .keyboardShortcut(.cancelAction)

@@ -108,6 +108,14 @@ struct CullContextMenu: View {
                 Divider()
             }
         }
+        if model.immich.isSetUp { // [immich] developed copies
+            Divider()
+            ForEach(CommandCatalog.immichMenu) { c in
+                Button(CommandCatalog.title(c, model: model)) { CommandCatalog.perform(c, model: model) }
+                    .disabled(!CommandCatalog.isEnabled(c, model: model))
+                    .help(CommandCatalog.help(c, model: model) ?? "")
+            }
+        }
     }
 }
 

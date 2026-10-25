@@ -1366,3 +1366,171 @@ fn an_unsigned_update_never_inherits_sensitive_grants() {
         e.outside
     );
 }
+
+/// A bundled feature plug-in (`darkslide.<feature>`), as `plugins/builtin` ships them.
+fn feature_plugin(parent: &Path, feature: &str) -> PathBuf {
+    let d = parent.join(format!("darkslide-{feature}.dsplugin"));
+    fs::create_dir_all(&d).unwrap();
+    let toml = header(
+        &format!("darkslide.{feature}"),
+        "1.0.0",
+        &format!("[[contributes.native_feature]]\nid = \"{feature}\"\ncontract = 1"),
+    );
+    fs::write(d.join(MANIFEST_FILE), toml).unwrap();
+    d
+}
+
+#[test]
+fn feature_plugins_start_off_and_switch_their_feature() {
+    let e = env();
+    feature_plugin(&e.builtin, "immich");
+    feature_plugin(&e.builtin, "archive");
+    data_plugin(&e.builtin, "looks", "darkslide.looks", "1.0.0");
+    let mut h = e.host();
+    // New users: an integration is off until turned on; other bundled plug-ins are on.
+    assert_eq!(status(&h, "darkslide.immich"), &Status::Disabled);
+    assert_eq!(status(&h, "darkslide.looks"), &Status::Active);
+    assert!(!h.feature_enabled("immich") && h.native_features().is_empty());
+    h.set_enabled("darkslide.immich", true).unwrap();
+    assert!(h.feature_enabled("immich") && !h.feature_enabled("archive"));
+    assert_eq!(h.native_features(), BTreeSet::from(["immich".to_owned()]));
+    assert!(e.host().feature_enabled("immich"), "persisted");
+    h.set_enabled("darkslide.immich", false).unwrap();
+    assert!(!h.feature_enabled("immich"));
+    // No plug-in declares it: off.
+    assert!(!h.feature_enabled("google-photos"));
+    // Bundled: disabled, never removed.
+    assert!(h.user_folder("darkslide.immich").is_err());
+}
+
+#[test]
+fn the_first_launch_turns_on_what_was_already_set_up() {
+    let e = env();
+    for f in ["archive", "amazon-photos", "immich", "google-photos"] {
+        feature_plugin(&e.builtin, f);
+    }
+    data_plugin(&e.builtin, "looks", "darkslide.looks", "1.0.0");
+    let mut h = e.host();
+    assert_eq!(h.undecided_features().len(), 4);
+    // An existing user: an archive target and an Immich server were set up; Amazon and
+    // Google weren't.
+    let configured = BTreeMap::from([
+        ("archive".to_owned(), true),
+        ("immich".to_owned(), true),
+        ("amazon-photos".to_owned(), false),
+    ]);
+    let mut decided = h.seed_features(&configured).unwrap();
+    decided.sort();
+    assert_eq!(
+        decided,
+        [
+            "darkslide.amazon-photos",
+            "darkslide.archive",
+            "darkslide.google-photos",
+            "darkslide.immich"
+        ]
+    );
+    assert_eq!(
+        h.native_features(),
+        BTreeSet::from(["archive".to_owned(), "immich".to_owned()])
+    );
+    // Decided once: the next launch changes nothing, whatever is configured by then,
+    // and the user's own choice is kept.
+    h.set_enabled("darkslide.archive", false).unwrap();
+    let all = BTreeMap::from([
+        ("archive".to_owned(), true),
+        ("google-photos".to_owned(), true),
+    ]);
+    let mut again = e.host();
+    assert_eq!(again.undecided_features().len(), 0);
+    assert_eq!(again.seed_features(&all).unwrap().len(), 0);
+    assert_eq!(
+        again.native_features(),
+        BTreeSet::from(["immich".to_owned()])
+    );
+    // The looks pack is never part of the migration (it is on by default).
+    assert!(
+        !State::load(&e.user)
+            .0
+            .plugins
+            .contains_key("darkslide.looks")
+    );
+}
+
+#[test]
+fn a_new_user_starts_with_every_integration_off() {
+    let e = env();
+    feature_plugin(&e.builtin, "archive");
+    feature_plugin(&e.builtin, "google-photos");
+    let mut h = e.host();
+    assert_eq!(h.seed_features(&BTreeMap::new()).unwrap().len(), 2);
+    assert_eq!(h.native_features().len(), 0);
+    // The decision is recorded (off), so a later launch never re-decides it.
+    let s = State::load(&e.user).0;
+    assert!(!s.plugins["darkslide.archive"].enabled);
+    // Turned on later (onboarding offers the archive), it stays on.
+    h.set_enabled("darkslide.archive", true).unwrap();
+    assert!(e.host().feature_enabled("archive"));
+}
+
+#[test]
+fn a_tampered_feature_plugin_is_refused_and_its_feature_stays_off() {
+    let e = env();
+    let d = feature_plugin(&e.builtin, "immich");
+    let hashes = hashes_of(&e.builtin);
+    // Someone edits the bundled manifest after the build (e.g. to rename it).
+    let toml = fs::read_to_string(d.join(MANIFEST_FILE)).unwrap();
+    fs::write(
+        d.join(MANIFEST_FILE),
+        toml.replace("N darkslide", "X darkslide"),
+    )
+    .unwrap();
+    let mut h = Host::open_with(
+        Some(e.builtin.clone()),
+        hashes,
+        e.user.clone(),
+        semver::Version::new(0, 2, 0),
+        Platform::Macos,
+    );
+    assert!(err(status(&h, "darkslide.immich")).contains("don't match this build"));
+    assert!(h.set_enabled("darkslide.immich", true).is_err());
+    assert!(!h.feature_enabled("immich"));
+}
+
+#[test]
+fn a_third_party_package_declaring_a_native_feature_is_refused() {
+    let e = env();
+    // Under a third-party id: refused by the manifest rule, at install and at load.
+    let src = e.src.join("evil.dsplugin");
+    fs::create_dir_all(&src).unwrap();
+    fs::write(
+        src.join(MANIFEST_FILE),
+        header(
+            "com.example.evil",
+            "1.0.0",
+            "[[contributes.native_feature]]\nid = \"archive\"\ncontract = 1",
+        ),
+    )
+    .unwrap();
+    let mut h = e.host();
+    assert!(
+        h.stage(&src)
+            .unwrap_err()
+            .to_string()
+            .contains("only for Darkslide's own")
+    );
+    fs::create_dir_all(&e.user).unwrap();
+    fs::rename(&src, e.user.join("com.example.evil.dsplugin")).unwrap();
+    h.reload();
+    let evil = h
+        .plugins()
+        .iter()
+        .find(|p| p.dir.ends_with("com.example.evil.dsplugin"))
+        .unwrap();
+    assert!(err(&evil.status).contains("only for Darkslide's own"));
+    // Under a reserved id in the user's folder (not hash-verified): refused too.
+    feature_plugin(&e.user, "archive");
+    h.reload();
+    assert!(err(status(&h, "darkslide.archive")).contains("reserved"));
+    assert!(!h.feature_enabled("archive"));
+}

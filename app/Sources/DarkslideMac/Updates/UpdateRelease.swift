@@ -102,13 +102,18 @@ public enum ReleaseFeed {
         }
     }
 
-    /// Every app release in `data`: tags `v<semver>` with the macOS asset, an https URL and a
-    /// SHA-256 digest. Drafts and anything else (the RAW helper's `rawler-helper-N`) are left out.
+    /// Where release assets are: `browser_download_url` is always on github.com (which
+    /// redirects to its download hosts; the digest checks what arrives).
+    static let assetHost = "github.com"
+
+    /// Every app release in `data`: tags `v<semver>` with the macOS asset, an https URL on
+    /// github.com and a SHA-256 digest. Drafts and anything else (the RAW helper's
+    /// `rawler-helper-N`) are left out.
     public static func releases(from data: Data) throws -> [UpdateRelease] {
         try JSONDecoder().decode([Release].self, from: data).compactMap { r in
             guard !r.draft, r.tag_name.hasPrefix("v"), let v = AppVersion(r.tag_name),
                   let a = r.assets.first(where: { $0.name == UpdateRelease.assetName(v) }),
-                  let url = URL(string: a.browser_download_url), url.scheme == "https",
+                  let url = URL(string: a.browser_download_url), url.scheme == "https", url.host?.lowercased() == assetHost,
                   let sha = sha256(a.digest), a.size > 0 else { return nil }
             return UpdateRelease(version: v, isPrerelease: r.prerelease || v.isPrerelease,
                                  notes: ReleaseNotes.short(r.body ?? ""), page: r.html_url.flatMap(URL.init(string:)),

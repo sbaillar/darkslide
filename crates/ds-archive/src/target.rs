@@ -431,7 +431,7 @@ pub fn mtime_window_for(path: &Path) -> u32 {
 }
 
 /// One path component that is not `.`/`..` and holds no separator.
-fn plain_component(s: &str) -> bool {
+pub(crate) fn plain_component(s: &str) -> bool {
     !s.is_empty() && s != "." && s != ".." && !s.contains('/') && !s.contains('\0')
 }
 

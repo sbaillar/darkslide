@@ -109,57 +109,19 @@ public struct RustGooglePhotosService: GooglePhotosService {
     }
 }
 
-/// `GphotosHttp` over `URLSession`: one blocking request (Rust calls it on a worker thread).
-/// HTTPS only, and redirects are refused (the 3xx comes back as the answer), so the bearer
-/// token never follows a redirect to another host.
+/// `GphotosHttp` over `BlockingHTTP` (Rust calls it on a worker thread): HTTPS only, and
+/// redirects refused, so the bearer token never follows a redirect to another host.
 public final class URLSessionHTTP: GphotosHttp, @unchecked Sendable {
-    let session: URLSession
+    let http: BlockingHTTP
 
-    public init(session: URLSession = URLSession(configuration: .ephemeral)) {
-        self.session = session
+    public init(session: URLSession = BlockingHTTP.makeSession()) {
+        http = BlockingHTTP(session: session, schemes: .httpsOnly, timeout: 120)
     }
 
     public func send(request: GphotosHttpRequest) throws -> GphotosHttpResponse {
-        guard let url = URL(string: request.url), url.scheme?.lowercased() == "https" else {
-            throw DsError.InvalidArgument(message: "bad URL \(request.url)")
-        }
-        var r = URLRequest(url: url, timeoutInterval: 120)
-        r.httpMethod = request.method
-        for h in request.headers { r.setValue(h.value, forHTTPHeaderField: h.name) }
-        if request.method != "GET" { r.httpBody = request.body }
-        let box = AnswerBox()
-        let done = DispatchSemaphore(value: 0)
-        let task = session.dataTask(with: r) { data, response, error in
-            box.set(data, response, error)
-            done.signal()
-        }
-        task.delegate = NoRedirects.shared
-        task.resume()
-        done.wait()
-        let (data, response, error) = box.get()
-        guard let http = response as? HTTPURLResponse else {
-            throw DsError.Io(message: error?.localizedDescription ?? "no answer")
-        }
-        let headers = http.allHeaderFields.compactMap { k, v in
-            (k as? String).map { GphotosHeader(name: $0, value: "\(v)") }
-        }
-        return GphotosHttpResponse(status: UInt16(clamping: http.statusCode), headers: headers, body: data ?? Data())
-    }
-}
-
-private final class AnswerBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: (Data?, URLResponse?, Error?) = (nil, nil, nil)
-    func set(_ d: Data?, _ r: URLResponse?, _ e: Error?) { lock.withLock { value = (d, r, e) } }
-    func get() -> (Data?, URLResponse?, Error?) { lock.withLock { value } }
-}
-
-/// Refuses every redirect: the redirect response itself completes the task.
-final class NoRedirects: NSObject, URLSessionTaskDelegate, Sendable {
-    static let shared = NoRedirects()
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
-        completionHandler(nil)
+        let a = try http.send(method: request.method, url: request.url, headers: request.headers.map { ($0.name, $0.value) },
+                              body: request.body)
+        return GphotosHttpResponse(status: a.status, headers: a.headers.map { GphotosHeader(name: $0.name, value: $0.value) },
+                                   body: a.body)
     }
 }

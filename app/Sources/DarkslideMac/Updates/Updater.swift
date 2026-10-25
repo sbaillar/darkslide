@@ -358,7 +358,8 @@ public final class Updater {
         }
         try Task.checkCancellation()
         state = .verifying(r)
-        let app = try await Self.verify(zip: zip, in: staging, release: r, identifier: host.identifier, tools: tools)
+        let app = try await Self.verify(zip: zip, in: staging, release: r, identifier: host.identifier, running: host.bundle,
+                                        tools: tools)
         try Task.checkCancellation()
         let ready = root.appendingPathComponent("Ready", isDirectory: true)
         try? fm.removeItem(at: ready)
@@ -369,9 +370,10 @@ public final class Updater {
     }
 
     /// Unpacks the checked zip and checks the app in it: exactly one app, this app's bundle
-    /// identifier, the release's version, a valid signature. Returns the app.
+    /// identifier, the release's version, a valid signature by the signer of the `running`
+    /// app (`CodeSigner.accepts`). Returns the app.
     nonisolated static func verify(zip: URL, in staging: URL, release r: UpdateRelease, identifier: String,
-                                   tools: UpdateTools) async throws -> URL {
+                                   running: URL, tools: UpdateTools) async throws -> URL {
         let fm = FileManager.default
         let size = (try? fm.attributesOfItem(atPath: zip.path)[.size] as? NSNumber)?.int64Value
         guard size == r.asset.size else { throw UpdateError("The download isn’t the expected size. Nothing was installed.") }
@@ -389,6 +391,9 @@ public final class Updater {
             throw UpdateError("The download is version “\(version)”, not \(r.version). Nothing was installed.")
         }
         try await tools.verifySignature(app)
+        guard try tools.signer(running).accepts(try tools.signer(app)) else {
+            throw UpdateError("The download isn’t signed the way this copy of Darkslide is. Nothing was installed.")
+        }
         return app
     }
 

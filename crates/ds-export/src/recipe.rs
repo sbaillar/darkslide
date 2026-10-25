@@ -75,6 +75,9 @@ pub struct ExifPolicy {
     pub include: bool,
     /// Drop GPS even when the original has it.
     pub strip_gps: bool,
+    /// Write the colour label and pick flag as `Darkslide/…` tags (with the
+    /// metadata, see [`crate::xmp::label_pick_tags`]).
+    pub label_tags: bool,
 }
 
 impl Default for ExifPolicy {
@@ -82,7 +85,23 @@ impl Default for ExifPolicy {
         Self {
             include: true,
             strip_gps: false,
+            label_tags: true,
         }
+    }
+}
+
+impl ExifPolicy {
+    /// The metadata this policy writes for `meta` (`None`: none at all).
+    pub fn dirs(&self, meta: &crate::ExifMeta) -> Option<crate::exif::ExifDirs> {
+        self.include.then(|| {
+            let mut d = meta.dirs(self.strip_gps);
+            if !self.label_tags {
+                d.organize
+                    .tags
+                    .retain(|t| t.first().map(String::as_str) != Some(crate::xmp::TAG_ROOT));
+            }
+            d
+        })
     }
 }
 
@@ -237,6 +256,38 @@ mod tests {
 
     fn sz(w: u32, h: u32) -> Size {
         Size::new(w, h)
+    }
+
+    #[test]
+    fn exif_policy_writes_label_tags_only_when_asked() {
+        let meta = crate::ExifMeta {
+            organize: crate::xmp::Organize {
+                rating: Some(3),
+                tags: vec![
+                    vec!["Darkslide".into(), "Pick".into()],
+                    vec!["Places".into(), "Coast".into()],
+                ],
+            },
+            ..crate::ExifMeta::default()
+        };
+        let all = ExifPolicy::default().dirs(&meta).unwrap();
+        assert_eq!(all.organize, meta.organize);
+        let without = ExifPolicy {
+            label_tags: false,
+            ..ExifPolicy::default()
+        }
+        .dirs(&meta)
+        .unwrap();
+        assert_eq!(without.organize.rating, Some(3), "the rating stays");
+        assert_eq!(
+            without.organize.tags,
+            [vec!["Places".to_owned(), "Coast".to_owned()]]
+        );
+        let none = ExifPolicy {
+            include: false,
+            ..ExifPolicy::default()
+        };
+        assert!(none.dirs(&meta).is_none());
     }
 
     #[test]

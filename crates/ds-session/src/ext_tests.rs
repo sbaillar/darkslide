@@ -409,6 +409,7 @@ fn external_walk_skips_hidden_bundles_and_respects_depth() {
         ("a.ARW", b"a"),
         (".hidden/x.ARW", b"x"),
         ("Lib.photoslibrary/y.ARW", b"y"),
+        ("iPhoto Library.photolibrary/Masters/w.ARW", b"w"),
         (".ds/session/z.ARW", b"z"),
         ("d1/d2/ok.ARW", b"o"),
         (deep, b"d"),
@@ -1139,6 +1140,57 @@ fn capture_one_session_folders_list_only_capture_and_selects() {
     fs::remove_file(e.folder.join("Shoot.cosessiondb")).unwrap();
     let (files, _) = e.s.external_files().unwrap();
     assert!(files.iter().any(|(r, _)| r == "Capture/Trash/rej.ARW"));
+}
+
+/// Darkslide's `Developed/` folder (developed copies for a photo server) at the top
+/// of a folder opened in place is never part of the session; a user's own
+/// `Developed` folder (no marker) or one deeper down still is.
+#[test]
+fn developed_copies_are_not_photos_of_the_session() {
+    let e = ext(&[
+        ("a.ARW", b"a"),
+        ("Developed/a.jpg", b"d"),
+        ("Developed/Day 1/b.jpg", b"d"),
+        ("Day 1/b.ARW", b"b"),
+        ("Day 1/Developed/c.jpg", b"c"),
+    ]);
+    let listed = |e: &Ext| -> Vec<String> {
+        let (files, _) = e.s.external_files().unwrap();
+        files.into_iter().map(|(r, _)| r).collect()
+    };
+    // No marker: the user's own folder, listed like any other.
+    assert!(listed(&e).contains(&"Capture/Developed/a.jpg".to_owned()));
+    fs::write(e.folder.join("Developed").join(DEVELOPED_MARKER), b"").unwrap();
+    let files = listed(&e);
+    assert!(
+        !files.iter().any(|r| r.starts_with("Capture/Developed/")),
+        "{files:?}"
+    );
+    assert!(files.contains(&"Capture/a.ARW".to_owned()));
+    assert!(files.contains(&"Capture/Day 1/b.ARW".to_owned()));
+    assert!(
+        files.contains(&"Capture/Day 1/Developed/c.jpg".to_owned()),
+        "only the top-level folder is Darkslide's"
+    );
+}
+
+/// An imported session only has photos under Capture/, Selects/ and Trash/: a
+/// `Developed/` folder at its root is never registered, listed or untracked.
+#[test]
+fn developed_folder_of_an_imported_session_is_ignored() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().join("s");
+    let mut s = Session::create(&root, "s").unwrap();
+    let dev = root.join(DEVELOPED_DIR).join("Capture");
+    fs::create_dir_all(&dev).unwrap();
+    fs::write(dev.join("a.jpg"), b"jpeg").unwrap();
+    fs::write(root.join(DEVELOPED_DIR).join(DEVELOPED_MARKER), b"").unwrap();
+    let report = s.rescan().unwrap();
+    assert!(report.untracked.is_empty(), "{:?}", report.untracked);
+    assert_eq!(s.image_count().unwrap(), 0);
+    drop(s);
+    let s = Session::open(&root).unwrap();
+    assert_eq!(s.image_count().unwrap(), 0);
 }
 
 #[test]

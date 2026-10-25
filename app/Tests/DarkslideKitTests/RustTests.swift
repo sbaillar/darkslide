@@ -263,7 +263,7 @@ private func sampleARW() -> URL? {
     @Test func selfTestPasses() async {
         var lines: [String] = []
         let checks = await SelfTest.run { lines.append($0) }
-        #expect(checks.count == 8)
+        #expect(checks.count == 9)
         // The cancel *latency* bound is enforced by `Darkslide --self-test` (run alone) and by
         // ZFFI; here the suite shares the rayon pool with hundreds of parallel renders, so only
         // correctness is asserted for that check.

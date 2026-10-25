@@ -27,6 +27,7 @@ fn config(target: &Path, lock_dir: &Path) -> ArchiveConfig {
         amazon_rejected: false,
         // As the app does when the user confirms the target.
         target_volume: archive_volume_identity(target.to_string_lossy().into_owned()),
+        object_store: None,
     }
 }
 
@@ -140,9 +141,11 @@ fn target_checks_report_available_missing_and_empty() {
         ok.available && !ok.timed_out && ok.fs_type.as_deref() == Some("apfs"),
         "{ok:?}"
     );
-    // A folder that doesn't exist yet on the volume it was confirmed on is available:
-    // the first run creates it (the check itself creates nothing). Outside /Volumes
-    // with no recorded volume it is not (review N3).
+    assert_eq!(ok.kind.as_deref(), Some("local"));
+    // A local folder (on this Mac's disk) must exist, even on the volume it was
+    // confirmed on: only a mounted volume's missing folder is created by a run (the
+    // check itself creates nothing). Outside /Volumes with no recorded volume it is
+    // offline (review N3).
     let nope = t.path().join("nope");
     let missing = check_with(
         &nope,
@@ -150,7 +153,11 @@ fn target_checks_report_available_missing_and_empty() {
         Duration::from_secs(2),
         Arc::new(real_check),
     );
-    assert!(missing.available && !missing.timed_out, "{missing:?}");
+    assert!(!missing.available && !missing.timed_out, "{missing:?}");
+    assert!(
+        missing.reason.as_deref().unwrap().contains("doesn't exist"),
+        "{missing:?}"
+    );
     let unrecorded = check_with(&nope, None, Duration::from_secs(2), Arc::new(real_check));
     assert!(!unrecorded.available, "{unrecorded:?}");
     assert!(!nope.exists());
@@ -338,7 +345,9 @@ fn an_offline_target_queues_changes_and_status_stays_instant() {
     assert!(!st.target.available && !st.target.timed_out);
     assert!(st.runs.is_empty(), "nothing runs against an offline target");
     assert_eq!(st.sessions[0].pending_changes, 3);
-    // The volume appears (mounted): the queued archive runs, creating the folder.
+    // The volume appears (mounted, with the archive folder): the queued archive runs.
+    // (A local folder must exist; only a mounted volume's folder is created.)
+    fs::create_dir(t.path().join("not-mounted")).unwrap();
     mounted.store(true, std::sync::atomic::Ordering::SeqCst);
     wait("archive after the target came back", 60, || {
         !runs(&m).is_empty()
@@ -482,6 +491,11 @@ fn failures_are_recorded_with_backoff_and_a_missing_rsync_is_reported() {
     let st = m.status().unwrap();
     assert_eq!(st.runs[0].outcome, "failed");
     assert!(st.rsync_error.is_some() && st.rsync.is_none());
+    assert_eq!(
+        fs::read_dir(&target).unwrap().count(),
+        0,
+        "nothing is claimed on the target without rsync"
+    );
     let s = &st.sessions[0];
     assert!(s.consecutive_failures == 1 && s.retry_in_ms.is_some() && s.last_error.is_some());
     assert!(m.shutdown(3000).unwrap());
@@ -1719,8 +1733,14 @@ fn missing_originals_are_counted_on_the_target() {
     // c and d: absent. Outside the source: not counted.
     let mut all = originals.clone();
     all.push(t.path().join("elsewhere.ARW"));
-    assert_eq!(missing_on_target(&src, &dest, &all), 3);
-    assert_eq!(missing_on_target(&src, &dest, &originals[..1]), 0);
+    let folder = FolderDestination::new(ArchiveTarget::new(t.path()), None);
+    let claimed = ds_archive::ClaimedDest {
+        dest: dest.clone(),
+        folder: "T".into(),
+        adopted_legacy: false,
+    };
+    assert_eq!(folder.missing(&src, &claimed, &all), Some(3));
+    assert_eq!(folder.missing(&src, &claimed, &originals[..1]), Some(0));
 }
 
 /// App review M8: Move to Selects after an archive run. The archive mirrors the
@@ -1786,3 +1806,5 @@ fn move_to_selects_after_an_archive_run_leaves_one_copy() {
     );
     assert!(m.shutdown(5000).unwrap());
 }
+
+mod object;

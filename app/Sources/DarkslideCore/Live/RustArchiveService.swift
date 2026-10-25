@@ -1,8 +1,9 @@
 import DarkslideFFI
 import Foundation
 
-/// Live archiving through ds-archive (`ArchiveManager` in the FFI): rsync to
-/// the archive target in the background, plus the Amazon Photos hand-off.
+/// Live archiving through ds-archive (`ArchiveManager` in the FFI): rsync to a
+/// folder, or uploads to S3-compatible object storage (through `URLSessionArchiveHTTP`,
+/// with the keys from the Keychain), in the background; plus the Amazon Photos hand-off.
 ///
 /// Nothing here blocks: the Rust driver thread decides what runs, each run
 /// has its own worker thread with a watchdog (a stale NFS mount can't hang
@@ -17,7 +18,7 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
     /// Follows a moved Amazon Photos folder (bookmark) when the hand-off reports it missing.
     public typealias FolderFollower = @Sendable () async -> Void
 
-    private let manager: ArchiveManager?
+    let manager: ArchiveManager?
     private let startError: String?
     private let settings: SettingsProvider
     private let handles: HandleLookup
@@ -36,12 +37,19 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
     private var lastFollow: Date?
     /// Why the last settings change was not (fully) applied; shown as a failed status until a retry works.
     private var configError: String?
+    /// Object storage: the app's HTTP and the Keychain keys (the last ones handed to the manager).
+    private let http: any ArchiveHttp
+    private let objectKeys: ArchiveObjectKeys
+    private var appliedKeys: ObjectCredentials??
 
     /// `initial` configures the manager right away (the app passes its settings).
     public init(initial: ArchiveSettingsSnapshot, settings: @escaping SettingsProvider, handles: @escaping HandleLookup,
                 manifest: URL = RustArchiveService.defaultManifest, lockDir: String? = nil,
                 tick: Duration = .seconds(1), debounceSeconds: UInt64 = 60, rsyncPath: String? = nil,
-                followAmazonFolder: FolderFollower? = nil, watchVolumes: Bool = true) {
+                followAmazonFolder: FolderFollower? = nil, watchVolumes: Bool = true, plugins: PluginHost? = nil,
+                http: any ArchiveHttp = URLSessionArchiveHTTP(), objectKeys: ArchiveObjectKeys = .shared) {
+        self.http = http
+        self.objectKeys = objectKeys
         self.settings = settings
         self.handles = handles
         self.followAmazonFolder = followAmazonFolder
@@ -61,9 +69,14 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
         }
         current = ArchiveStatus(state: .unavailable(initial.isActive ? "Checking the archive…" : ArchiveDisplay.offText(initial)),
                                 target: initial.target, lastSuccess: nil)
+        // Settings ▸ Plugins: no run, hand-off or Immich step while its feature is off.
+        // (Set before the hand-off folder and before any session is registered, so
+        // nothing is due before it.)
+        if let plugins, let manager { Self.attempt("plug-in gate") { try manager.setPluginHost(host: plugins) } }
         let initialAmazon = Self.applyAll(from: initial, to: initial, forceAmazon: true, setConfig: { _ in },
                                           setAmazon: { try self.setAmazon($0) })
         configError = initialAmazon.error
+        applyKeys()
         // A hand-off folder that failed to apply is retried by the first refresh.
         if initialAmazon.error != nil { applied.amazonFolder = nil }
         if watchVolumes, let manager {
@@ -92,7 +105,23 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
     static func config(_ s: ArchiveSettingsSnapshot, lockDir: String?, debounce: UInt64, rsyncPath: String? = nil) -> ArchiveConfig {
         ArchiveConfig(enabled: s.isActive, target: s.target, intervalSecs: UInt64(max(1, s.intervalMinutes)) * 60,
                       debounceSecs: debounce, lockDir: lockDir, checkTimeoutMs: 2000, rsyncPath: rsyncPath,
-                      archiveRejected: s.archiveRejected, amazonRejected: s.amazonRejected, targetVolume: s.targetVolume)
+                      archiveRejected: s.archiveRejected, amazonRejected: s.amazonRejected, targetVolume: s.targetVolume,
+                      objectStore: s.objectStore)
+    }
+
+    /// Hand the Keychain keys to the manager when they changed (the read is cached:
+    /// `ArchiveObjectKeys` touches the Keychain only after a save).
+    private func applyKeys() {
+        guard let manager else { return }
+        let keys = objectKeys.credentials
+        let due = lock.withLock { () -> Bool in
+            if case .some(let applied) = appliedKeys, applied == keys { return false }
+            return true
+        }
+        guard due else { return }
+        if Self.attempt("object storage keys", { try manager.setObjectStore(http: http, credentials: keys) }) {
+            lock.withLock { appliedKeys = .some(keys) }
+        }
     }
 
     /// The hand-off destination (the manager never creates the folder).
@@ -124,7 +153,7 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
         var failures: [String] = []
         let archiveChanged = old.enabled != new.enabled || old.target != new.target || old.intervalMinutes != new.intervalMinutes
             || old.archiveRejected != new.archiveRejected || old.amazonRejected != new.amazonRejected
-            || old.targetVolume != new.targetVolume
+            || old.targetVolume != new.targetVolume || old.objectStore != new.objectStore
         if archiveChanged {
             do {
                 try setConfig(new)
@@ -134,6 +163,7 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
                 applied.archiveRejected = new.archiveRejected
                 applied.amazonRejected = new.amazonRejected
                 applied.targetVolume = new.targetVolume
+                applied.objectStore = new.objectStore
             } catch {
                 failures.append("archive target (\(error))")
             }
@@ -183,6 +213,7 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
     /// Apply changed settings, then publish the manager's status. Only a
     /// real change reaches the manager (which keeps failure state across it).
     public func refresh() async {
+        applyKeys()
         let s = await settings()
         let old = lock.withLock { applied }
         if old != s {

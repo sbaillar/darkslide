@@ -3,6 +3,10 @@ import Observation
 
 /// First-run setup: where sessions live, where the archive goes, optional
 /// Amazon Photos folder. Nothing is written until `finish()`.
+///
+/// With `features` (the app's Settings ▸ Plugins), the archive is offered but starts
+/// off when its integration is off, the Amazon Photos step appears only while that
+/// integration is on, and Finish turns on the integrations the user set up here.
 @MainActor @Observable
 public final class OnboardingModel {
     public enum Step: Int, CaseIterable, Sendable {
@@ -46,6 +50,7 @@ public final class OnboardingModel {
     public var familiar: LayoutPreset
 
     @ObservationIgnored private let settings: AppSettings
+    @ObservationIgnored private let features: FeatureGates?
     /// Result of the last off-main check; see `refreshArchiveStatus()`.
     public private(set) var archiveStatus: TargetStatus = .checking
     @ObservationIgnored private let fileExists: @Sendable (String) -> Bool
@@ -66,7 +71,8 @@ public final class OnboardingModel {
                     try FileManager.default.createDirectory(at: $0, withIntermediateDirectories: false)
                 },
                 volumeIdentity: @escaping ArchiveVolumeIdentity = ArchiveVolume.identity,
-                timeout: Double = 1) {
+                timeout: Double = 1, features: FeatureGates? = nil) {
+        self.features = features
         self.volumeIdentity = volumeIdentity
         self.settings = settings
         self.timeout = timeout
@@ -76,22 +82,38 @@ public final class OnboardingModel {
         self.createTarget = createTarget
         sessionsFolder = settings.sessionsFolder
         archiveTarget = settings.archiveTarget
-        // Archiving is on by default; an empty target asks the user to choose one (or turn it off).
-        archiveEnabled = true
+        // Offered, on when the archive integration is (an empty target asks the user to
+        // choose one or turn it off); off for a new user, who turns it on here or later.
+        archiveEnabled = features?.isOn(.archive) ?? true
         amazonFolder = settings.amazonPhotosFolder
         familiar = settings.layoutPreset
     }
 
-    public var isFirst: Bool { step == .welcome }
-    public var isLast: Bool { step == Step.allCases.last }
-    public var progress: Double { Double(step.rawValue) / Double(Step.allCases.count - 1) }
+    /// The steps shown: Amazon Photos only while its integration is on.
+    public var steps: [Step] {
+        Step.allCases.filter { $0 != .amazon || features?.isOn(.amazonPhotos) ?? true }
+    }
+
+    private var index: Int { steps.firstIndex(of: step) ?? 0 }
+    public var isFirst: Bool { step == steps.first }
+    public var isLast: Bool { step == steps.last }
+    public var progress: Double { Double(index) / Double(max(1, steps.count - 1)) }
 
     public func next() {
-        if let n = Step(rawValue: step.rawValue + 1) { step = n }
+        if index + 1 < steps.count { step = steps[index + 1] }
     }
 
     public func back() {
-        if let p = Step(rawValue: step.rawValue - 1) { step = p }
+        if index > 0 { step = steps[index - 1] }
+    }
+
+    /// The integrations Finish turns on: the archive when it is on here with a target,
+    /// Amazon Photos when a folder was chosen.
+    public var chosenFeatures: [NativeFeature] {
+        var on: [NativeFeature] = []
+        if archiveEnabled, !Self.normalized(archiveTarget).isEmpty { on.append(.archive) }
+        if amazonFolder != nil, steps.contains(.amazon) { on.append(.amazonPhotos) }
+        return on
     }
 
     /// The typed target as a path: whitespace trimmed, `~` expanded.
@@ -137,8 +159,8 @@ public final class OnboardingModel {
         let exists = fileExists
         let share = URL(fileURLWithPath: AppSettings.defaultArchiveTarget).deletingLastPathComponent().path
         if await blockingWithTimeout(timeout, { exists(share) }) == true, archiveTarget.isEmpty {
+            // Filled in, never switched on: the user turns the archive on.
             archiveTarget = AppSettings.defaultArchiveTarget
-            archiveEnabled = true
         }
         await refreshArchiveStatus()
     }
@@ -179,6 +201,10 @@ public final class OnboardingModel {
             settings.useKeyPreset(KeyPreset(layout: familiar))
         }
         settings.onboardingComplete = true
+        if let features {
+            let on = chosenFeatures.filter { !features.isOn($0) }
+            if !on.isEmpty { Task { for f in on { await features.set(f, true) } } }
+        }
     }
 
     /// N3: after Finish, record the confirmed target's volume identity (bounded, off-main).

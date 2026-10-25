@@ -21,6 +21,10 @@ final class FakeLibraryBackend: LibraryBackend, @unchecked Sendable {
         var collections: [LibraryCollectionRecord] = []
         var members: [Int64: Set<Int64>] = [:]
         var thumbs: [Int64] = []
+        var overviews = 0
+        var thumbDelay: Duration = .zero
+        /// The overview's sessions (the Opened Sessions scope resolves the recents against them).
+        var sessions: [LibrarySessionRecord] = []
         var fail: Error?
     }
 
@@ -56,12 +60,13 @@ final class FakeLibraryBackend: LibraryBackend, @unchecked Sendable {
 
     func overview() async throws -> LibraryOverviewRecord {
         state.withLock { s in
+            s.overviews += 1
             let collections = s.collections.map { c in
                 var c = c
                 c.count = UInt64(s.members[c.id]?.count ?? 0)
                 return c
             }
-            return LibraryOverviewRecord(total: UInt64(s.items.count), sessions: [], days: [], undated: 0, cameras: [],
+            return LibraryOverviewRecord(total: UInt64(s.items.count), sessions: s.sessions, days: [], undated: 0, cameras: [],
                                          keywords: [], collections: collections)
         }
     }
@@ -113,7 +118,11 @@ final class FakeLibraryBackend: LibraryBackend, @unchecked Sendable {
     }
 
     func thumbnail(for item: LibraryItemRecord, maxPixelSize: Int) async throws -> CGImage {
-        state.withLock { $0.thumbs.append(item.id) }
+        let delay = state.withLock { s in
+            s.thumbs.append(item.id)
+            return s.thumbDelay
+        }
+        if delay > .zero { try await Task.sleep(for: delay) } // a slow volume (cancellable)
         if item.path.hasPrefix("/offline") { throw MockError.notFound(item.path) }
         return try #require(solidImage(width: 3, height: 2))
     }
