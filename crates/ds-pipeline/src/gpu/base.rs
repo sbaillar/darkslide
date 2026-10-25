@@ -45,6 +45,22 @@ impl GpuRenderer {
     }
 }
 
+/// Rows of an RCD band over a `width`-pixel rectangle: ~2 Mpx, one short GPU submission
+/// (~4 ms at f32).
+pub(super) fn rcd_band(width: u32) -> u32 {
+    (2_000_000 / width.max(1)).max(64) & !1
+}
+
+/// The RCD work buffers (pooled name, bytes) of a band of `n` pixels, margin included.
+pub(super) fn rcd_bufs(n: u64) -> [(&'static str, u64); 4] {
+    [
+        ("rcd_cfa", n * 4),
+        ("rcd_dirs", n * 16),
+        ("rcd_green", n * 4),
+        ("rcd_rb", n * 8),
+    ]
+}
+
 impl Inner {
     pub(super) fn new_base_buffer(
         &self,
@@ -159,7 +175,7 @@ impl Inner {
         // RCD bands of ~2 Mpx: each is one short GPU submission (~4 ms at f32).
         let band = match bk.mode {
             DemosaicMode::Superpixel => h.max(1),
-            DemosaicMode::Rcd => ((2_000_000 / rect[2].max(1)).max(64) & !1).min(h.max(2)),
+            DemosaicMode::Rcd => rcd_band(rect[2]).min(h.max(2)),
         };
         Ok(BaseJob {
             key,
@@ -219,10 +235,12 @@ impl Inner {
                 let gw = (band[0] + band[2] + m).min(sw) - gx0;
                 let gh = (band[1] + band[3] + m).min(sh) - gy0;
                 let n = u64::from(gw) * u64::from(gh);
-                let cfa = self.ctx.buf("rcd_cfa", n * 4)?;
-                let dirs = self.ctx.buf("rcd_dirs", n * 16)?;
-                let green = self.ctx.buf("rcd_green", n * 4)?;
-                let rb = self.ctx.buf("rcd_rb", n * 8)?;
+                // Work buffers beyond the reservation (a first band, or another render
+                // trimmed them): room first.
+                let bufs = rcd_bufs(n);
+                self.make_room(self.ctx.shortfall(&bufs), job.key);
+                let [cfa, dirs, green, rb] = bufs.map(|(name, bytes)| self.ctx.buf(name, bytes));
+                let (cfa, dirs, green, rb) = (cfa?, dirs?, green?, rb?);
                 let u = self.ctx.uniform(&params::base_block(
                     raw,
                     &job.base_params,

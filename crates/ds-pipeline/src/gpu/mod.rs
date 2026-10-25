@@ -226,6 +226,34 @@ impl fmt::Debug for GpuRenderer {
     }
 }
 
+/// Frame-buffer pool lane of a request: per class (renders of different classes
+/// interleave their turns, so they must not share intermediate buffers); interactive
+/// full-quality (tiled) renders get their own.
+fn lane_of(req: &RenderRequest) -> u8 {
+    match req.priority {
+        Priority::Interactive if req.quality == crate::Quality::Full => 4,
+        p => p.class() as u8,
+    }
+}
+
+/// Frame-buffer bytes DEVELOP of `plan` uses for `px` pixels developed at once.
+fn pool_need(plan: &Plan, px: u64) -> u64 {
+    let mut per_px = if plan.base_key.precise { 80 } else { 40 };
+    if plan.lens_blur.is_some() || plan.fx.is_active() {
+        // The lens blur's circle of confusion and grid; the overlays' grids.
+        per_px += 8;
+    }
+    if plan.needs_lin() {
+        // The linear plane HDR and dehaze read, and their guided-filter coefficients.
+        per_px += 24;
+    }
+    if !plan.layers.is_empty() {
+        // A layer's mask, its feathering and the planes it is built from.
+        per_px += 24;
+    }
+    px * per_px
+}
+
 /// Raw uploads kept resident (thumbnail and viewer usually touch the same few images).
 const RAW_SLOTS: usize = 3;
 
@@ -347,13 +375,7 @@ impl GpuRenderer {
         let _turn = self.shared.gate.turn(req.priority, req.cancel.as_ref())?;
         let mut inner = self.lock();
         self.recover_if_lost(&mut inner)?;
-        // Frame-buffer pool per class (renders of different classes interleave their
-        // turns, so they must not share intermediate buffers); interactive full-quality
-        // (tiled) renders get their own.
-        inner.ctx.lane = match req.priority {
-            Priority::Interactive if req.quality == crate::Quality::Full => 4,
-            p => p.class() as u8,
-        };
+        inner.ctx.lane = lane_of(req);
         let r = catch_unwind(AssertUnwindSafe(|| {
             let oom = inner
                 .ctx
@@ -405,18 +427,24 @@ impl GpuRenderer {
         req: &RenderRequest,
     ) -> Result<Admission<'_>, PipelineError> {
         let gate = &self.shared.mem;
+        // Non-interactive renders leave a quarter of the budget free, so the viewer is
+        // admitted at once instead of waiting for an export to finish.
+        let headroom = if req.priority == Priority::Interactive {
+            0
+        } else {
+            crate::cache::budget_bytes() / 4
+        };
         let mut make_room = true;
         loop {
-            if make_room {
-                let reserved = lock(&gate.admitted).1;
-                if crate::cache::over_budget_with(need + reserved) {
-                    self.shared.room_passes.fetch_add(1, Ordering::Relaxed);
-                    self.lock().make_room(need + reserved, key);
-                    if crate::cache::over_budget_with(need + reserved) {
-                        // Idle output slots are the cheapest to give back, but only
-                        // once the caches alone did not make room.
-                        lock(&self.shared.outs).clear();
-                    }
+            // Reservations of renders in flight are committed already: only what they
+            // have not allocated yet, and what the caches hold, stands in the way.
+            if make_room && crate::cache::over_budget_with(need) {
+                self.shared.room_passes.fetch_add(1, Ordering::Relaxed);
+                self.lock().make_room(need, key);
+                if crate::cache::over_budget_with(need) {
+                    // Idle output slots are the cheapest to give back, but only
+                    // once the caches alone did not make room.
+                    lock(&self.shared.outs).clear();
                 }
             }
             // A plain lock (condvar-waited, nothing parallel inside).
@@ -424,19 +452,10 @@ impl GpuRenderer {
                 .admitted
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            // Reservations of renders in flight count too (conservatively: what they have
-            // allocated already is also in the budget's count). Non-interactive renders
-            // leave a quarter of the budget free, so the viewer is admitted at once
-            // instead of waiting for an export to finish.
-            let headroom = if req.priority == Priority::Interactive {
-                0
-            } else {
-                crate::cache::budget_bytes() / 4
-            };
-            if n.0 == 0 || !crate::cache::over_budget_with(need + n.1 + headroom) {
-                n.0 += 1;
-                n.1 += need;
-                return Ok(Admission(gate, need));
+            let limit = (*n > 0).then(|| crate::cache::budget_bytes().saturating_sub(headroom));
+            if let Some(r) = crate::cache::Reservation::try_new(need, limit) {
+                *n += 1;
+                return Ok(Admission(gate, Some(r)));
             }
             req.check_cancel()?;
             // Cancellation has no notify, so the wait is bounded; memory freed elsewhere
@@ -451,41 +470,43 @@ impl GpuRenderer {
     }
 
     /// Rough working set of a render: the output slot, frame buffers of what is developed
-    /// at once (a tile for tiled work), a BASE and a RAW upload when not resident.
+    /// at once (`tile`: the plan of the largest tile, for tiled work), a BASE and a RAW
+    /// upload when not resident.
     fn estimate(
         &self,
         key: ImageKey,
         raw: &RawImage,
         plan: &Plan,
         format: OutputFormat,
-        tiled: bool,
+        tile: Option<&Plan>,
+        req: &RenderRequest,
     ) -> u64 {
         let out = plan.out_size().pixels() * gpu_bpp(format);
-        let dev_px = if tiled {
-            plan.geo
-                .out
-                .pixels()
-                .min(u64::from(TILE + 128) * u64::from(TILE + 128))
-        } else {
-            plan.geo.out.pixels()
-        };
-        let mut per_px = if plan.base_key.precise { 80 } else { 40 };
-        if plan.lens_blur.is_some() || plan.fx.is_active() {
-            // The lens blur's circle of confusion and grid; the overlays' grids.
-            per_px += 8;
-        }
+        let tiled = tile.is_some();
+        let dev = tile.unwrap_or(plan);
         let mut inner = self.lock();
         let base = if inner.cached_base(key, plan).is_some() {
             0
         } else {
+            let bk = plan.base_key;
             let [w, h] = plan.level_size;
             let px = u64::from(w) * u64::from(h);
-            let px = if tiled {
+            // Tiled work builds a full-resolution RCD level per stripe; other levels are
+            // built whole either way.
+            let px = if tiled && bk.mode == DemosaicMode::Rcd && bk.down == 0 {
                 px.min(u64::from(w) * u64::from(TILE + 256))
             } else {
                 px
             };
-            px * if plan.base_key.precise { 16 } else { 8 }
+            // The demosaic's work buffers for one band (at most the sensor's width).
+            let scratch = if bk.mode == DemosaicMode::Rcd && raw.cfa != CfaPattern::LinearRgb {
+                let (sw, m) = (raw.size.width, plan::BBOX_MARGIN);
+                let n = u64::from(sw + 2 * m) * u64::from(base::rcd_band(sw) + 2 * m);
+                base::rcd_bufs(n).iter().map(|b| b.1).sum()
+            } else {
+                0
+            };
+            px * if bk.precise { 16 } else { 8 } + scratch
         };
         let raw_bytes =
             if raw.cfa == CfaPattern::LinearRgb || inner.raws.iter().any(|r| r.key == key) {
@@ -493,9 +514,10 @@ impl GpuRenderer {
             } else {
                 (raw.data.len() * 2) as u64
             };
-        let pool = dev_px * per_px;
-        let pooled = inner.ctx.pool_bytes();
-        out + base + raw_bytes + pool.saturating_sub(pooled)
+        // Only the render's own lane's buffers are reused (and if another render trims
+        // them meanwhile, DEVELOP makes room for them again, see `Inner::develop`).
+        let pooled = inner.ctx.lane_pool_bytes(lane_of(req));
+        out + base + raw_bytes + pool_need(dev, dev.geo.out.pixels()).saturating_sub(pooled)
     }
 }
 

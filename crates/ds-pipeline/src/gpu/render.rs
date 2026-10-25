@@ -66,13 +66,28 @@ impl Renderer for GpuRenderer {
                 && plan.window.is_none()
                 && plan.upscale.is_none()
                 && size.pixels() > TILE_PIXELS);
-        let mut need = self.estimate(key, raw, &plan, format, tiled_like);
+        // A tile in the middle has the widest context apron.
+        let mid_tile = tiled_like.then(|| {
+            let (w, h) = (plan.geo.out.width, plan.geo.out.height);
+            let r = [
+                w.saturating_sub(TILE) / 2,
+                h.saturating_sub(TILE) / 2,
+                TILE.min(w),
+                TILE.min(h),
+            ];
+            crate::par::run_for(p, || plan.tile(raw, adj, r))
+        });
+        let mut need = self.estimate(key, raw, &plan, format, mid_tile.as_ref(), req);
         if export {
-            // The stripe and the resize intermediate.
+            // The stripe, the resize intermediate and the last pass's buffers.
             let (wd, hd) = (plan.geo.out.width, plan.geo.out.height);
             need += (u64::from(wd) * u64::from(TILE.min(hd))
                 + u64::from(size.width) * u64::from(hd))
-                * 8;
+                * 8
+                + super::export::finish_bufs(&plan)
+                    .iter()
+                    .map(|b| b.1)
+                    .sum::<u64>();
         }
         let _admitted = self.admit(key, need, req)?;
         self.stage_raw(key, raw, p)?;

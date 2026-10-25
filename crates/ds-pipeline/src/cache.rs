@@ -4,6 +4,8 @@
 //! camera RGB at the reference WB). A 1:1 region render may cache only a sensor
 //! sub-rectangle; a later view outside it replaces the entry instead of adding one.
 
+use std::cell::Cell;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -34,11 +36,145 @@ fn sysctl_memsize() -> Option<u64> {
     None
 }
 
-/// Bytes counted against the budget in the process: BASE caches (CPU and GPU; unified
-/// memory) plus [`Account`]ed buffers.
-static USED: AtomicU64 = AtomicU64::new(0);
-/// Highest `USED` seen (for budget tests and diagnostics).
-static PEAK: AtomicU64 = AtomicU64::new(0);
+/// Memory counted against a budget, and promised to renders in flight.
+///
+/// A render is admitted with a [`Reservation`] for its estimated working set. Buffers it
+/// then creates are paid from that reservation, and buffers it frees go back into it
+/// (one it drops to replace, or evicts to make room, stays its own), so memory promised
+/// to one render is never handed to another in between. Checks compare `committed` (what
+/// is counted plus what reservations have not spent yet) with the budget: as long as
+/// renders allocate within their reservations, or make room first, `used` stays under it.
+#[derive(Debug)]
+struct Ledger {
+    /// Bytes counted: BASE caches (CPU and GPU; unified memory) plus [`Account`]ed
+    /// buffers.
+    used: AtomicU64,
+    /// Highest `used` seen (for budget tests and diagnostics).
+    peak: AtomicU64,
+    /// `used` plus the unspent part of every reservation.
+    committed: AtomicU64,
+    /// Bytes allocated beyond the allocating render's reservation (diagnostics).
+    overdrawn: AtomicU64,
+}
+
+/// The process's ledger (the budget is process-wide).
+static LEDGER: Ledger = Ledger::new();
+
+thread_local! {
+    /// Unspent bytes of the [`Reservation`] held by the render on this thread, if any.
+    static RESERVED_HERE: Cell<Option<u64>> = const { Cell::new(None) };
+}
+
+/// Unspent bytes of this thread's reservation.
+fn reserved_here() -> u64 {
+    RESERVED_HERE.with(Cell::get).unwrap_or(0)
+}
+
+impl Ledger {
+    const fn new() -> Self {
+        Self {
+            used: AtomicU64::new(0),
+            peak: AtomicU64::new(0),
+            committed: AtomicU64::new(0),
+            overdrawn: AtomicU64::new(0),
+        }
+    }
+
+    /// Count `bytes` newly allocated: paid from this thread's reservation as far as it
+    /// goes, the rest is new commitment.
+    fn add(&self, bytes: u64) {
+        let now = self.used.fetch_add(bytes, Ordering::SeqCst) + bytes;
+        self.peak.fetch_max(now, Ordering::Relaxed);
+        let paid = RESERVED_HERE.with(|r| {
+            let left = r.get()?;
+            let paid = left.min(bytes);
+            r.set(Some(left - paid));
+            if paid < bytes {
+                self.overdrawn.fetch_add(bytes - paid, Ordering::Relaxed);
+            }
+            Some(paid)
+        });
+        self.committed
+            .fetch_add(bytes - paid.unwrap_or(0), Ordering::SeqCst);
+    }
+
+    /// Count `bytes` freed: back into this thread's reservation if it holds one.
+    fn sub(&self, bytes: u64) {
+        let kept = RESERVED_HERE.with(|r| r.get().map(|left| r.set(Some(left + bytes))));
+        if kept.is_none() {
+            self.committed.fetch_sub(bytes, Ordering::SeqCst);
+        }
+        self.used.fetch_sub(bytes, Ordering::SeqCst);
+    }
+
+    /// Would allocating `bytes` more exceed `budget`? Only the part this thread's
+    /// reservation doesn't cover counts, next to everything committed.
+    fn over_with(&self, bytes: u64, budget: u64) -> bool {
+        self.committed
+            .load(Ordering::SeqCst)
+            .saturating_add(bytes.saturating_sub(reserved_here()))
+            > budget
+    }
+
+    /// Reserve `bytes` for the render on this thread if they fit under `limit` next to
+    /// everything committed (`None`: unconditionally, for a render that runs alone).
+    fn reserve(&self, bytes: u64, limit: Option<u64>) -> Option<Reservation<'_>> {
+        let fits = |c: u64| match limit {
+            Some(l) => c.checked_add(bytes).filter(|t| *t <= l),
+            None => Some(c.saturating_add(bytes)),
+        };
+        let mut c = self.committed.load(Ordering::SeqCst);
+        while let Err(now) =
+            self.committed
+                .compare_exchange_weak(c, fits(c)?, Ordering::SeqCst, Ordering::SeqCst)
+        {
+            c = now;
+        }
+        let outer = RESERVED_HERE.with(|r| r.replace(Some(bytes)));
+        Some(Reservation {
+            ledger: self,
+            outer,
+            _thread: PhantomData,
+        })
+    }
+}
+
+/// Budget held for the render on this thread (see [`Ledger`]); what is left is given
+/// back on drop. Not `Send`: the reservation is the thread's.
+#[derive(Debug)]
+pub(crate) struct Reservation<'a> {
+    ledger: &'a Ledger,
+    /// The reservation this one stands in for while alive (a nested one).
+    outer: Option<u64>,
+    _thread: PhantomData<*const ()>,
+}
+
+impl Reservation<'static> {
+    /// Reserve `bytes` of the process budget if they fit under `limit` next to
+    /// everything committed (`None`: unconditionally, for a render that runs alone).
+    pub fn try_new(bytes: u64, limit: Option<u64>) -> Option<Self> {
+        LEDGER.reserve(bytes, limit)
+    }
+}
+
+impl Drop for Reservation<'_> {
+    fn drop(&mut self) {
+        let left = RESERVED_HERE.with(|r| r.replace(self.outer)).unwrap_or(0);
+        self.ledger.committed.fetch_sub(left, Ordering::SeqCst);
+    }
+}
+
+/// Bytes counted against the budget plus what renders in flight reserved and have not
+/// allocated yet.
+pub fn committed_bytes() -> u64 {
+    LEDGER.committed.load(Ordering::SeqCst)
+}
+
+/// Bytes renders allocated beyond their reservations so far (an estimate fell short;
+/// the allocation made room first where it could).
+pub fn overdrawn_bytes() -> u64 {
+    LEDGER.overdrawn.load(Ordering::Relaxed)
+}
 
 /// What memory counted against the budget is used for (diagnostics).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,24 +195,20 @@ pub fn used_by_use() -> [u64; 7] {
     std::array::from_fn(|i| BY_USE[i].load(Ordering::Relaxed))
 }
 
-fn add_used(bytes: u64) {
-    let now = USED.fetch_add(bytes, Ordering::Relaxed) + bytes;
-    PEAK.fetch_max(now, Ordering::Relaxed);
-}
-
 /// Highest number of bytes counted against the budget since the last [`reset_peak`].
 pub fn peak_bytes() -> u64 {
-    PEAK.load(Ordering::Relaxed)
+    LEDGER.peak.load(Ordering::Relaxed)
 }
 
 /// Restart peak tracking from the current use.
 pub fn reset_peak() {
-    PEAK.store(used_bytes(), Ordering::Relaxed);
+    LEDGER.peak.store(used_bytes(), Ordering::Relaxed);
 }
 
-/// Would `bytes` more exceed the budget?
+/// Would allocating `bytes` more exceed the budget? Only the part this thread's
+/// reservation doesn't cover counts, next to everything committed.
 pub fn over_budget_with(bytes: u64) -> bool {
-    used_bytes() + bytes > budget_bytes()
+    LEDGER.over_with(bytes, budget_bytes())
 }
 
 /// 0 = derive from physical memory.
@@ -97,7 +229,7 @@ pub fn set_budget_bytes(bytes: u64) {
 
 /// Bytes currently counted against the budget.
 pub fn used_bytes() -> u64 {
-    USED.load(Ordering::Relaxed)
+    LEDGER.used.load(Ordering::SeqCst)
 }
 
 /// A share of the budget for memory outside the BASE caches (GPU frame buffers, raw
@@ -108,7 +240,7 @@ pub(crate) struct Account(u64, Use);
 impl Account {
     pub fn new(what: Use, bytes: u64) -> Self {
         BY_USE[what as usize].fetch_add(bytes, Ordering::Relaxed);
-        add_used(bytes);
+        LEDGER.add(bytes);
         Self(bytes, what)
     }
 }
@@ -116,7 +248,7 @@ impl Account {
 impl Drop for Account {
     fn drop(&mut self) {
         BY_USE[self.1 as usize].fetch_sub(self.0, Ordering::Relaxed);
-        USED.fetch_sub(self.0, Ordering::Relaxed);
+        LEDGER.sub(self.0);
     }
 }
 
@@ -140,7 +272,7 @@ impl<V: Resident> Tracked<V> {
     fn new(v: V) -> Self {
         let counted = v.bytes();
         BY_USE[Use::Base as usize].fetch_add(counted, Ordering::Relaxed);
-        add_used(counted);
+        LEDGER.add(counted);
         Self { v, counted }
     }
     pub fn get(&self) -> &V {
@@ -151,7 +283,7 @@ impl<V: Resident> Tracked<V> {
 impl<V: Resident> Drop for Tracked<V> {
     fn drop(&mut self) {
         BY_USE[Use::Base as usize].fetch_sub(self.counted, Ordering::Relaxed);
-        USED.fetch_sub(self.counted, Ordering::Relaxed);
+        LEDGER.sub(self.counted);
     }
 }
 
@@ -410,5 +542,101 @@ mod tests {
     fn covers_does_not_overflow_on_huge_rects() {
         assert!(!covers([0, 0, u32::MAX, 10], [u32::MAX, 0, u32::MAX, 10]));
         assert!(covers([0, 0, u32::MAX, 10], [1, 0, u32::MAX - 1, 10]));
+    }
+
+    fn used(l: &Ledger) -> u64 {
+        l.used.load(Ordering::SeqCst)
+    }
+
+    fn committed(l: &Ledger) -> u64 {
+        l.committed.load(Ordering::SeqCst)
+    }
+
+    /// The CI failure, forced: render A's estimate counted on its pooled frame buffers,
+    /// its make-room then trimmed them before it developed (reallocating them). Admission
+    /// used to compare only what was counted (plus reservations) with the budget, so it
+    /// handed A's trimmed buffers to render B in that window, and A's reallocation pushed
+    /// the count past the budget. The trimmed bytes now stay A's until A ends.
+    #[test]
+    fn what_a_render_frees_stays_its_own_so_the_ceiling_holds() {
+        let l = Ledger::new();
+        let budget = 100;
+        // A's pooled frame buffers, allocated by an earlier render.
+        l.add(50);
+        let (to_b, a_trimmed) = std::sync::mpsc::channel();
+        let (to_a, b_done) = std::sync::mpsc::channel();
+        let l = &l;
+        std::thread::scope(|s| {
+            s.spawn(move || {
+                // A: the pool is resident, so 10 more cover its working set.
+                let r = l.reserve(10, Some(budget)).expect("A fits");
+                l.sub(50);
+                to_b.send(()).unwrap();
+                b_done.recv().unwrap();
+                // A develops: its frame buffers again, plus what it reserved.
+                l.add(50);
+                l.add(10);
+                drop(r);
+            });
+            a_trimmed.recv().unwrap();
+            // B, in the window: only 40 are really free (the old check saw 90).
+            assert_eq!(used(l), 0);
+            assert!(l.over_with(45, budget));
+            assert!(l.reserve(45, Some(budget)).is_none(), "A's buffers are A's");
+            let b = l.reserve(40, Some(budget)).expect("what is free");
+            l.add(40);
+            drop(b);
+            to_a.send(()).unwrap();
+        });
+        assert_eq!(used(l), 100);
+        assert!(l.peak.load(Ordering::SeqCst) <= budget, "a hard ceiling");
+        assert_eq!(l.overdrawn.load(Ordering::SeqCst), 0);
+        assert_eq!(committed(l), used(l), "reservations given back");
+    }
+
+    #[test]
+    fn allocations_are_paid_from_the_reservation_and_the_rest_is_overdrawn() {
+        let l = Ledger::new();
+        l.add(30);
+        let r = l.reserve(20, Some(100)).expect("fits");
+        assert_eq!(committed(&l), 50);
+        // Only what the reservation doesn't cover counts against the budget.
+        assert!(!l.over_with(70, 100));
+        assert!(l.over_with(71, 100));
+        l.add(15);
+        assert_eq!((used(&l), committed(&l)), (45, 50));
+        assert!(!l.over_with(55, 100));
+        assert!(l.over_with(56, 100));
+        // Past the reservation: overdrawn and committed anew.
+        l.add(10);
+        assert_eq!((used(&l), committed(&l)), (55, 55));
+        assert_eq!(l.overdrawn.load(Ordering::SeqCst), 5);
+        // A free goes back into the reservation, not to everyone.
+        l.sub(20);
+        assert_eq!((used(&l), committed(&l)), (35, 55));
+        drop(r);
+        assert_eq!(committed(&l), 35);
+        // Without a reservation a free is everyone's at once.
+        l.sub(35);
+        assert_eq!((used(&l), committed(&l)), (0, 0));
+    }
+
+    #[test]
+    fn a_render_alone_is_reserved_past_the_budget_and_nested_ones_restore() {
+        let l = Ledger::new();
+        let alone = l.reserve(500, None).expect("alone: always");
+        assert!(l.reserve(1, Some(100)).is_none(), "nothing else fits");
+        assert!(l.reserve(u64::MAX, Some(u64::MAX)).is_none(), "no overflow");
+        {
+            // A nested reservation stands in for the outer one while alive.
+            let inner = l.reserve(10, None).expect("nested");
+            l.add(4);
+            assert_eq!(reserved_here(), 6);
+            drop(inner);
+        }
+        assert_eq!(reserved_here(), 500);
+        assert_eq!(committed(&l), 504);
+        drop(alone);
+        assert_eq!((reserved_here(), committed(&l)), (0, 4));
     }
 }

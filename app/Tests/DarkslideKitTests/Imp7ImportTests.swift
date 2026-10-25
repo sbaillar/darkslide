@@ -272,8 +272,10 @@ private final class CountingScans: ImportService, ImportVerifying, ImportFileMet
     }
     func run(_ plan: ImportPlan) -> AsyncThrowingStream<ImportProgress, Error> {
         AsyncThrowingStream { c in
+            // Runs until stopped: a fixed duration ended it before a slow CI runner reached
+            // the quit check (the test then saw no import running).
             let t = Task {
-                try? await Task.sleep(for: .seconds(30))
+                try? await Task.sleep(for: .seconds(86_400))
                 c.finish()
             }
             c.onTermination = { _ in t.cancel() }

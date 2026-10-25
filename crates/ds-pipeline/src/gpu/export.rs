@@ -5,6 +5,16 @@ use super::{
     Pending, PipelineError, Plan, RawImage, RenderRequest, TILE, lost_during, params,
 };
 
+/// The frame buffers (pooled name, bytes) of [`Inner::finish_export`].
+pub(super) fn finish_bufs(plan: &Plan) -> Vec<(&'static str, u64)> {
+    let n = plan.out_size().pixels();
+    let mut bufs = vec![("rs_enc", n * 8), ("rs_luma", n * 4)];
+    if plan.out_sharpen.is_some() {
+        bufs.extend([("rs_t", n * 4), ("rs_blur", n * 4)]);
+    }
+    bufs
+}
+
 impl GpuRenderer {
     /// Exports that resize (and/or output-sharpen): develop at full resolution in tiles
     /// (one turn each) into a full-width stripe, resize each stripe horizontally, then
@@ -92,7 +102,10 @@ impl GpuRenderer {
             out,
             [0, 0, size.width],
             Some(epoch),
-            |inner, slot| inner.finish_export(plan, &tmp, hd, format, slot, req.histogram),
+            |inner, slot| {
+                inner.make_room(inner.ctx.shortfall(&finish_bufs(plan)), key);
+                inner.finish_export(plan, &tmp, hd, format, slot, req.histogram)
+            },
         )?;
         Ok(crate::RenderedFrame { size, histogram })
     }

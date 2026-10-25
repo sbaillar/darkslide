@@ -145,23 +145,27 @@ impl Default for Gate {
 }
 
 /// Memory admission: a render starts only when its estimated working set fits the budget
-/// next to what is already counted (or when nothing else is rendering), so the budget
-/// holds as a ceiling instead of being exceeded by concurrent renders.
+/// next to everything committed (counted memory plus what renders in flight reserved and
+/// have not allocated yet), or when nothing else is rendering. Its allocations are then
+/// paid from its reservation (see [`crate::cache::Reservation`]), so the budget holds as a
+/// ceiling instead of being exceeded by concurrent renders.
 #[derive(Default)]
 pub(super) struct MemGate {
-    /// (renders admitted, bytes they reserved).
-    pub(super) admitted: Mutex<(u32, u64)>,
+    /// Renders admitted.
+    pub(super) admitted: Mutex<u32>,
     pub(super) cv: Condvar,
 }
 
-pub(super) struct Admission<'a>(pub(super) &'a MemGate, pub(super) u64);
+pub(super) struct Admission<'a>(
+    pub(super) &'a MemGate,
+    pub(super) Option<crate::cache::Reservation<'static>>,
+);
 
 impl Drop for Admission<'_> {
     fn drop(&mut self) {
-        let mut a = lock(&self.0.admitted);
-        a.0 -= 1;
-        a.1 -= self.1;
-        drop(a);
+        // Give the unspent reservation back before waking the waiters.
+        self.1.take();
+        *lock(&self.0.admitted) -= 1;
         self.0.cv.notify_all();
     }
 }

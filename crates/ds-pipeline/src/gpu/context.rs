@@ -434,6 +434,17 @@ struct PoolEntry {
     _acct: Account,
 }
 
+/// Size of a pooled buffer asked for `bytes`.
+fn pool_size(bytes: u64) -> u64 {
+    bytes.max(16).next_multiple_of(256)
+}
+
+/// Can a pooled buffer of `have` bytes serve a request for `bytes`? Not when far larger
+/// (e.g. left over from a full-resolution export): previews don't pin export-sized memory.
+fn reusable(have: u64, bytes: u64) -> bool {
+    have >= bytes && (have <= 4 * bytes || have <= 64 << 20)
+}
+
 /// Frame-buffer pool lanes: one per priority class plus one for interactive tiled renders.
 pub const LANES: usize = 5;
 
@@ -631,13 +642,12 @@ impl Context {
     /// buffer far larger than needed (e.g. left over from a full-resolution export) is
     /// replaced so previews don't pin export-sized memory.
     pub fn buf(&mut self, name: &'static str, bytes: u64) -> Result<wgpu::Buffer, PipelineError> {
-        let bytes = bytes.max(16).next_multiple_of(256);
+        let bytes = pool_size(bytes);
         self.check_size(name, bytes)?;
         let frame = self.frame;
         let key = (name, self.lane);
         if let Some(e) = self.pool.get_mut(&key)
-            && e.buf.size() >= bytes
-            && (e.buf.size() <= 4 * bytes || e.buf.size() <= 64 << 20)
+            && reusable(e.buf.size(), bytes)
         {
             e.used = frame;
             return Ok(e.buf.clone());
@@ -690,6 +700,31 @@ impl Context {
             };
             self.pool.remove(&key);
         }
+    }
+
+    /// Bytes held by `lane`'s DEVELOP frame buffers (not the demosaic's work buffers).
+    pub fn lane_pool_bytes(&self, lane: u8) -> u64 {
+        self.pool
+            .iter()
+            .filter(|((name, l), _)| *l == lane && !name.starts_with("rcd_"))
+            .map(|(_, e)| e.buf.size())
+            .sum()
+    }
+
+    /// New bytes that [`Self::buf`] calls for `bufs` (name, bytes) in the current lane
+    /// will allocate: pooled buffers they reuse cost nothing, ones they replace are
+    /// released first.
+    pub fn shortfall(&self, bufs: &[(&'static str, u64)]) -> u64 {
+        bufs.iter()
+            .map(|&(name, bytes)| {
+                let bytes = pool_size(bytes);
+                match self.pool.get(&(name, self.lane)) {
+                    Some(e) if reusable(e.buf.size(), bytes) => 0,
+                    Some(e) => bytes.saturating_sub(e.buf.size()),
+                    None => bytes,
+                }
+            })
+            .sum()
     }
 
     /// Bytes held by the frame-buffer pool.

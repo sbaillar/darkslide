@@ -186,6 +186,13 @@ impl Inner {
         finish: Finish<'_>,
     ) -> Result<Pending, PipelineError> {
         let clamp = format != OutputFormat::Rgba16fLinearP3;
+        // Frame buffers beyond what this lane holds (another render's make-room may have
+        // trimmed them since the estimate): room for them beyond the reservation first.
+        let pooled = self.ctx.lane_pool_bytes(self.ctx.lane);
+        self.make_room(
+            super::pool_need(plan, plan.geo.out.pixels()).saturating_sub(pooled),
+            key,
+        );
         self.ctx.begin_frame();
         let base = self.base(key, raw, plan)?;
         let base = base.get();
