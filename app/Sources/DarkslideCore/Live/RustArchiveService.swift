@@ -76,7 +76,7 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
         let initialAmazon = Self.applyAll(from: initial, to: initial, forceAmazon: true, setConfig: { _ in },
                                           setAmazon: { try self.setAmazon($0) })
         configError = initialAmazon.error
-        applyKeys()
+        applyKeys(objectStorage: initial.objectStore != nil)
         // A hand-off folder that failed to apply is retried by the first refresh.
         if initialAmazon.error != nil { applied.amazonFolder = nil }
         if watchVolumes, let manager {
@@ -110,9 +110,10 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
     }
 
     /// Hand the Keychain keys to the manager when they changed (the read is cached:
-    /// `ArchiveObjectKeys` touches the Keychain only after a save).
-    private func applyKeys() {
-        guard let manager else { return }
+    /// `ArchiveObjectKeys` touches the Keychain only after a save). A folder archive
+    /// never reads them, so it never asks for Keychain access.
+    private func applyKeys(objectStorage: Bool) {
+        guard let manager, objectStorage else { return }
         let keys = objectKeys.credentials
         let due = lock.withLock { () -> Bool in
             if case .some(let applied) = appliedKeys, applied == keys { return false }
@@ -213,8 +214,8 @@ public final class RustArchiveService: ArchiveService, @unchecked Sendable {
     /// Apply changed settings, then publish the manager's status. Only a
     /// real change reaches the manager (which keeps failure state across it).
     public func refresh() async {
-        applyKeys()
         let s = await settings()
+        applyKeys(objectStorage: s.objectStore != nil)
         let old = lock.withLock { applied }
         if old != s {
             let result = Self.applyAll(from: old, to: s, setConfig: { new in

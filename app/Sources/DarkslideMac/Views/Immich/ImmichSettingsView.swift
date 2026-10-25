@@ -103,6 +103,7 @@ struct ImmichSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            model.loadKeyState()
             rules = model.settings.rules
             xmpSidecars = model.settings.xmpSidecars
             labelTags = model.settings.labelTags

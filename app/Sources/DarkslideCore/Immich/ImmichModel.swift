@@ -51,20 +51,29 @@ public final class ImmichModel {
         serverEntry = settings.serverURL
         pathOnServerEntry = settings.pathOnServer
         pathOnMacEntry = settings.pathOnMac
-        hasKey = settings.apiKey != nil
+        // The key is read (a Keychain prompt for a new build) only once Immich is in
+        // use: `loadKeyState()` from the settings pane, or wiring with the integration on.
+        hasKey = false
         lastSync = settings.lastSync
+    }
+
+    /// Whether a key is saved (reads the Keychain; never while Immich is off).
+    public func loadKeyState() {
+        guard isOn else { return }
+        hasKey = settings.apiKey != nil
     }
 
     /// Wire the live service; the archive starts publishing when Immich is set up.
     public func configure(service: any ImmichService, app: AppModel, watch: Bool = true) {
         self.service = service
         self.app = app
+        loadKeyState()
         Task { await applyPublish() }
-        if watch { startWatching() }
+        if watch, isOn { startWatching() }
     }
 
     /// Set up, wired, and turned on in Settings ▸ Plugins.
-    public var isSetUp: Bool { settings.isSetUp && service != nil && isOn }
+    public var isSetUp: Bool { isOn && service != nil && settings.isSetUp }
 
     /// The Immich integration is on (Settings ▸ Plugins; always, without an app).
     public var isOn: Bool { app?.features.isOn(.immich) ?? true }
@@ -76,6 +85,7 @@ public final class ImmichModel {
     public func featureChanged(_ on: Bool) {
         Task { await applyPublish() }
         if on {
+            loadKeyState()
             guard service != nil else { return }
             startWatching()
             sessionOpened()
@@ -222,13 +232,13 @@ public final class ImmichModel {
     public var stopTitle: String { "Stop Updating Developed Copy" }
 
     public var developHelp: String {
-        if !settings.isSetUp { return "Set up Immich in Settings ▸ Immich first" }
+        if !isOn || !settings.isSetUp { return "Set up Immich in Settings ▸ Immich first" }
         return "A full-size JPEG with every edit, in the session's Developed folder; the archive carries it to Immich"
     }
 
     /// Photo ▸ Keep a Developed Copy for Immich: mark the selection and render the copies.
     public func developSelected() async {
-        guard let app, let service, let session = app.currentSession else { return }
+        guard let app, let service, let session = app.currentSession, isOn else { return }
         guard settings.isSetUp else {
             app.show(Toast(ImmichError.notSetUp.errorDescription!, symbol: "photo.badge.arrow.down", isError: true))
             return
@@ -289,7 +299,7 @@ public final class ImmichModel {
     /// `render`, make the missing and out-of-date ones.
     public func refresh(render: Bool) async {
         guard let app else { return }
-        guard let service, let session = app.currentSession, settings.isSetUp else {
+        guard isOn, let service, let session = app.currentSession, settings.isSetUp else {
             apply([:])
             return
         }

@@ -20,6 +20,13 @@ private final class FPKey: @unchecked Sendable {
     }
 }
 
+private final class FPCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var n = 0
+    func add() { lock.withLock { n += 1 } }
+    var value: Int { lock.withLock { n } }
+}
+
 /// Records what the Immich model asks of its service.
 private final class FPImmich: ImmichService, @unchecked Sendable {
     private let lock = NSLock()
@@ -214,6 +221,33 @@ struct FeaturePluginTests {
         await model.features.set(.archive, true)
         #expect(model.settings.archiveTarget == "/Volumes/NAS/Photos" && model.settings.archiveIntervalMinutes == 30)
         #expect(model.cull.deleteArchiveNote != CullFinisher.archiveOffNote)
+    }
+
+    /// A Keychain read prompts again after every ad-hoc build: Immich off never reads it.
+    @Test func immichOffNeverReadsTheKeychain() async {
+        let model = makeModel(counts: [4])
+        await model.start()
+        await model.features.set(.immich, false)
+        let reads = FPCount()
+        let key = KeychainItem(read: { reads.add(); return "secret-key" }, write: { _ in true })
+        let s = ImmichSettings(defaults: testDefaults(), apiKey: key)
+        s.serverURL = "https://immich.example.org"
+        s.pathOnServer = "/mnt/photos"
+        s.pathOnMac = "/Volumes/photos"
+        let immich = ImmichModel(settings: s)
+        model.features.onChange = { f, on in if f == .immich { immich.featureChanged(on) } }
+        immich.configure(service: FPImmich(), app: model, watch: true)
+        immich.loadKeyState()
+        immich.sessionOpened()
+        await immich.refresh(render: true)
+        _ = immich.isSetUp
+        _ = immich.developHelp
+        await immich.developSelected()
+        try? await Task.sleep(for: TestTiming.bound(.milliseconds(50)))
+        #expect(reads.value == 0 && !immich.hasKey, "off: the Keychain is never touched")
+        await model.features.set(.immich, true)
+        #expect(await waitUntil { immich.hasKey } && reads.value > 0, "on: the key is read")
+        immich.stopWatching()
     }
 
     @Test func immichOffStopsItsWorkAndOnResumesIt() async {
