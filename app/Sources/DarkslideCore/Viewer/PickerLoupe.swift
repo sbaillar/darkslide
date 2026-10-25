@@ -111,14 +111,15 @@ public final class PickerLoupe {
     public internal(set) var readout: Readout?
     /// Shown (stored apart from the cursor, so the viewer observes only this).
     public private(set) var shown = false
-    /// Screen points per image pixel.
-    public var magnification: Double = 9
+    /// Screen points per image pixel. Opens zoomed out enough to see where the pick is
+    /// (about 60 pixels across); scroll over the loupe to magnify.
+    public var magnification: Double = 3
     public var sample: PickerSample = .box5
     /// Bumped when a settled readout should be spoken (VoiceOver).
     public private(set) var announcement: String?
 
-    nonisolated public static let diameter: CGFloat = 148
-    nonisolated public static let magnificationRange: ClosedRange<Double> = 4...24
+    nonisolated public static let diameter: CGFloat = 176
+    nonisolated public static let magnificationRange: ClosedRange<Double> = 1.5...24
     /// Height of the readout under the circle.
     nonisolated public static let readoutHeight: CGFloat = 64
 

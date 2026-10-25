@@ -20,6 +20,7 @@ struct StylesPanel: View {
             if let look = model.focusedEdit.look {
                 LookIntensityRow(model: model, look: look)
             }
+            originalRow
             if !suggestions.isEmpty {
                 lookSection("AI Looks", suggestions.map { ($0.look, $0.reason) })
             }
@@ -90,6 +91,28 @@ struct StylesPanel: View {
                             presets: LookPack.all.map(\.preset) + store.all)
     }
 
+    /// The photo as shot: hover previews it, a click goes back to it (one undo step), so
+    /// trying styles never means undoing all the way back.
+    private var originalRow: some View {
+        let id = StyleThumbnails.originalID
+        let isOriginal = model.focusedEdit == EditState()
+        return Button {
+            previewHover(nil)
+            model.resetToOriginal()
+        } label: {
+            PresetRow(title: "Original", symbol: "photo", detail: isOriginal ? "Current" : "No adjustments",
+                      summary: "Back to the photo as shot, without any adjustments (⌘Z undoes it)", hovered: hovered == id, tile: thumbnails?.tile(id), applied: isOriginal)
+        }
+        .buttonStyle(.plain)
+        .disabled(model.focusedID == nil)
+        .onHover { inside in
+            hovered = inside ? id : (hovered == id ? nil : hovered)
+            guard model.optimizePanel == nil else { return } // AI Optimize owns the preview
+            model.viewer.setPreviewEdit(inside && model.focusedID != nil ? EditState() : nil)
+        }
+        .accessibilityLabel("Back to the original")
+    }
+
     private func section(_ title: String, _ presets: [Preset]) -> some View {
         VStack(alignment: .leading, spacing: DS.Space.xxs) {
             Text(title.uppercased()).font(DS.Font.caption).tracking(0.5).foregroundStyle(DS.textSecondary)
@@ -98,7 +121,7 @@ struct StylesPanel: View {
                     previewHover(nil)
                     model.applyPresets([p])
                 } label: {
-                    PresetRow(preset: p, hovered: hovered == p.id, thumbnail: thumbnails?.images[p.id])
+                    PresetRow(preset: p, hovered: hovered == p.id, tile: thumbnails?.tile(p.id))
                 }
                 .buttonStyle(.plain)
                 .onHover { inside in
@@ -125,7 +148,7 @@ struct StylesPanel: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 0) {
                         PresetRow(preset: look.preset, hovered: hovered == look.preset.id,
-                                  thumbnail: thumbnails?.images[look.preset.id], applied: model.focusedEdit.look?.id == look.id)
+                                  tile: thumbnails?.tile(look.preset.id), applied: model.focusedEdit.look?.id == look.id)
                         if title != LookPack.category {
                             Text(reason).font(DS.Font.caption).foregroundStyle(DS.textSecondary)
                                 .padding(.horizontal, DS.Space.s).fixedSize(horizontal: false, vertical: true)
@@ -199,37 +222,63 @@ enum LookSpecs {
 }
 
 private struct PresetRow: View {
-    let preset: Preset
+    let title: String
+    let symbol: String
+    let detail: String
+    var autoApply = false
+    var summary = ""
     let hovered: Bool
-    let thumbnail: CGImage?
+    /// The tile, and whether it's the previous edit's (dimmed until the new one renders).
+    let tile: (image: CGImage, isStale: Bool)?
     var applied = false
+
+    init(preset: Preset, hovered: Bool, tile: (image: CGImage, isStale: Bool)?, applied: Bool = false) {
+        self.init(title: preset.name, symbol: preset.isBuiltIn ? "camera.filters" : "slider.horizontal.3",
+                  detail: preset.groups.count == 1 ? preset.groups.first!.title : "\(preset.groups.count) groups",
+                  hovered: hovered, tile: tile, applied: applied)
+        autoApply = preset.autoApplyOnImport
+        summary = preset.summary
+    }
+
+    init(title: String, symbol: String, detail: String, summary: String = "", hovered: Bool,
+         tile: (image: CGImage, isStale: Bool)?, applied: Bool = false) {
+        self.title = title
+        self.summary = summary
+        self.symbol = symbol
+        self.detail = detail
+        self.hovered = hovered
+        self.tile = tile
+        self.applied = applied
+    }
 
     var body: some View {
         HStack(spacing: DS.Space.s) {
             Group {
-                if let thumbnail {
-                    Image(decorative: thumbnail, scale: 1).resizable().aspectRatio(contentMode: .fill)
+                if let tile {
+                    Image(decorative: tile.image, scale: 1).resizable().aspectRatio(contentMode: .fill)
+                        .opacity(tile.isStale ? 0.55 : 1)
+                        .animation(.easeOut(duration: 0.15), value: tile.isStale)
                 } else {
-                    Image(systemName: preset.isBuiltIn ? "camera.filters" : "slider.horizontal.3")
+                    Image(systemName: symbol)
                         .foregroundStyle(hovered ? DS.accent : DS.textSecondary)
                 }
             }
             .frame(width: 44, height: 30)
             .clipShape(.rect(cornerRadius: 3))
-            Text(preset.name).font(DS.Font.label).foregroundStyle(applied ? DS.accent : DS.text)
-            if preset.autoApplyOnImport {
+            Text(title).font(DS.Font.label).foregroundStyle(applied ? DS.accent : DS.text)
+            if autoApply {
                 Image(systemName: "square.and.arrow.down").font(.system(size: 9)).foregroundStyle(DS.accent)
                     .help("Applied automatically on import")
             }
             Spacer()
-            Text(preset.groups.count == 1 ? preset.groups.first!.title : "\(preset.groups.count) groups")
+            Text(detail)
                 .font(DS.Font.caption).foregroundStyle(DS.textTertiary)
         }
         .padding(.horizontal, DS.Space.s)
         .padding(.vertical, DS.Space.xxs)
         .background(hovered ? DS.accent.opacity(0.12) : .clear, in: .rect(cornerRadius: DS.Radius.m))
         .contentShape(.rect)
-        .help(preset.summary)
+        .help(summary)
     }
 }
 

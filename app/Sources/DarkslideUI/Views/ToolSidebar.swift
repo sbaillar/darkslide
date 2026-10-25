@@ -198,6 +198,25 @@ package struct ToolSidebar: View {
         self.layout = layout
     }
 
+    private var clipping: some View {
+        Toggle("Clipping", isOn: Binding(get: { model.viewer.clippingWarning }, set: { model.viewer.clippingWarning = $0 }))
+            .help("Show clipped highlights (red) and shadows (blue) on the image")
+            .fixedSize()
+    }
+
+    private var focusPeaking: some View {
+        Toggle("Focus peaking", isOn: Binding(get: { model.viewer.focusPeaking }, set: { model.viewer.focusPeaking = $0 }))
+            .help("Highlight in-focus edges on the image")
+            .fixedSize()
+    }
+
+    private var softProof: some View {
+        let proof = model.softProof
+        return Toggle("Soft proof", isOn: Binding(get: { proof.enabled }, set: { proof.setEnabled($0) }))
+            .help("Show the photo as it will look in the chosen profile (⇧S)")
+            .fixedSize()
+    }
+
     package var body: some View {
         let tab = ToolWorkspaceCommands.selectedTab(model: model, layout: layout)
         VStack(spacing: 0) {
@@ -208,17 +227,19 @@ package struct ToolSidebar: View {
                 HistogramView(histogram: model.viewer.histogram,
                               title: PanelChrome.histogramTitle(rendersEdits: !(model.renderer is EmbeddedPreviewRenderer)))
                 HistogramFooter(histogram: model.viewer.histogram, readout: model.viewer.cursorReadout)
-                HStack(spacing: DS.Space.m) {
-                    Toggle("Clipping", isOn: Binding(get: { model.viewer.clippingWarning }, set: { model.viewer.clippingWarning = $0 }))
-                        .help("Show clipped highlights (red) and shadows (blue) on the image")
-                    Toggle("Focus peaking", isOn: Binding(get: { model.viewer.focusPeaking }, set: { model.viewer.focusPeaking = $0 }))
-                        .help("Highlight in-focus edges on the image")
-                    Spacer()
+                // One line when the panel is wide enough, else two centred lines.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: DS.Space.m) { clipping; focusPeaking; softProof }
+                    VStack(spacing: DS.Space.xs) {
+                        HStack(spacing: DS.Space.m) { clipping; focusPeaking }
+                        softProof
+                    }
                 }
+                .frame(maxWidth: .infinity)
                 .toggleStyle(.checkbox)
                 .font(DS.Font.caption)
                 .foregroundStyle(DS.textSecondary)
-                SoftProofControls(proof: model.softProof)
+                if model.softProof.enabled { SoftProofControls(proof: model.softProof) }
             }
             .padding(DS.Space.s)
             Divider()

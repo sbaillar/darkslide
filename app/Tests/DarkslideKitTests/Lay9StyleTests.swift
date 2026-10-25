@@ -189,19 +189,24 @@ import Testing
         base.exposure.ev = 1
         t.refresh(photo: Self.photo(), edit: base, presets: presets)
         await t.settle()
-        #expect(t.images.count == 3 && rec.count == 3)
-        #expect(rec.edits[0] == presets[0].apply(to: base), "tiles show the style on the photo's own edit")
+        #expect(t.images.count == 4 && rec.count == 4, "three styles and the Original")
+        #expect(rec.edits[0] == EditState(), "the Original tile first: the photo with no adjustments")
+        #expect(rec.edits[1] == presets[0].apply(to: base), "tiles show the style on the photo's own edit")
         t.refresh(photo: Self.photo(), edit: base, presets: presets)
         await t.settle()
-        #expect(rec.count == 3, "cached")
+        #expect(rec.count == 4, "cached")
         t.invalidate(presets[1].id)
         t.refresh(photo: Self.photo(), edit: base, presets: presets)
         await t.settle()
-        #expect(rec.count == 4)
+        #expect(rec.count == 5)
         base.exposure.ev = 2
         t.refresh(photo: Self.photo(), edit: base, presets: presets)
+        // A click on a style changes the edit: the tiles stay up (dimmed) until each new one lands.
+        #expect(presets.allSatisfy { t.tile($0.id)?.isStale == true }, "no tile blanks while the new ones render")
+        #expect(t.tile(StyleThumbnails.originalID)?.isStale == false, "the Original doesn't depend on the edit")
         await t.settle()
-        #expect(rec.count == 7 && t.renders == 7, "a new edit re-renders every tile")
+        #expect(rec.count == 8 && t.renders == 8, "a new edit re-renders every style tile, not the Original")
+        #expect(t.stale.isEmpty && presets.allSatisfy { t.tile($0.id)?.isStale == false })
         // A look's tile on a photo that already has the look: what a click leaves, not
         // the look twice (Med 2).
         let cine = LookPack.look(id: "look.cinematic")!
@@ -210,7 +215,7 @@ import Testing
         await t.settle()
         #expect(rec.edits.last == withLook)
         t.refresh(photo: nil, edit: base, presets: presets)
-        #expect(t.images.isEmpty)
+        #expect(t.images.isEmpty && t.stale.isEmpty)
         var video = Self.photo(2)
         video.url = URL(fileURLWithPath: "/tmp/clip.MP4")
         t.refresh(photo: video, edit: base, presets: presets)
@@ -218,11 +223,38 @@ import Testing
         t.cancel()
     }
 
+    @Test func anotherPhotosTilesNeverShowEvenDimmed() async {
+        let t = StyleThumbnails(render: { _, _ in Self.image() })
+        let presets = Array(Preset.builtIns.prefix(2))
+        t.refresh(photo: Self.photo(1), edit: EditState(), presets: presets)
+        await t.settle()
+        t.refresh(photo: Self.photo(2), edit: EditState(), presets: presets)
+        #expect(t.images.isEmpty && t.stale.isEmpty, "a new photo starts from the icons")
+        await t.settle()
+        #expect(t.tile(StyleThumbnails.originalID) != nil && presets.allSatisfy { t.tile($0.id) != nil })
+        t.cancel()
+    }
+
+    @Test func originalGoesBackToThePhotoAsShotInOneUndoStep() async {
+        let m = makeModel()
+        await m.start()
+        m.updateEdit(label: "Exposure") { $0.exposure.ev = 1 }
+        m.applyPresets([Preset.builtIns[0]])
+        let styled = m.focusedEdit
+        #expect(styled != EditState())
+        let depth = m.history.undoStack.count
+        m.resetToOriginal()
+        #expect(m.focusedEdit == EditState(), "no adjustments at all")
+        #expect(m.history.undoStack.count == depth + 1 && m.history.undoLabel == "Original")
+        m.undo()
+        #expect(m.focusedEdit == styled, "one undo brings the styled edit back")
+    }
+
     @Test func failuresLeaveTheIconAndNoRendererMeansNoTiles() async {
         let t = StyleThumbnails(render: { _, _ in throw MockError.invalid("x") })
         t.refresh(photo: Self.photo(), edit: EditState(), presets: Array(Preset.builtIns.prefix(2)))
         await t.settle()
-        #expect(t.images.isEmpty && t.renders == 2)
+        #expect(t.images.isEmpty && t.renders == 3)
         let none = StyleThumbnails(render: nil)
         #expect(!none.isAvailable)
         none.refresh(photo: Self.photo(), edit: EditState(), presets: Preset.builtIns)

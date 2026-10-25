@@ -402,7 +402,7 @@ Amazon Photos backup is a hand-off: Darkslide copies originals into a local fold
 
 ## Documentation
 
-- [User guide (PDF)](docs/Darkslide-User-Guide.pdf), built from [docs/user-guide/](docs/user-guide/) with `scripts/user-guide.sh`
+- [User guide](docs/user-guide/README.md), one Markdown file per chapter, and as a [PDF](docs/Darkslide-User-Guide.pdf) built from them with `scripts/user-guide.sh`
 - [Architecture and performance budgets](docs/ARCHITECTURE.md) · [Rust↔Swift FFI](docs/FFI.md) · [Benchmark method](docs/BENCHMARKS.md)
 - [Supported cameras](docs/CAMERAS.md) · [Plug-ins](docs/PLUGINS.md) · [Mac ↔ iPad link protocol](docs/REMOTE.md) · [Google Photos setup](docs/GOOGLE_PHOTOS.md)
 - [Capture One mapping](docs/C1_FORMAT.md) · [Lightroom mapping](docs/LR_FORMAT.md) · [Aperture and iPhoto mapping](docs/APPLE_FORMAT.md) · [AI Denoise model](docs/DENOISE_MODEL.md) · [AI Upscale model](docs/UPSCALE_MODEL.md)

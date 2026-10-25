@@ -34,6 +34,12 @@ extension AppModel {
         updateEdit(label: label) { e in e = Preset.apply(stack, to: e) }
     }
 
+    /// The Styles panel's Original row: the photo back as shot, no adjustments at all
+    /// (the focused image, or all selected with Edit All Selected). One undo step.
+    public func resetToOriginal() {
+        updateEdit(label: "Original") { $0 = EditState() }
+    }
+
     /// The focused edit as a click on `preset`'s row leaves it (hover preview; a look's row
     /// applies the look), or nil without a focused image.
     public func previewEdit(applying preset: Preset) -> EditState? {

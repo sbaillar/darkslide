@@ -108,7 +108,7 @@ import Testing
         let loupe = PickerLoupe()
         let start = loupe.visibleRadius
         loupe.scroll(by: 3)
-        #expect(loupe.magnification > 9 && loupe.visibleRadius < start, "scroll up magnifies")
+        #expect(loupe.magnification > 3 && loupe.visibleRadius < start, "scroll up magnifies")
         loupe.scroll(by: -100)
         #expect(loupe.magnification == PickerLoupe.magnificationRange.lowerBound)
         loupe.scroll(by: 100)

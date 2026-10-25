@@ -1,16 +1,14 @@
 import DarkslideCore
 import SwiftUI
 
-/// Soft proof switch and settings under the histogram: profile, intent, black point
-/// compensation and the gamut warning (logic in `SoftProofModel`).
+/// Soft proof settings under the histogram while it's on: profile, intent, black point
+/// compensation and the gamut warning (logic in `SoftProofModel`). The switch itself
+/// sits with Clipping and Focus peaking.
 struct SoftProofControls: View {
     let proof: SoftProofModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.xs) {
-            Toggle("Soft proof", isOn: Binding(get: { proof.enabled }, set: { proof.setEnabled($0) }))
-                .toggleStyle(.checkbox)
-                .help("Show the photo as it will look in the chosen profile (⇧S)")
             if proof.enabled {
                 Picker("Profile", selection: Binding(get: { proof.settings.profile }, set: { $0.map(proof.setProfile) })) {
                     if let p = proof.settings.profile, !proof.profiles.contains(p) { Text(p.name).tag(Optional(p)) }
@@ -48,5 +46,6 @@ struct SoftProofControls: View {
         }
         .font(DS.Font.caption)
         .foregroundStyle(DS.textSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

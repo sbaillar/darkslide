@@ -3,11 +3,70 @@ import DarkslideCore
 import DarkslideUI
 import SwiftUI
 
-/// ⌘, window: General, Familiar, Shortcuts, RAW, the integrations that are on (Archive,
-/// Amazon Photos, Google Photos, Immich), AI, Voice, Devices, Plugins, Updates.
+/// A Settings pane, in sidebar order.
+enum SettingsPane: String, CaseIterable, Identifiable {
+    case general, familiar, shortcuts, raw, archive, amazonPhotos, googlePhotos, immich, ai, voice, devices, plugins, updates
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .familiar: "Familiar"
+        case .shortcuts: "Shortcuts"
+        case .raw: "RAW"
+        case .archive: "Archive"
+        case .amazonPhotos: "Amazon Photos"
+        case .googlePhotos: "Google Photos"
+        case .immich: "Immich"
+        case .ai: "AI"
+        case .voice: "Voice"
+        case .devices: "Devices"
+        case .plugins: "Plugins"
+        case .updates: "Updates"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .familiar: "rectangle.split.3x1"
+        case .shortcuts: "keyboard"
+        case .raw: "camera.aperture"
+        case .archive: "externaldrive.badge.icloud"
+        case .amazonPhotos: "icloud.and.arrow.up"
+        case .googlePhotos: "photo.on.rectangle.angled"
+        case .immich: "photo.stack"
+        case .ai: "sparkles"
+        case .voice: "mic"
+        case .devices: "ipad.landscape"
+        case .plugins: "puzzlepiece.extension"
+        case .updates: "arrow.down.circle"
+        }
+    }
+
+    /// The panes shown: an integration that is off (Settings ▸ Plugins) or unavailable
+    /// has none; its settings are kept.
+    static func visible(isOn: (NativeFeature) -> Bool, googlePhotos: Bool, immich: Bool) -> [SettingsPane] {
+        allCases.filter {
+            switch $0 {
+            case .archive: isOn(.archive)
+            case .amazonPhotos: isOn(.amazonPhotos)
+            case .googlePhotos: googlePhotos && isOn(.googlePhotos)
+            case .immich: immich && isOn(.immich)
+            default: true
+            }
+        }
+    }
+}
+
+/// ⌘, window: a sidebar of panes (General, Familiar, Shortcuts, RAW, the integrations
+/// that are on, AI, Voice, Devices, Plugins, Updates). A sidebar rather than toolbar
+/// tabs: with the integrations on there are more panes than a toolbar fits, and macOS
+/// greys out the tabs it moves into the overflow menu.
 struct PreferencesView: View {
     @Bindable var settings: AppSettings
-    /// Settings ▸ Plugins: an integration that is off has no tab (its settings are kept).
+    /// Settings ▸ Plugins: an integration that is off has no pane (its settings are kept).
     let features: FeatureGates
     let voice: VoiceController
     let remote: RemoteLinkModel
@@ -15,46 +74,50 @@ struct PreferencesView: View {
     /// Settings ▸ Immich (live only).
     var immich: ImmichModel?
     let updater: Updater
+    @State private var selection: SettingsPane? = .general
 
     var body: some View {
-        TabView {
-            SettingsView(settings: settings)
-                .tabItem { Label("General", systemImage: "gearshape") }
-            FamiliarSettingsView(settings: settings)
-                .tabItem { Label("Familiar", systemImage: "rectangle.split.3x1") }
-            ShortcutsSettingsView(settings: settings)
-                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
-            RawSettingsView(helper: RawlerHelper.shared)
-                .tabItem { Label("RAW", systemImage: "camera.aperture") }
-            if features.isOn(.archive) {
-                ArchiveSettingsView(model: ArchiveSettingsModel(settings: settings))
-                    .tabItem { Label("Archive", systemImage: "externaldrive.badge.icloud") }
+        let panes = SettingsPane.visible(isOn: features.isOn, googlePhotos: googlePhotos != nil, immich: immich != nil)
+        NavigationSplitView {
+            List(panes, selection: $selection) { pane in
+                Label(pane.title, systemImage: pane.symbol).tag(pane)
             }
-            if features.isOn(.amazonPhotos) {
-                AmazonPhotosSettingsView(model: ArchiveSettingsModel(settings: settings))
-                    .tabItem { Label("Amazon Photos", systemImage: "icloud.and.arrow.up") }
-            }
-            if let googlePhotos, features.isOn(.googlePhotos) {
+            .navigationSplitViewColumnWidth(170)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            // A pane turned off while shown (Settings ▸ Plugins) falls back to General.
+            let pane = selection.flatMap { panes.contains($0) ? $0 : nil } ?? .general
+            // Each pane brings its own Form or scroll view.
+            detail(pane)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .navigationTitle(pane.title)
+        }
+        .frame(width: 760, height: 560)
+    }
+
+    @ViewBuilder private func detail(_ pane: SettingsPane) -> some View {
+        switch pane {
+        case .general: SettingsView(settings: settings)
+        case .familiar: FamiliarSettingsView(settings: settings)
+        case .shortcuts: ShortcutsSettingsView(settings: settings)
+        case .raw: RawSettingsView(helper: RawlerHelper.shared)
+        case .archive: ArchiveSettingsView(model: ArchiveSettingsModel(settings: settings))
+        case .amazonPhotos: AmazonPhotosSettingsView(model: ArchiveSettingsModel(settings: settings))
+        case .googlePhotos:
+            if let googlePhotos {
                 GooglePhotosSettingsView(settings: GooglePhotosSettings(defaults: settings.userDefaults), service: googlePhotos)
-                    .tabItem { Label("Google Photos", systemImage: "photo.on.rectangle.angled") }
             }
-            if let immich, features.isOn(.immich) {
+        case .immich:
+            if let immich {
                 ImmichSettingsView(model: immich, archiveTarget: settings.archiveTarget,
                                    objectStorage: settings.archiveDestination == .object)
-                    .tabItem { Label("Immich", systemImage: "photo.stack") }
             }
-            AISettingsView(model: AISettingsModel(jev: JevSettings(defaults: settings.userDefaults))) // [nl9]
-                .tabItem { Label("AI", systemImage: "sparkles") }
-            VoiceSettingsView(settings: settings, voice: voice)
-                .tabItem { Label("Voice", systemImage: "mic") }
-            DevicesSettingsView(model: remote) // [remote]
-                .tabItem { Label("Devices", systemImage: "ipad.landscape") }
-            PluginsSettingsView(store: PluginStore.shared)
-                .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }
-            UpdateSettingsView(updater: updater)
-                .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
+        case .ai: AISettingsView(model: AISettingsModel(jev: JevSettings(defaults: settings.userDefaults))) // [nl9]
+        case .voice: VoiceSettingsView(settings: settings, voice: voice)
+        case .devices: DevicesSettingsView(model: remote) // [remote]
+        case .plugins: PluginsSettingsView(store: PluginStore.shared)
+        case .updates: UpdateSettingsView(updater: updater)
         }
-        .frame(width: 560)
     }
 }
 
