@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "bench-result-v1.schema.json",
-  "title": "Darkslide benchmark result, version 1",
+  "title": "Luxtable benchmark result, version 1",
   "description": "One benchmark run on one Mac: apps, machine, cameras, test pack, settings and per-operation summaries. Never contains serial numbers, file names, paths, GPS, user or host names, or photos (docs/BENCHMARKS.md, Sharing results).",
   "type": "object",
   "additionalProperties": false,
@@ -18,7 +18,7 @@
   "properties": {
     "schema": {
       "type": "string",
-      "const": "darkslide-bench-result"
+      "const": "luxtable-bench-result"
     },
     "schemaVersion": {
       "type": "integer",

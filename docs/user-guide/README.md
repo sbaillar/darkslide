@@ -1,8 +1,8 @@
-# Darkslide User Guide
+# Luxtable User Guide
 
-How to import, cull, develop, export and archive your RAW photos with Darkslide for macOS. Read it here, one chapter per file, or as the [PDF](../Darkslide-User-Guide.pdf).
+How to import, cull, develop, export and archive your RAW photos with Luxtable for macOS. Read it here, one chapter per file, or as the [PDF](../Luxtable-User-Guide.pdf).
 
-1. [Welcome to Darkslide](00-introduction.md#welcome-to-darkslide): the ideas behind it and the main window
+1. [Welcome to Luxtable](00-introduction.md#welcome-to-luxtable): the ideas behind it and the main window
 2. [Install and first run](01-install.md#install-and-first-run): download or build, first-run setup, the RAW helper and updates
 3. [Sessions](02-sessions.md#sessions): new, open and close, folders opened in place, missing files
 4. [Importing from a memory card](03-import.md#importing-from-a-memory-card): options and what makes it safe
@@ -27,7 +27,7 @@ The PDF is built from the numbered `NN-*.md` files, in order, with [pandoc](http
 
 ```sh
 brew install pandoc weasyprint
-scripts/user-guide.sh              # writes docs/Darkslide-User-Guide.pdf
+scripts/user-guide.sh              # writes docs/Luxtable-User-Guide.pdf
 scripts/user-guide.sh --diagrams   # also re-renders diagrams/*.mmd to img/*.svg (needs Google Chrome)
 ```
 

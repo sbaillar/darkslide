@@ -3,26 +3,26 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>@BUNDLE_ID@</string>
-  <key>CFBundleName</key><string>Darkslide</string>
-  <key>CFBundleDisplayName</key><string>Darkslide</string>
-  <key>CFBundleExecutable</key><string>Darkslide</string>
+  <key>CFBundleName</key><string>Luxtable</string>
+  <key>CFBundleDisplayName</key><string>Luxtable</string>
+  <key>CFBundleExecutable</key><string>Luxtable</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>@VERSION@</string>
   <key>CFBundleVersion</key><string>@BUILD_NUMBER@</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
-  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 The Darkslide Authors</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 The Luxtable Authors</string>
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.photography</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
-  <key>NSDocumentsFolderUsageDescription</key><string>Darkslide keeps your sessions in a folder you choose.</string>
-  <key>NSDesktopFolderUsageDescription</key><string>Darkslide imports photos from your Desktop folder when you choose it, and never modifies the originals.</string>
-  <key>NSDownloadsFolderUsageDescription</key><string>Darkslide imports photos from your Downloads folder when you choose it, and never modifies the originals.</string>
-  <key>NSRemovableVolumesUsageDescription</key><string>Darkslide imports photos from memory cards and never modifies them.</string>
-  <key>NSNetworkVolumesUsageDescription</key><string>Darkslide archives sessions to your network photo share.</string>
-  <key>NSLocalNetworkUsageDescription</key><string>Darkslide archives sessions to a NAS on your local network and keeps albums in your Immich server up to date.</string>
+  <key>NSDocumentsFolderUsageDescription</key><string>Luxtable keeps your sessions in a folder you choose.</string>
+  <key>NSDesktopFolderUsageDescription</key><string>Luxtable imports photos from your Desktop folder when you choose it, and never modifies the originals.</string>
+  <key>NSDownloadsFolderUsageDescription</key><string>Luxtable imports photos from your Downloads folder when you choose it, and never modifies the originals.</string>
+  <key>NSRemovableVolumesUsageDescription</key><string>Luxtable imports photos from memory cards and never modifies them.</string>
+  <key>NSNetworkVolumesUsageDescription</key><string>Luxtable archives sessions to your network photo share.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>Luxtable archives sessions to a NAS on your local network and keeps albums in your Immich server up to date.</string>
   <!-- Immich servers on the local network often have no TLS: plain http to .local and unqualified hosts (IP addresses are never blocked). -->
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
   <key>NSMicrophoneUsageDescription</key><string>Voice commands listen for culling commands like “next” and “five”. Audio stays on this Mac.</string>
@@ -30,24 +30,24 @@
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>
-      <key>UTTypeIdentifier</key><string>casa.baillargeon.darkslide.tool-panel</string>
-      <key>UTTypeDescription</key><string>Darkslide tool</string>
+      <key>UTTypeIdentifier</key><string>app.luxtable.Luxtable.tool-panel</string>
+      <key>UTTypeDescription</key><string>Luxtable tool</string>
       <key>UTTypeConformsTo</key><array><string>public.data</string></array>
     </dict>
     <dict>
-      <key>UTTypeIdentifier</key><string>casa.baillargeon.darkslide.tool-tab</string>
-      <key>UTTypeDescription</key><string>Darkslide tool tab</string>
+      <key>UTTypeIdentifier</key><string>app.luxtable.Luxtable.tool-tab</string>
+      <key>UTTypeDescription</key><string>Luxtable tool tab</string>
       <key>UTTypeConformsTo</key><array><string>public.data</string></array>
     </dict>
     <dict>
-      <key>UTTypeIdentifier</key><string>casa.baillargeon.darkslide.plugin</string>
-      <key>UTTypeDescription</key><string>Darkslide plug-in</string>
+      <key>UTTypeIdentifier</key><string>app.luxtable.Luxtable.plugin</string>
+      <key>UTTypeDescription</key><string>Luxtable plug-in</string>
       <key>UTTypeConformsTo</key><array><string>com.apple.package</string></array>
-      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>dsplugin</string></array></dict>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>ltplugin</string><string>dsplugin</string></array></dict>
     </dict>
     <dict>
-      <key>UTTypeIdentifier</key><string>casa.baillargeon.darkslide.photos</string>
-      <key>UTTypeDescription</key><string>Darkslide photos</string>
+      <key>UTTypeIdentifier</key><string>app.luxtable.Luxtable.photos</string>
+      <key>UTTypeDescription</key><string>Luxtable photos</string>
       <key>UTTypeConformsTo</key><array><string>public.data</string></array>
     </dict>
   </array>

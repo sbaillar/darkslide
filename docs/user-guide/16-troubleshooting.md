@@ -1,16 +1,16 @@
 # Troubleshooting
 
-## "Darkslide can't develop this file yet"
+## "Luxtable can't develop this file yet"
 
 Many RAW formats need the [RAW helper](01-install.md#the-raw-helper): click **Get RAW Helper** on the photo, or open Settings ▸ RAW. Fujifilm X-Trans RAFs and Nikon High Efficiency (HE/HE\*) NEFs import and cull from their embedded previews, but don't develop yet. A few rare formats (Canon CRW, Sigma X3F, Phase One IIQ, ARRI) are refused. `docs/CAMERAS.md` lists what is tested.
 
 ## A session or photos show as disconnected or missing
 
-Connect the drive they are on. If you moved the files, use **Locate…** or **Locate Folder…**; files moved by Darkslide itself or renamed are found by content. Nothing is removed while a drive is away.
+Connect the drive they are on. If you moved the files, use **Locate…** or **Locate Folder…**; files moved by Luxtable itself or renamed are found by content. Nothing is removed while a drive is away.
 
 ## AI Denoise is unavailable
 
-The app was built with `DS_SKIP_MODELS=1`, or without Python 3.13 or a network connection at build time. Rebuild without that variable.
+The app was built with `LT_SKIP_MODELS=1`, or without Python 3.13 or a network connection at build time. Rebuild without that variable.
 
 ## An AI tool says its model isn't installed
 
@@ -42,4 +42,4 @@ Settings ▸ Familiar may be set to Lightroom Classic or Capture One keys, or a 
 
 ## Reporting a problem
 
-Open an issue at [github.com/sbaillar/darkslide](https://github.com/sbaillar/darkslide). Report security issues privately, as described in `SECURITY.md`.
+Open an issue at [github.com/sbaillar/luxtable](https://github.com/sbaillar/luxtable). Report security issues privately, as described in `SECURITY.md`.

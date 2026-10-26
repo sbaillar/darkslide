@@ -2,11 +2,11 @@
 
 ## Library mode
 
-Library mode is Darkslide's catalog: the photos of every session in one fast grid, without opening each session. Open it in any of these ways:
+Library mode is Luxtable's catalog: the photos of every session in one fast grid, without opening each session. Open it in any of these ways:
 
 - Choose **Library** in the toolbar's view switch.
 - **File ▸ Browse All Sessions in Library** (`⇧⌘L`), or **Browse All Sessions in Library** in the Open Session sheet.
-- To start Darkslide in the Library, set **Settings ▸ General ▸ Open in** to **Library (catalog)** (the default is **Session**). No session is opened at launch then; the one that would have opened opens when you leave the Library.
+- To start Luxtable in the Library, set **Settings ▸ General ▸ Open in** to **Library (catalog)** (the default is **Session**). No session is opened at launch then; the one that would have opened opens when you leave the Library.
 
 In the Library:
 
@@ -33,4 +33,4 @@ Choose **Map** in the view switch to see where photos were taken, from the camer
 
 - Click a marker, **Draw Area**, or use **Filter to View** to show only the photos in that part of the map.
 - Drag photos from the filmstrip onto the map to set their location. It is kept in the sidecar, never written to the RAW file, and **Remove Location** takes it off again.
-- Map tiles come from Apple Maps, so the areas you look at are requested from Apple. Darkslide asks once before showing the map, and Settings ▸ General turns it off. Your photos and their locations are never uploaded.
+- Map tiles come from Apple Maps, so the areas you look at are requested from Apple. Luxtable asks once before showing the map, and Settings ▸ General turns it off. Your photos and their locations are never uploaded.

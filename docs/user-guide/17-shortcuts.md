@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-These are Darkslide's default keys. Single keys can be changed in Settings ▸ Shortcuts, and Settings ▸ Familiar switches to Lightroom Classic or Capture One keys. Press `?` in the app to see the keys in use.
+These are Luxtable's default keys. Single keys can be changed in Settings ▸ Shortcuts, and Settings ▸ Familiar switches to Lightroom Classic or Capture One keys. Press `?` in the app to see the keys in use.
 
 ## Navigate and view
 

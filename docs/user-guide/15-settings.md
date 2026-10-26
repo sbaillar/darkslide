@@ -5,7 +5,7 @@ Open Settings with `⌘,`. Its panes are listed in a sidebar on the left; an int
 | Pane | What it sets |
 |---|---|
 | **General** | Appearance, the sessions folder, **Open in** (the last session or the Library), opening the import sheet when a card is inserted, your name and copyright for exports, the new-session name, map tiles, and Show Welcome Again |
-| **Familiar** | Layout, keyboard shortcuts and names like Darkslide, Lightroom Classic or Capture One |
+| **Familiar** | Layout, keyboard shortcuts and names like Luxtable, Lightroom Classic or Capture One |
 | **Shortcuts** | Rebind every single-key command; a key already in use moves to the new command |
 | **RAW** | Download or remove the RAW helper |
 | **Archive** | The destination (a folder or S3-compatible object storage), the interval and whether rejects are archived (while the Archive integration is on) |

@@ -1,8 +1,8 @@
 # Native RAW decoders
 
-`ds-raw` decodes RAW sensor data with its own Apache-2.0 code first (`crates/ds-raw/src/native/`).
-The LGPL-2.1 `rawler` crate covers the rest, but Darkslide.app doesn't link it: it runs in the
-separate, optional **rawler helper** (`darkslide-rawler`, [crates/ds-rawler](../crates/ds-rawler/README.md)),
+`lt-raw` decodes RAW sensor data with its own Apache-2.0 code first (`crates/lt-raw/src/native/`).
+The LGPL-2.1 `rawler` crate covers the rest, but Luxtable.app doesn't link it: it runs in the
+separate, optional **rawler helper** (`luxtable-rawler`, [crates/lt-rawler](../crates/lt-rawler/README.md)),
 which users download from Settings ▸ RAW. This document records
 what the native decoders cover, where each one's knowledge comes from, how they compare with
 rawler, and what is left.
@@ -11,16 +11,16 @@ rawler, and what is left.
 
 | Build | What happens |
 |---|---|
-| default (no features: the app, `ds-ffi`, `ds-remote`) | No rawler in the binary. Native decoders first; a native result or error is final, so a covered file decodes identically in every build. What they don't cover (format, compression, the camera data of non-DNG cameras, metadata of non-TIFF containers, `write_linear_dng`) goes to the **rawler helper** when one is set (`ds_raw::set_rawler_helper`, the FFI's `set_rawler_helper`, or `DS_RAWLER_HELPER`). Without one it is `RawError::Unsupported` ("… needs the rawler helper, which isn't installed"), which the app shows over the embedded preview with a Get RAW Helper button. |
-| `rawler` feature (`ds-rawler`, the tests, the benchmarks) | rawler linked in and used in process; the helper is never asked. |
+| default (no features: the app, `lt-ffi`, `lt-remote`) | No rawler in the binary. Native decoders first; a native result or error is final, so a covered file decodes identically in every build. What they don't cover (format, compression, the camera data of non-DNG cameras, metadata of non-TIFF containers, `write_linear_dng`) goes to the **rawler helper** when one is set (`lt_raw::set_rawler_helper`, the FFI's `set_rawler_helper`, or `LT_RAWLER_HELPER`). Without one it is `RawError::Unsupported` ("… needs the rawler helper, which isn't installed"), which the app shows over the embedded preview with a Get RAW Helper button. |
+| `rawler` feature (`lt-rawler`, the tests, the benchmarks) | rawler linked in and used in process; the helper is never asked. |
 
-The helper is one process per request (`crates/ds-raw/src/helper.rs`): the command on its command
+The helper is one process per request (`crates/lt-raw/src/helper.rs`): the command on its command
 line, the RAW's own open descriptor (or an unlinked temporary file) as its stdin, a status byte and
-length-prefixed parts on its stdout. Both ends of the protocol live in `helper.rs`; `ds-rawler`'s
+length-prefixed parts on its stdout. Both ends of the protocol live in `helper.rs`; `lt-rawler`'s
 `main` only moves bytes. A rawler crash or runaway allocation ends the helper, not the app. Camera
-data answers are cached per camera. `crates/ds-rawler/tests/helper.rs` checks the built helper's
+data answers are cached per camera. `crates/lt-rawler/tests/helper.rs` checks the built helper's
 decodes against the in-process ones (every corpus file and the A9 samples: identical);
-`crates/ds-raw/tests/without_rawler.rs` runs the routing in a build without the feature.
+`crates/lt-raw/tests/without_rawler.rs` runs the routing in a build without the feature.
 
 `RawFile::decode_native`, `RawFile::decode_rawler` and `RawFile::decode_with_helper` (hidden from
 the docs) run one side only, for the parity tests and the benchmark. Tests that need rawler's
@@ -48,15 +48,15 @@ bit-identically). The colour model is the `ColorMatrix` one of `crate::color`; `
 
 DNGs carry their colour matrix, levels and crop. The other formats need per-camera data that
 isn't in the file: the colour matrix always, and for some formats the crop or white level.
-`crates/ds-raw/src/cameras.rs` looks it up in, in order:
+`crates/lt-raw/src/cameras.rs` looks it up in, in order:
 
-1. **Darkslide's own table** (`cameras::TABLE`), with a provenance string per row. The only
+1. **Luxtable's own table** (`cameras::TABLE`), with a provenance string per row. The only
    allowed sources are ones that can be redistributed under Apache-2.0. Today that is one row:
    the Pentax K-3 Mark III, whose matrix and crop the camera itself wrote into
    `pentax-k-3-mark-iii.dng` of the CC0 corpus. With it a K-3 III PEF develops without rawler.
 2. **rawler's camera database** (with the `rawler` feature), through its public API: matrices,
    crop margins, white levels, CFA phase. The data stays in the LGPL crate; none of it is copied
-   into Darkslide.
+   into Luxtable.
 
 Without either, a non-DNG file is `Unsupported` ("no colour matrix for this camera"). File data
 wins over table data: NEF crop (maker note 0x45), CR2 crop (`SensorInfo`), PEF white level
@@ -95,8 +95,8 @@ the SR2 cipher's algorithm. Whether that needs a clean re-derivation is noted he
 
 ## Parity with rawler
 
-`crates/ds-raw/tests/compat.rs` `native_decoders_match_rawler` decodes every corpus file
-(`DS_RAWCOMPAT_DIR`, see CAMERAS.md) and two A9 samples both ways and asserts identical sensor
+`crates/lt-raw/tests/compat.rs` `native_decoders_match_rawler` decodes every corpus file
+(`LT_RAWCOMPAT_DIR`, see CAMERAS.md) and two A9 samples both ways and asserts identical sensor
 data: size (the crop), CFA, black and white levels and every sample. Understood differences are
 listed in the test (`KNOWN`) and reported, not failed:
 
@@ -115,7 +115,7 @@ camera table's in-camera-DNG matrix instead of rawler's database matrix.
 
 ## Performance
 
-Criterion, `cargo bench -p ds-raw --bench raw -- decode/` with `DS_RAWCOMPAT_DIR` set: full decode
+Criterion, `cargo bench -p lt-raw --bench raw -- decode/` with `LT_RAWCOMPAT_DIR` set: full decode
 to `RawImage`, release, M4 Pro, file in page cache, median of 10.
 
 | File | Format | Native (ms) | rawler (ms) | Speed-up |

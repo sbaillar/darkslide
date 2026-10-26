@@ -13,7 +13,7 @@ screen driver as the other apps. Settings: docs/BENCHMARKS.md, Equivalent settin
   - Camera Raw cache: 20 GB.
 - [ ] Catalog Settings ▸ File Handling: Standard Preview Size **2560 px**, quality High.
 - [ ] Create an empty catalog, `Bench.lrcat`, in a scratch folder.
-- [ ] Export preset "Darkslide Bench":
+- [ ] Export preset "Luxtable Bench":
   - JPEG, quality 90, sRGB;
   - no resize, no output sharpening;
   - metadata: All;
@@ -36,9 +36,9 @@ screen driver as the other apps. Settings: docs/BENCHMARKS.md, Equivalent settin
 4. [ ] **Open:** quit, relaunch, open the catalog. Time from the double-click to the grid
    showing every photo.
 5. [ ] **Viewer:** select the first photo in Develop (D), then run:
-   `DS_SUPPORT_ROOT=$(mktemp -d) dist/Darkslide.app/Contents/MacOS/Darkslide --bench-drive bench/plans/lightroom.json --out <out>/results/lightroom-screen-r<k>.csv --run <k> --mode cold`
+   `LT_SUPPORT_ROOT=$(mktemp -d) dist/Luxtable.app/Contents/MacOS/Luxtable --bench-drive bench/plans/lightroom.json --out <out>/results/lightroom-screen-r<k>.csv --run <k> --mode cold`
    (Lightroom must be frontmost and the only Lightroom running: the driver stops otherwise.)
-6. [ ] **Export:** select all (⌘A), File ▸ Export with Preset ▸ Darkslide Bench. Time from
+6. [ ] **Export:** select all (⌘A), File ▸ Export with Preset ▸ Luxtable Bench. Time from
    the click to the progress bar finishing.
 
 Add the stopwatch times to `<out>/results/lightroom-manual.csv`, one row each (ms):

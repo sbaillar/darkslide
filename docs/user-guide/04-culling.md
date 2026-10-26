@@ -1,6 +1,6 @@
 # Culling
 
-Culling is choosing the keepers. Darkslide is built so you can do it with one hand on the keyboard: move with the arrows, and rate, label or flag with single keys. Each key can be changed in Settings ▸ Shortcuts.
+Culling is choosing the keepers. Luxtable is built so you can do it with one hand on the keyboard: move with the arrows, and rate, label or flag with single keys. Each key can be changed in Settings ▸ Shortcuts.
 
 ## Views and moving around
 
@@ -35,7 +35,7 @@ Culling is choosing the keepers. Darkslide is built so you can do it with one ha
 
 ## Burst stacks
 
-A burst is a run of frames shot in quick succession. Darkslide can show each burst as one stack, so you cull the moment once instead of frame by frame.
+A burst is a run of frames shot in quick succession. Luxtable can show each burst as one stack, so you cull the moment once instead of frame by frame.
 
 - **Stack bursts:** tick the **Stack bursts** checkbox beside the filmstrip's thumbnail size, or choose **View ▸ Stack Bursts**. It is on by default. Each burst then shows as one stack in the filmstrip and the grid, and the arrow keys step over it. Untick it to see and walk every frame.
 - `S` expands or collapses the focused stack. With stacking off, `S` turns it on, with every burst collapsed.

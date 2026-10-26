@@ -1,6 +1,6 @@
-# Contributing to Darkslide
+# Contributing to Luxtable
 
-Thanks for helping. Darkslide is a macOS RAW photo app with a Rust core (`crates/`) and a SwiftUI app (`app/`). Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the crate contracts and [CLAUDE.md](CLAUDE.md) for the engineering rules (performance budgets, coverage, no `unsafe` outside `ds-ffi` and GPU buffer mapping, atomic writes, never losing a user's file).
+Thanks for helping. Luxtable is a macOS RAW photo app with a Rust core (`crates/`) and a SwiftUI app (`app/`). Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the crate contracts and [CLAUDE.md](CLAUDE.md) for the engineering rules (performance budgets, coverage, no `unsafe` outside `lt-ffi` and GPU buffer mapping, atomic writes, never losing a user's file).
 
 ## Toolchain
 
@@ -15,15 +15,15 @@ Thanks for helping. Darkslide is a macOS RAW photo app with a Rust core (`crates
 Nothing in the build needs a secret, a signing certificate or the maintainers' photos:
 
 ```sh
-DS_SKIP_MODELS=1 scripts/build-app.sh --test   # build dist/Darkslide.app and run its self-test
-DS_SKIP_MODELS=1 scripts/build-app.sh --run    # build and launch
-dist/Darkslide.app/Contents/MacOS/Darkslide --demo   # synthetic photos; touches none of your files
+LT_SKIP_MODELS=1 scripts/build-app.sh --test   # build dist/Luxtable.app and run its self-test
+LT_SKIP_MODELS=1 scripts/build-app.sh --run    # build and launch
+dist/Luxtable.app/Contents/MacOS/Luxtable --demo   # synthetic photos; touches none of your files
 ```
 
-- `DS_SKIP_MODELS=1` skips converting the AI Denoise model (AI Denoise then shows as unavailable). The AI Upscale model is never bundled unless `DS_BUNDLE_UPSCALE=1`; the app offers to download it.
-- Without a "Darkslide Dev" signing identity the app is signed ad hoc. `scripts/make-signing-identity.sh` creates one so macOS keeps the app's permissions across rebuilds. Signing a distributable build (Developer ID, notarization) is opt-in and described in [docs/RELEASING.md](docs/RELEASING.md).
-- Tests that need real RAW files read them from the git-ignored `samples/` folder (or `$DS_SAMPLES_DIR`) and skip when it's absent. Synthetic tests cover the same logic, so every gate passes without samples.
-- Point dev and test runs at a scratch support folder with `DS_SUPPORT_ROOT=$(mktemp -d)`, so they never touch your real Darkslide data.
+- `LT_SKIP_MODELS=1` skips converting the AI Denoise model (AI Denoise then shows as unavailable). The AI Upscale model is never bundled unless `LT_BUNDLE_UPSCALE=1`; the app offers to download it.
+- Without a "Luxtable Dev" signing identity the app is signed ad hoc. `scripts/make-signing-identity.sh` creates one so macOS keeps the app's permissions across rebuilds. Signing a distributable build (Developer ID, notarization) is opt-in and described in [docs/RELEASING.md](docs/RELEASING.md).
+- Tests that need real RAW files read them from the git-ignored `samples/` folder (or `$LT_SAMPLES_DIR`) and skip when it's absent. Synthetic tests cover the same logic, so every gate passes without samples.
+- Point dev and test runs at a scratch support folder with `LT_SUPPORT_ROOT=$(mktemp -d)`, so they never touch your real Luxtable data.
 
 ## Gates
 
@@ -33,8 +33,8 @@ Every change must pass:
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                                    # or scripts/coverage.sh: line coverage ≥ 90 %
-DS_SUPPORT_ROOT=$(mktemp -d) scripts/test-app.sh          # Swift tests; non-View coverage ≥ 90 %
-DS_SKIP_MODELS=1 scripts/build-app.sh --test              # app self-test
+LT_SUPPORT_ROOT=$(mktemp -d) scripts/test-app.sh          # Swift tests; non-View coverage ≥ 90 %
+LT_SKIP_MODELS=1 scripts/build-app.sh --test              # app self-test
 scripts/licenses.sh --check                               # dependency licences; THIRD_PARTY_LICENSES.md current
 ```
 
@@ -56,16 +56,16 @@ It certifies that you wrote the change, or otherwise have the right to submit it
 
 ## Relinking rawler
 
-The optional RAW helper (`darkslide-rawler`, [crates/ds-rawler](crates/ds-rawler/README.md)) statically links [rawler](https://github.com/dnglab/dnglab), which is licensed under the LGPL-2.1. Darkslide.app itself doesn't link it. To build the helper with a modified rawler, add to the workspace `Cargo.toml`:
+The optional RAW helper (`luxtable-rawler`, [crates/lt-rawler](crates/lt-rawler/README.md)) statically links [rawler](https://github.com/dnglab/dnglab), which is licensed under the LGPL-2.1. Luxtable.app itself doesn't link it. To build the helper with a modified rawler, add to the workspace `Cargo.toml`:
 
 ```toml
 [patch.crates-io]
 rawler = { path = "../dnglab/rawler" }
 ```
 
-then run `scripts/build-rawler-helper.sh --install`. The helper is rebuilt and relinked against your rawler and installed where Darkslide looks for it.
+then run `scripts/build-rawler-helper.sh --install`. The helper is rebuilt and relinked against your rawler and installed where Luxtable looks for it.
 
-Tests that need rawler's camera data (most decode tests use synthetic Sony files) turn on `ds-raw`'s `rawler` feature through dev-dependencies; `scripts/test-app.sh` builds the helper and points the Swift tests at it with `DS_RAWLER_HELPER`.
+Tests that need rawler's camera data (most decode tests use synthetic Sony files) turn on `lt-raw`'s `rawler` feature through dev-dependencies; `scripts/test-app.sh` builds the helper and points the Swift tests at it with `LT_RAWLER_HELPER`.
 
 ## Releases (maintainers)
 

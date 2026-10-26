@@ -1,28 +1,29 @@
 #!/usr/bin/env bash
 # Build the AI Denoise model for the app bundle (once; cached) and print the path of
-# DarkslideDenoise.mlpackage. Exits non-zero, printing nothing on stdout, when it can't
+# LuxtableDenoise.mlpackage. Exits non-zero, printing nothing on stdout, when it can't
 # (no Python 3.13, no network, a check failed): the app is then built without AI Denoise.
 #
 #   scripts/denoise-model/build-model.sh                     convert if needed
-#   DS_SKIP_MODELS=1 scripts/denoise-model/build-model.sh    never convert (exits 1)
+#   LT_SKIP_MODELS=1 scripts/denoise-model/build-model.sh    never convert (exits 1)
 #
-# Cache: ${DS_MODEL_CACHE:-~/.cache/darkslide/models}/<upstream weights SHA-256>/<stamp>/,
+# Cache: ${LT_MODEL_CACHE:-~/.cache/luxtable/models}/<upstream weights SHA-256>/<stamp>/,
 # the stamp hashing this script, convert.py, nafnet.py and requirements.txt. A finished
 # folder is never modified (a new stamp gets a new folder), and concurrent builds take
 # turns on a lock (lockf) for the venv, the download and the conversion.
 set -euo pipefail
-[[ "${DS_SKIP_MODELS:-}" == 1 ]] && exit 1
+source "$(dirname "$0")/../lib/env-compat.sh"
+[[ "${LT_SKIP_MODELS:-}" == 1 ]] && exit 1
 HERE="$(cd "$(dirname "$0")" && pwd)"
-CACHE="${DS_MODEL_CACHE:-$HOME/.cache/darkslide/models}"
+CACHE="${LT_MODEL_CACHE:-$HOME/.cache/luxtable/models}"
 mkdir -p "$CACHE"
-if [[ -z "${DS_MODEL_LOCKED:-}" ]]; then
-  exec /usr/bin/lockf -t 3600 "$CACHE/.lock" /usr/bin/env DS_MODEL_LOCKED=1 "$0" "$@"
+if [[ -z "${LT_MODEL_LOCKED:-}" ]]; then
+  exec /usr/bin/lockf -t 3600 "$CACHE/.lock" /usr/bin/env LT_MODEL_LOCKED=1 "$0" "$@"
 fi
 
 WEIGHTS_SHA="$(/usr/bin/sed -n 's/^WEIGHTS_SHA256 = "\(.*\)"/\1/p' "$HERE/convert.py")"
 STAMP="$(cat "$HERE/build-model.sh" "$HERE/convert.py" "$HERE/nafnet.py" "$HERE/requirements.txt" | shasum -a 256 | cut -c1-16)"
 OUT="$CACHE/$WEIGHTS_SHA/$STAMP"
-PKG="$OUT/DarkslideDenoise.mlpackage"
+PKG="$OUT/LuxtableDenoise.mlpackage"
 if [[ -d "$PKG" ]]; then
   echo "$PKG"
   exit 0

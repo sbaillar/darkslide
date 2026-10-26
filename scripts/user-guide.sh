@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build docs/Darkslide-User-Guide.pdf from the user guide's Markdown chapters.
+# Build docs/Luxtable-User-Guide.pdf from the user guide's Markdown chapters.
 #
 #   scripts/user-guide.sh              the PDF (diagrams from the committed SVGs)
 #   scripts/user-guide.sh --diagrams   also re-render docs/user-guide/diagrams/*.mmd to img/*.svg
@@ -15,8 +15,9 @@
 # Screenshots come from docs/screenshots (scripts/screenshots.sh, demo mode).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib/env-compat.sh
 SRC="docs/user-guide"
-OUT="docs/Darkslide-User-Guide.pdf"
+OUT="docs/Luxtable-User-Guide.pdf"
 MERMAID="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 
@@ -52,11 +53,11 @@ filter="$PWD/scripts/user-guide/kbd.lua"
 # The cover page goes before the contents (its paths are relative to $SRC, like the chapters').
 cat >"$tmp/cover.html" <<'HTML'
 <section class="cover">
-  <img class="logo" src="../brand/darkslide-logo.png" alt="Darkslide">
+  <img class="logo" src="../brand/luxtable-logo.png" alt="Luxtable: the lowercase wordmark inside a camera viewfinder">
   <div class="title">User Guide</div>
   <div class="subtitle">Import, cull, develop, export and archive your RAW photos on a Mac</div>
   <img class="hero" src="../screenshots/grid.png" alt="">
-  <div class="foot">Darkslide is free software under the Apache License 2.0 · The Darkslide Authors</div>
+  <div class="foot">Luxtable is free software under the Apache License 2.0 · The Luxtable Authors</div>
 </section>
 HTML
 
@@ -72,11 +73,11 @@ build="$SRC/.guide.build.html"
   --lua-filter "$filter" \
   --css guide.css \
   --include-before-body "$tmp/cover.html" \
-  --metadata pagetitle="Darkslide User Guide" \
+  --metadata pagetitle="Luxtable User Guide" \
   --metadata toc-title="Contents" \
   --metadata lang=en \
-  --metadata author-meta="The Darkslide Authors" \
-  --metadata description-meta="How to import, cull, develop, export and archive photos with Darkslide for macOS.") |
+  --metadata author-meta="The Luxtable Authors" \
+  --metadata description-meta="How to import, cull, develop, export and archive photos with Luxtable for macOS.") |
   python3 -c '
 import re, sys
 # Screenshots: the JPEG copies. pandoc puts a text variation selector (U+FE0E) after

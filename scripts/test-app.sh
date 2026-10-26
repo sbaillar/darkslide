@@ -9,6 +9,7 @@
 # executable's main.swift. Fails under COVERAGE_MIN (default 90).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib/env-compat.sh
 ROOT="$PWD"
 SCRATCH="${SCRATCH:-$ROOT/app/.build}"
 
@@ -16,10 +17,10 @@ SCRATCH="${SCRATCH:-$ROOT/app/.build}"
 scripts/check-core-platform.sh
 
 scripts/ffi.sh >/dev/null
-# Darkslide.app runs the rawler helper only when the user installs it; the tests use the
+# Luxtable.app runs the rawler helper only when the user installs it; the tests use the
 # one built here (sample-free tests decode synthetic Sony files, whose colour matrix is
 # rawler's camera data).
-export DS_RAWLER_HELPER="${DS_RAWLER_HELPER:-$(scripts/build-rawler-helper.sh --quiet)}"
+export LT_RAWLER_HELPER="${LT_RAWLER_HELPER:-$(scripts/build-rawler-helper.sh --quiet)}"
 
 # With only the Command Line Tools, SwiftPM runs swift-testing tests only when
 # the Testing framework dir is passed on the command line (Package.swift flags
@@ -32,19 +33,19 @@ fi
 
 # Force a relink of the test bundle when the Rust archive changed.
 BIN_DIR="$(swift build --package-path app --scratch-path "$SCRATCH" --show-bin-path)"
-LIB_HASH="$(shasum -a 256 app/.rust/lib/libds_ffi.a | awk '{print $1}')"
-if [[ "$(cat "$BIN_DIR/.libds_ffi.linked" 2>/dev/null)" != "$LIB_HASH" ]]; then
-  /bin/rm -rf "$BIN_DIR/DarkslidePackageTests.xctest"
+LIB_HASH="$(shasum -a 256 app/.rust/lib/liblt_ffi.a | awk '{print $1}')"
+if [[ "$(cat "$BIN_DIR/.liblt_ffi.linked" 2>/dev/null)" != "$LIB_HASH" ]]; then
+  /bin/rm -rf "$BIN_DIR/LuxtablePackageTests.xctest"
 fi
 
-# Tests never touch the real ~/Library/Application Support/Darkslide (AppPaths).
-export DS_SUPPORT_ROOT="${DS_SUPPORT_ROOT:-$(mktemp -d -t darkslide-test-support)}"
+# Tests never touch the real ~/Library/Application Support/Luxtable (AppPaths).
+export LT_SUPPORT_ROOT="${LT_SUPPORT_ROOT:-$(mktemp -d -t luxtable-test-support)}"
 swift test --package-path app --scratch-path "$SCRATCH" --enable-code-coverage "${TEST_FLAGS[@]}" "$@"
-mkdir -p "$BIN_DIR" && echo "$LIB_HASH" >"$BIN_DIR/.libds_ffi.linked"
+mkdir -p "$BIN_DIR" && echo "$LIB_HASH" >"$BIN_DIR/.liblt_ffi.linked"
 
 PROFDATA="$BIN_DIR/codecov/default.profdata"
-XCTEST="$BIN_DIR/DarkslidePackageTests.xctest/Contents/MacOS/DarkslidePackageTests"
-IGNORE='(/\.build|/Tests/|/Views/|/DarkslideFFI/|/Sources/Darkslide/main\.swift|/App/DarkslideApp\.swift)'
+XCTEST="$BIN_DIR/LuxtablePackageTests.xctest/Contents/MacOS/LuxtablePackageTests"
+IGNORE='(/\.build|/Tests/|/Views/|/LuxtableFFI/|/Sources/Luxtable/main\.swift|/App/LuxtableApp\.swift)'
 
 echo
 xcrun llvm-cov report "$XCTEST" -instr-profile "$PROFDATA" -ignore-filename-regex "$IGNORE" \

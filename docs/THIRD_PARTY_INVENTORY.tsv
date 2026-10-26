@@ -1,6 +1,6 @@
-# Rust crates linked into Darkslide.app (cargo tree -p ds-ffi -e normal --target aarch64-apple-darwin, 2026-10-10).
+# Rust crates linked into Luxtable.app (cargo tree -p lt-ffi -e normal --target aarch64-apple-darwin, 2026-10-10).
 # Regenerate before each release; see docs/OPEN_SOURCE.md. Columns: crate, version, SPDX licence expression.
-# Pinned exactly: plist =1.10.1 (crates/ds-c1/Cargo.toml) for its unstable `stream` API (nesting is checked before a plist is built). cargo update and Renovate won't move it: bump it by hand, e.g. for an advisory, and re-check the `stream` API and the limits tests.
+# Pinned exactly: plist =1.10.1 (crates/lt-c1/Cargo.toml) for its unstable `stream` API (nesting is checked before a plist is built). cargo update and Renovate won't move it: bump it by hand, e.g. for an advisory, and re-check the `stream` API and the limits tests.
 crate	version	license
 addr2line	v0.25.1	Apache-2.0 OR MIT
 adler2	v2.0.1	0BSD OR MIT OR Apache-2.0

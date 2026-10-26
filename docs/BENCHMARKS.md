@@ -1,6 +1,6 @@
-# Benchmarks: Darkslide vs Capture One vs Lightroom Classic
+# Benchmarks: Luxtable vs Capture One vs Lightroom Classic
 
-How Darkslide is compared with Capture One and Lightroom Classic on the same Mac and
+How Luxtable is compared with Capture One and Lightroom Classic on the same Mac and
 the same RAW files, so anyone can rerun it. The kit is in `bench/` (bench/README.md);
 results are written as CSV/JSON plus a markdown report.
 
@@ -42,7 +42,7 @@ app whether or not it can be scripted.
 
 ### Operations
 
-| Operation | Stimulus | Done when | Darkslide | Capture One | Lightroom Classic |
+| Operation | Stimulus | Done when | Luxtable | Capture One | Lightroom Classic |
 |---|---|---|---|---|---|
 | Import N with previews | add the folder in place | every photo has its viewer preview at up to 2560 px | in-app | AppleScript `browse` + proxy files on disk | manual (checklist) |
 | Session / catalog open | open | all N listed | in-app | AppleScript `open` + `browse` | manual |
@@ -50,7 +50,7 @@ app whether or not it can be scripted.
 | Select → full-quality render | same | end of the first burst of changes followed by 0.5 s of quiet | in-app + screen | screen | screen |
 | Next photo, → held | → every 100 ms, 100 presses | the k-th photo change after press k (matched in order), else **missed** | in-app + screen | screen | screen |
 | Exposure change → redraw | exposure up ↔ back (see below) | first changed frame | in-app + screen | screen (AppleScript sets ±0.3 EV) | screen (click on the slider) |
-| Export 100 JPEGs | start the export | every file written, queue empty | in-app (ds-export) | AppleScript recipe + `process` | manual |
+| Export 100 JPEGs | start the export | every file written, queue empty | in-app (lt-export) | AppleScript recipe + `process` | manual |
 
 **"First preview"** is whatever the app shows first: an embedded JPEG or its own cached
 preview. **"Full quality"** is the settled render.
@@ -72,7 +72,7 @@ that skips straight to the latest photo is charged the later changes.
 
 > **Unvalidated:** the 25% "new photo" threshold has not been checked on real
 > recordings yet. An app that refines a photo in place (embedded preview, then its own
-> render; Darkslide does this) can cross it. A later press would then be credited with
+> render; Luxtable does this) can cross it. A later press would then be credited with
 > an earlier change, which flatters that app.
 >
 > As a guard, a held-arrow step that detects more photo changes than presses is marked
@@ -90,7 +90,7 @@ up to 2560 px on the long edge:
 |---|---|
 | Capture One | its proxies at the preview size set in Preferences ▸ Image (2560 px) |
 | Lightroom Classic | Standard previews at 2560 px |
-| Darkslide | the embedded preview decoded at up to 2560 px, which it shows before developing |
+| Luxtable | the embedded preview decoded at up to 2560 px, which it shows before developing |
 
 Each app's real preview size is recorded (`previewPx` in the results, `previewSizePx`
 in the shareable result). A camera's embedded JPEG is often smaller: about 1616 px on
@@ -103,7 +103,7 @@ the number:
 |---|---|---|
 | Capture One | an AppleScript `set exposure … to 0.3` / `0` | Apple Event IPC; no UI path |
 | Lightroom Classic | a click on the Exposure slider track | the UI path |
-| Darkslide | a click on the Exposure slider track | the UI path |
+| Luxtable | a click on the Exposure slider track | the UI path |
 
 Calibrate the two click points per machine so they set +0.3 EV and 0. Click once, read
 the Exposure field, and move the point until it reads +0.30; do the same for 0.00.
@@ -119,19 +119,19 @@ Samples timed by different methods are never pooled.
 
 - **Viewer operations** are compared only when timed on screen: key, click or script
   in, pixels out, for every app.
-- Darkslide's in-app viewer timings (from the call to the frame being ready to draw, no
+- Luxtable's in-app viewer timings (from the call to the frame being ready to draw, no
   event path, no compositor) go in a separate **Internal timings** table, labelled
-  Darkslide-internal and not comparable across apps.
+  Luxtable-internal and not comparable across apps.
 - **Batch operations** (import, open, export) take seconds. They are compared by each
-  app's one wall-clock method: Darkslide's in-app clock, Capture One's AppleScript
+  app's one wall-clock method: Luxtable's in-app clock, Capture One's AppleScript
   polling (about 0.1 s resolution), and Lightroom's stopwatch. The method is named in
   each cell.
 - `compare.sh --no-screen` makes no cross-app comparison: with Capture One it refuses
-  to run, and alone it reports Darkslide only.
+  to run, and alone it reports Luxtable only.
 
 ### Equivalent settings
 
-| Setting | Darkslide | Capture One 23 | Lightroom Classic |
+| Setting | Luxtable | Capture One 23 | Lightroom Classic |
 |---|---|---|---|
 | Preview mode | embedded preview first, then develop | proxies at the preview size in Preferences ▸ Image (set 2560 px) | **Standard** previews for the main run; Embedded & Sidecar as a second tier; 1:1 not used (Puget: Minimal) |
 | GPU | always (Metal) | Preferences ▸ General ▸ Hardware Acceleration: Display **Auto**, Processing **Auto** (checked by the script) | Preferences ▸ Performance: Use Graphics Processor **Custom**, display + image processing + export on; GPU for preview generation on; generate previews in parallel |
@@ -141,9 +141,9 @@ Samples timed by different methods are never pooled.
 | Files | APFS clones on the internal SSD, unique names per run | same | same |
 
 **JPEG quality.** All three apps take 0-100 and their encoders differ (mozjpeg in
-Darkslide, Apple ImageIO or the vendor's own elsewhere). The kit uses the same nominal
+Luxtable, Apple ImageIO or the vendor's own elsewhere). The kit uses the same nominal
 90 everywhere and logs the average output size so the mapping can be checked. If the
-sizes differ by more than 15%, pick the quality that matches Darkslide's size and
+sizes differ by more than 15%, pick the quality that matches Luxtable's size and
 record it in the report.
 
 ### Machine state
@@ -165,7 +165,7 @@ awake.
 - **Cold:** a freshly launched app, the OS file cache purged (`sudo purge`), and fresh
   copies of the photos and of the session/support folder, so no app cache knows them.
 - **Warm:** a second pass in the same process on another fresh copy, with the OS and
-  GPU caches hot. Darkslide runs both passes. Capture One and Lightroom Classic report
+  GPU caches hot. Luxtable runs both passes. Capture One and Lightroom Classic report
   cold runs only (each run relaunches the app).
 
 Without passwordless `sudo`, the file cache can't be purged. The first pass is then
@@ -186,7 +186,7 @@ Medians resist outliers, which is why they are used rather than means.
 
 ### Screen timing
 
-`Darkslide --bench-drive <plan>` drives one app and times its viewer:
+`Luxtable --bench-drive <plan>` drives one app and times its viewer:
 
 1. It finds the app's main window and activates it. Exactly one instance of the app
    may be running, or the pid it launched is given.
@@ -197,14 +197,14 @@ Medians resist outliers, which is why they are used rather than means.
 
 **Safety checks before every stimulus.**
 - The frontmost app must be the one under test, or the run stops. A key or click never
-  lands in another app, including your own Darkslide.
+  lands in another app, including your own Luxtable.
 - A plan's AppleScripts name the app as `{app}`, filled in from `--app-name` (never a
   hard-coded version).
 - Before each script, the plan's `documentCheck` must return the bench copy's name
   (`--expect-document`). `run-captureone.sh` gives every run's session copy a unique
-  `DarkslideBench-<time>-r<k>` name and checks it before every script it sends. So a
+  `LuxtableBench-<time>-r<k>` name and checks it before every script it sends. So a
   script never touches your own catalog or session.
-- Preflight refuses to start while another Darkslide or any Capture One is open.
+- Preflight refuses to start while another Luxtable or any Capture One is open.
 
 Frame timestamps are on the same host clock, so a latency is a frame's presentation
 time minus the stimulus time. It includes the event path, the app and the compositor,
@@ -223,14 +223,14 @@ Calibrate a plan once per machine and layout. The driver logs the region it reco
 which you can check with `screencapture -R<x,y,w,h> region.png`. For the click
 stimuli, put the slider's positions in the plan.
 
-Darkslide is timed on screen too, from this checkout's build, launched with a scratch
+Luxtable is timed on screen too, from this checkout's build, launched with a scratch
 support folder and driven by pid. Its in-app numbers measure the same operations
 without the compositor: from the call to the moment the viewer has the photo's pixels
 ready to draw.
 
 ### What it doesn't measure
 
-- AI features: Darkslide's are on-device and differ from the others.
+- AI features: Luxtable's are on-device and differ from the others.
 - Tethering, printing, catalog search.
 - Memory use.
 - Battery.
@@ -244,13 +244,13 @@ from different Macs comparable.
 
 ### The result format
 
-`bench/compare.sh` writes `<out>/result.json` (`Darkslide --bench-share`). It is
+`bench/compare.sh` writes `<out>/result.json` (`Luxtable --bench-share`). It is
 versioned JSON, defined by `bench/schema/bench-result-v1.schema.json` (JSON Schema
 2020-12, no extra fields allowed):
 
 | Field | Contents |
 |---|---|
-| `schema`, `schemaVersion` | `darkslide-bench-result`, `1`. A breaking change gets a new version and a new schema file. |
+| `schema`, `schemaVersion` | `luxtable-bench-result`, `1`. A breaking change gets a new version and a new schema file. |
 | `date` | the day of the run, `YYYY-MM-DD`, no time of day |
 | `machine` | Mac model id (`Mac16,8`), chip, CPU cores (performance, efficiency), RAM in GB, macOS version and build |
 | `cameras` | make, model, megapixels and the number of distinct files, for each camera in the set |
@@ -281,8 +281,8 @@ How that is enforced:
 Z 6II and Z 7II, Pentax K-1 Mark II, and Sony A7 III, A7R IV and A1. They range from 24
 to 61 MP, about 290 MB in all.
 
-v1 holds only the formats Darkslide previews today: Sony ARW, Nikon NEF and Pentax PEF.
-The kit found that Darkslide can't yet extract an embedded preview from these formats,
+v1 holds only the formats Luxtable previews today: Sony ARW, Nikon NEF and Pentax PEF.
+The kit found that Luxtable can't yet extract an embedded preview from these formats,
 so their import step fails:
 
 | Format | Example file |
@@ -293,20 +293,20 @@ so their import step fails:
 | Panasonic RW2 | S1R |
 | Leica DNG | M10-R |
 
-Those cameras join in `standard-v2` once Darkslide reads them.
+Those cameras join in `standard-v2` once Luxtable reads them.
 
 - **Source and licence.** All come from raw.pixls.us, and each file's licence was
   checked in the site's repository listing: CC0 1.0 for every one. Capture One 23 and
   Lightroom Classic read all of them.
 - **Fetching.** `bench/fetch-pack.sh` downloads them by URL into
-  `~/Library/Caches/darkslide-bench/<id>`. It verifies each file against its pinned
+  `~/Library/Caches/luxtable-bench/<id>`. It verifies each file against its pinned
   BLAKE3 hash (with `b3sum`) or its pinned SHA-256 (with `shasum`), and refuses a
   mismatch. The files are never committed.
 - **Size of a run.** A run needs at least 121 photos, so the pack is repeated to
   `--count` (150) as APFS clones with unique names. Each camera gets an equal share.
 - **Pack hash.** The pack hash is the SHA-256 over the sorted SHA-256 digests of the
   distinct files. It doesn't depend on names, order or the repeats.
-  `Darkslide --bench-share` recomputes it from the files that were actually used. Only
+  `Luxtable --bench-share` recomputes it from the files that were actually used. Only
   when it matches the manifest is the result tagged with the pack's id.
 - **Ranking.** A result is **ranked** only when it ran the verified standard pack with
   at least `minimumPhotos`.
@@ -328,7 +328,7 @@ it out (or don't share custom results) if that matters.
 
 **Opt-in only.**
 - Nothing is sent unless the user asks.
-- A future `bench/compare.sh --upload`, or a button in Darkslide's benchmark view, would
+- A future `bench/compare.sh --upload`, or a button in Luxtable's benchmark view, would
   first show the exact `result.json` and ask.
 - The upload carries that file and nothing else: no account, no device identifier.
 - The service keeps the submission time and a random id that can be used to delete it.

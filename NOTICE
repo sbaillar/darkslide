@@ -1,31 +1,31 @@
-Darkslide
-Copyright 2026 The Darkslide Authors
+Luxtable
+Copyright 2026 The Luxtable Authors
 
 Licensed under the Apache License, Version 2.0 (see LICENSE).
 
 This product includes third-party software and data. Their licences and
 notices are in THIRD_PARTY_LICENSES.md, which `scripts/licenses.sh` generates
-and which ships inside Darkslide.app (Contents/Resources). In particular:
+and which ships inside Luxtable.app (Contents/Resources). In particular:
 
 - This software is based in part on the work of the Independent JPEG Group
   (mozjpeg, via the mozjpeg and mozjpeg-sys crates).
 
 - rawler (https://github.com/dnglab/dnglab) is licensed under the GNU Lesser
-  General Public License, version 2.1. Darkslide.app doesn't contain it: it is
-  statically linked into the separate, optional RAW helper (darkslide-rawler,
-  crates/ds-rawler), which users download on request and which is distributed
+  General Public License, version 2.1. Luxtable.app doesn't contain it: it is
+  statically linked into the separate, optional RAW helper (luxtable-rawler,
+  crates/lt-rawler), which users download on request and which is distributed
   under the LGPL's terms. Its complete source is public, so you may modify
   rawler and relink the helper with it: see "Relinking rawler" in CONTRIBUTING.md.
 
 - UniFFI (https://github.com/mozilla/uniffi-rs) is licensed under the Mozilla
   Public License 2.0; its source is available from that repository.
 
-- crates/ds-pipeline/data/lensfun-sony-e.xml is from the lensfun database
+- crates/lt-pipeline/data/lensfun-sony-e.xml is from the lensfun database
   (https://lensfun.github.io), licensed under CC BY-SA 3.0
   (https://creativecommons.org/licenses/by-sa/3.0/). It is included unchanged.
 
 - Little CMS (https://www.littlecms.com) is licensed under the MIT licence.
 
-The machine-learning models Darkslide bundles or downloads on first use, and
+The machine-learning models Luxtable bundles or downloads on first use, and
 their licences and training-data terms, are listed in
-app/Resources/Acknowledgements.md (shown in the app under Darkslide > About).
+app/Resources/Acknowledgements.md (shown in the app under Luxtable > About).

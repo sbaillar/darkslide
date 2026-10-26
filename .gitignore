@@ -7,14 +7,14 @@
 /coverage/
 /.claude/
 /app/.rust/
-/app/Sources/DarkslideFFI/ds_ffi.swift
-/app/Sources/ds_ffiFFI/ds_ffiFFI.h
-/app/Sources/ds_ffiFFI/module.modulemap
+/app/Sources/LuxtableFFI/lt_ffi.swift
+/app/Sources/lt_ffiFFI/lt_ffiFFI.h
+/app/Sources/lt_ffiFFI/module.modulemap
 /app/.build-*/
 # Build-time secrets (the Google OAuth client for release builds; docs/GOOGLE_PHOTOS.md).
 /secrets/
 
-# Plug-in signing keys (ds-plugin keygen): never committed.
+# Plug-in signing keys (lt-plugin keygen): never committed.
 *.key.json
 
 # Owner-only notes with the personal evidence from the open-source audit (docs/OPEN_SOURCE.md).

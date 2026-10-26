@@ -1,6 +1,6 @@
-# Darkslide acknowledgements
+# Luxtable acknowledgements
 
-Darkslide's code is licensed under the Apache License 2.0. The models below are credited with their licences. Some of them were trained on data licensed for non-commercial research only; Darkslide's licence doesn't override those terms, and complying with them is up to you. Those models aren't bundled in public builds: they are downloaded on first use from the source named here. The licences of the Rust crates Darkslide links follow these credits.
+Luxtable's code is licensed under the Apache License 2.0. The models below are credited with their licences. Some of them were trained on data licensed for non-commercial research only; Luxtable's licence doesn't override those terms, and complying with them is up to you. Those models aren't bundled in public builds: they are downloaded on first use from the source named here. The licences of the Rust crates Luxtable links follow these credits.
 
 ## AI Denoise model: NAFNet
 
@@ -9,7 +9,7 @@ AI Denoise runs NAFNet-SIDD-width32:
 - **Paper:** Liangyu Chen, Xiaojie Chu, Xiangyu Zhang and Jian Sun, *Simple Baselines for Image Restoration*, ECCV 2022.
 - **Code and weights:** https://github.com/megvii-research/NAFNet. The architecture is at commit 2b4af71. The weights come from a mirror at huggingface.co/mikestealth/nafnet-models, commit cd3a91d, file `NAFNet-SIDD-width32.pth`, SHA-256 89c70e808d1783b6c07911306e106aaf0d4f7f3da8c61078b99ff7f8929a26f4.
 - **Training data:** SIDD (Smartphone Image Denoising Dataset), released under the MIT License (https://abdokamel.github.io/sidd/).
-- **Bundled model:** Darkslide converts it to Core ML float16 when the app is built (`scripts/denoise-model/`).
+- **Bundled model:** Luxtable converts it to Core ML float16 when the app is built (`scripts/denoise-model/`).
 
 Licence of NAFNet and its weights:
 
@@ -248,8 +248,8 @@ AI Upscale runs RealESRGAN_x2plus:
 
 - **Paper:** Xintao Wang, Liangbin Xie, Chao Dong and Ying Shan, *Real-ESRGAN: Training Real-World Blind Super-Resolution with Pure Synthetic Data*, ICCV Workshops 2021.
 - **Code and weights:** https://github.com/xinntao/Real-ESRGAN (BSD 3-Clause License, below). The weights are the release file `RealESRGAN_x2plus.pth` (v0.2.1), SHA-256 49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb. The network is RRDBNet from BasicSR (Apache License 2.0, above).
-- **Training data:** DIV2K, Flickr2K and OutdoorSceneTraining, licensed for non-commercial research only. Darkslide's licence doesn't override those terms; complying with them is up to you. Public builds download this model on first use (Photo ▸ Enhance ▸ Download AI Upscale Model…).
-- **The model Darkslide uses:** the weights converted to Core ML float16 by `scripts/upscale-model/`; the weights and model spec are checked by SHA-256 when downloaded. Builds made with `DS_BUNDLE_UPSCALE=1` (personal builds) include it instead of downloading it.
+- **Training data:** DIV2K, Flickr2K and OutdoorSceneTraining, licensed for non-commercial research only. Luxtable's licence doesn't override those terms; complying with them is up to you. Public builds download this model on first use (Photo ▸ Enhance ▸ Download AI Upscale Model…).
+- **The model Luxtable uses:** the weights converted to Core ML float16 by `scripts/upscale-model/`; the weights and model spec are checked by SHA-256 when downloaded. Builds made with `LT_BUNDLE_UPSCALE=1` (personal builds) include it instead of downloading it.
 
 Licence of Real-ESRGAN and its weights:
 
@@ -289,14 +289,14 @@ Remove fills with big-lama, downloaded the first time something is removed:
 
 - **Paper:** Roman Suvorov et al., *Resolution-robust Large Mask Inpainting with Fourier Convolutions*, WACV 2022.
 - **Code and weights:** https://github.com/advimman/lama (Apache License 2.0). Core ML conversion by john-rocky at huggingface.co/mlboydaisuke/LaMa-CoreML, commit 5ed76e3, checked by SHA-256.
-- **Training data:** big-lama was trained on Places365, whose terms allow non-commercial research and educational use only. Darkslide's licence doesn't override those terms; complying with them is up to you. This model is downloaded from huggingface.co/mlboydaisuke/LaMa-CoreML on first use.
+- **Training data:** big-lama was trained on Places365, whose terms allow non-commercial research and educational use only. Luxtable's licence doesn't override those terms; complying with them is up to you. This model is downloaded from huggingface.co/mlboydaisuke/LaMa-CoreML on first use.
 
 ## People masks: BiSeNet face parsing
 
 Face, eyes, teeth, hair and skin masks use a BiSeNet face-parsing model, downloaded the first time a people sub-part is masked:
 
 - **Code and weights:** https://github.com/zllrunning/face-parsing.PyTorch (MIT License). Core ML conversion by john-rocky at huggingface.co/mlboydaisuke/Face-Parsing-CoreML, commit 6af21c2, checked by SHA-256.
-- **Training data:** CelebAMask-HQ, licensed for non-commercial research and educational use only. Darkslide's licence doesn't override those terms; complying with them is up to you. This model is downloaded from huggingface.co/mlboydaisuke/Face-Parsing-CoreML on first use.
+- **Training data:** CelebAMask-HQ, licensed for non-commercial research and educational use only. Luxtable's licence doesn't override those terms; complying with them is up to you. This model is downloaded from huggingface.co/mlboydaisuke/Face-Parsing-CoreML on first use.
 
 ## Lens blur: Depth Anything V2 Small
 

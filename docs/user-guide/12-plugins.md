@@ -2,15 +2,15 @@
 
 Plug-ins add looks, styles, voice phrases, and export steps. Manage them in Settings ▸ Plugins.
 
-- **Install:** drop a `.dsplugin` folder on the pane, or **Install…**. The sheet shows what the plug-in says it does before anything is installed. Turn each plug-in on or off with **Enabled**.
+- **Install:** drop a `.ltplugin` folder on the pane, or **Install…**. The sheet shows what the plug-in says it does before anything is installed. Turn each plug-in on or off with **Enabled**.
 - **Nothing is granted at install.** Looks, styles and voice phrases are data only. An export step is WebAssembly code that runs sandboxed with time and memory limits; code from an unsigned or untrusted author waits for your approval and never gets file, network or account access silently. If a plug-in's files change, it waits for your approval again.
-- Darkslide's own looks and styles are a bundled plug-in. Developers can **Add Development Folder…** to work on a plug-in in place; see `docs/PLUGINS.md`.
+- Luxtable's own looks and styles are a bundled plug-in. Developers can **Add Development Folder…** to work on a plug-in in place; see `docs/PLUGINS.md`.
 
 ![Settings ▸ Plugins.](../screenshots/settings-plugins.png)
 
 ## Optional integrations
 
-Four integrations are built into Darkslide as bundled plug-ins, so it stays out of services you don't use. Turn each on or off in **Settings ▸ Plugins ▸ Integrations**; its own Settings pane appears while it is on.
+Four integrations are built into Luxtable as bundled plug-ins, so it stays out of services you don't use. Turn each on or off in **Settings ▸ Plugins ▸ Integrations**; its own Settings pane appears while it is on.
 
 | Integration | What it does | Where to set it up |
 |---|---|---|

@@ -2,6 +2,8 @@
 # Shared helpers for the benchmark scripts (bash; sourced by them, never by an
 # interactive shell: `die` exits). Use bench/stage.sh to stage photos by hand.
 
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/env-compat.sh"
+
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -37,14 +39,14 @@ stage() {
   echo "$total"
 }
 
-# ds_tool <binary> <args…>: run a Darkslide binary in one of its tool modes
+# lt_tool <binary> <args…>: run a Luxtable binary in one of its tool modes
 # (--bench…) with a scratch support folder and so private preferences, never the
 # user's own library: if the build didn't know the mode, it would start the app.
-ds_tool() {
+lt_tool() {
   local bin="$1" support rc=0
   shift
-  support="$(mktemp -d -t darkslide-bench-tool)"
-  DS_SUPPORT_ROOT="$support" "$bin" "$@" || rc=$?
+  support="$(mktemp -d -t luxtable-bench-tool)"
+  LT_SUPPORT_ROOT="$support" "$bin" "$@" || rc=$?
   /bin/rm -rf "${support:?}"
   return "$rc"
 }
@@ -85,8 +87,8 @@ preflight() {
   local busy
   busy="$(ps -Ao pcpu=,comm= | awk '$1 > 5 && ($2 ~ /mds|mdworker|mediaanalysisd|photoanalysisd|backupd/) {printf "%s %s%%; ", $2, $1}')"
   if [[ -z "$busy" ]]; then echo "ok: Spotlight, media analysis and Time Machine quiet"; else echo "WARN: busy: $busy"; fi
-  # Events go to the frontmost app: no other Darkslide or Capture One may be open.
-  if pgrep -xq Darkslide; then echo "WARN: Darkslide is running: quit it"; else echo "ok: no Darkslide running"; fi
+  # Events go to the frontmost app: no other Luxtable or Capture One may be open.
+  if pgrep -xq Luxtable; then echo "WARN: Luxtable is running: quit it"; else echo "ok: no Luxtable running"; fi
   if pgrep -fq "/Applications/Capture One"; then echo "WARN: Capture One is running: quit it"; else echo "ok: Capture One not running"; fi
   local load cores
   load="$(sysctl -n vm.loadavg | awk '{print $2}')"

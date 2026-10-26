@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Build the ds-ffi static library and refresh the generated Swift bindings.
+# Build the lt-ffi static library and refresh the generated Swift bindings.
 #
 # Idempotent and incremental: cargo only rebuilds what changed, and generated
 # files are copied into app/ only when their content differs, so SwiftPM does
 # not recompile the bindings on every run.
 #
 # Outputs (all git-ignored):
-#   app/.rust/lib/libds_ffi.a                   static lib linked by SwiftPM
-#   app/Sources/ds_ffiFFI/{ds_ffiFFI.h,module.modulemap}   C module for the FFI
-#   app/Sources/DarkslideFFI/ds_ffi.swift       generated Swift bindings
+#   app/.rust/lib/liblt_ffi.a                   static lib linked by SwiftPM
+#   app/Sources/lt_ffiFFI/{lt_ffiFFI.h,module.modulemap}   C module for the FFI
+#   app/Sources/LuxtableFFI/lt_ffi.swift       generated Swift bindings
 #
 #   scripts/ffi.sh                  the macOS build above (what build-app.sh and test-app.sh use)
-#   scripts/ffi.sh --xcframework    also app/.rust/DarkslideFFI.xcframework: macOS arm64, iOS
+#   scripts/ffi.sh --xcframework    also app/.rust/LuxtableFFI.xcframework: macOS arm64, iOS
 #                                   arm64 and iOS-simulator arm64 slices for the iPad app
 #                                   (docs/IPAD_PLAN.md). Needs Xcode.app and rustup with the
 #                                   iOS targets; it says what to install when they are missing.
@@ -65,18 +65,18 @@ export MACOSX_DEPLOYMENT_TARGET=26.0
 REMAP="--remap-path-prefix=$HOME=/home --remap-path-prefix=$HOME/.cargo/registry/src=/registry"
 REMAP="$REMAP --remap-path-prefix=$HOME/.rustup=/rustup --remap-path-prefix=$ROOT=/src"
 
-log "cargo build --release -p ds-ffi"
-RUSTFLAGS="${RUSTFLAGS:-} $REMAP" cargo build --locked --release -p ds-ffi --quiet
+log "cargo build --release -p lt-ffi"
+RUSTFLAGS="${RUSTFLAGS:-} $REMAP" cargo build --locked --release -p lt-ffi --quiet
 
 # Keep the bindgen binary in its own target dir: building it enables uniffi's
 # `cli` feature, which would otherwise invalidate the release library each time.
-cargo build --locked -p ds-ffi --features bindgen --bin uniffi-bindgen \
+cargo build --locked -p lt-ffi --features bindgen --bin uniffi-bindgen \
   --target-dir "$ROOT/target/bindgen" --quiet
 
 GEN="$(mktemp -d)"
 trap '/bin/rm -rf "$GEN"' EXIT
 "$ROOT/target/bindgen/debug/uniffi-bindgen" generate \
-  --library "$ROOT/target/release/libds_ffi.dylib" \
+  --library "$ROOT/target/release/liblt_ffi.dylib" \
   --language swift --out-dir "$GEN" >/dev/null
 
 # Copy $1 to $2 only when the content changed (preserves mtimes → no rebuild).
@@ -88,11 +88,11 @@ sync_file() {
   fi
 }
 
-sync_file "$GEN/ds_ffi.swift" "$ROOT/app/Sources/DarkslideFFI/ds_ffi.swift"
-sync_file "$GEN/ds_ffiFFI.h" "$ROOT/app/Sources/ds_ffiFFI/ds_ffiFFI.h"
-sync_file "$GEN/ds_ffiFFI.modulemap" "$ROOT/app/Sources/ds_ffiFFI/module.modulemap"
+sync_file "$GEN/lt_ffi.swift" "$ROOT/app/Sources/LuxtableFFI/lt_ffi.swift"
+sync_file "$GEN/lt_ffiFFI.h" "$ROOT/app/Sources/lt_ffiFFI/lt_ffiFFI.h"
+sync_file "$GEN/lt_ffiFFI.modulemap" "$ROOT/app/Sources/lt_ffiFFI/module.modulemap"
 # Only the static archive goes in this dir so the linker cannot pick the dylib.
-sync_file "$ROOT/target/release/libds_ffi.a" "$ROOT/app/.rust/lib/libds_ffi.a"
+sync_file "$ROOT/target/release/liblt_ffi.a" "$ROOT/app/.rust/lib/liblt_ffi.a"
 
 [[ "$XCFRAMEWORK" == 1 ]] || exit 0
 
@@ -101,15 +101,15 @@ sync_file "$ROOT/target/release/libds_ffi.a" "$ROOT/app/.rust/lib/libds_ffi.a"
 export IPHONEOS_DEPLOYMENT_TARGET=26.0
 XC_ARGS=()
 for t in aarch64-apple-darwin "${IOS_TARGETS[@]}"; do
-  log "cargo build --release -p ds-ffi --target $t"
-  RUSTFLAGS="${RUSTFLAGS:-} $REMAP" "$RUSTUP" run stable cargo build --locked --release -p ds-ffi \
+  log "cargo build --release -p lt-ffi --target $t"
+  RUSTFLAGS="${RUSTFLAGS:-} $REMAP" "$RUSTUP" run stable cargo build --locked --release -p lt-ffi \
     --target "$t" --quiet
-  XC_ARGS+=(-library "$ROOT/target/$t/release/libds_ffi.a" -headers "$GEN/headers")
+  XC_ARGS+=(-library "$ROOT/target/$t/release/liblt_ffi.a" -headers "$GEN/headers")
 done
 mkdir -p "$GEN/headers"
-/bin/cp -f "$GEN/ds_ffiFFI.h" "$GEN/headers/ds_ffiFFI.h"
-/bin/cp -f "$GEN/ds_ffiFFI.modulemap" "$GEN/headers/module.modulemap"
-OUT="$ROOT/app/.rust/DarkslideFFI.xcframework"
+/bin/cp -f "$GEN/lt_ffiFFI.h" "$GEN/headers/lt_ffiFFI.h"
+/bin/cp -f "$GEN/lt_ffiFFI.modulemap" "$GEN/headers/module.modulemap"
+OUT="$ROOT/app/.rust/LuxtableFFI.xcframework"
 /bin/rm -rf "$OUT"
 xcodebuild -create-xcframework "${XC_ARGS[@]}" -output "$OUT" >/dev/null
 log "built ${OUT#"$ROOT"/}"

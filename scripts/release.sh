@@ -67,5 +67,5 @@ new="$major.$minor.$patch$suffix"
 /usr/bin/sed -i '' "s/^version = \"$old\"/version = \"$new\"/" Cargo.toml
 cargo update --workspace --offline --quiet
 git commit -q -am "Release v$new"
-git tag -a "v$new" -m "Darkslide v$new"
+git tag -a "v$new" -m "Luxtable v$new"
 push "$new"

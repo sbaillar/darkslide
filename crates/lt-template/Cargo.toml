@@ -1,0 +1,16 @@
+[package]
+name = "lt-template"
+description = "Filename/subfolder template engine shared by import and export"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+chrono = { version = "0.4.42", default-features = false, features = ["std", "clock"] }
+unicode-normalization = "0.1.24"
+
+[lints]
+workspace = true

@@ -1,0 +1,40 @@
+[package]
+name = "lt-import"
+description = "Memory-card scan, verified single-pass copy, dedupe, journal/resume"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+lt-core.workspace = true
+lt-template = { path = "../lt-template" }
+lt-fsutil = { path = "../lt-fsutil" }
+lt-raw = { path = "../lt-raw", default-features = false }
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono = { version = "0.4.42", default-features = false, features = ["std", "clock", "serde"] }
+rustix = { version = "1.1.2", features = ["fs", "process"] }
+
+[dev-dependencies]
+lt-raw = { path = "../lt-raw", features = ["rawler"] }
+tempfile.workspace = true
+proptest.workspace = true
+criterion.workspace = true
+lt-testdata = { path = "../lt-testdata" }
+lt-fsutil = { path = "../lt-fsutil" }
+
+[[bench]]
+name = "copy"
+harness = false
+
+[[bench]]
+name = "hash"
+harness = false
+
+[lints]
+workspace = true

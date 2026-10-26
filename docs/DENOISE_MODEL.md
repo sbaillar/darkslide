@@ -1,6 +1,6 @@
 # AI Denoise model
 
-AI Denoise runs NAFNet-SIDD-width32 as a Core ML float16 package, `DarkslideDenoise.mlpackage`. It is built from source when the app is built and bundled in `Darkslide.app/Contents/Resources/Models/`. Nothing is downloaded at runtime and nothing is published anywhere.
+AI Denoise runs NAFNet-SIDD-width32 as a Core ML float16 package, `LuxtableDenoise.mlpackage`. It is built from source when the app is built and bundled in `Luxtable.app/Contents/Resources/Models/`. Nothing is downloaded at runtime and nothing is published anywhere.
 
 | | |
 |---|---|
@@ -15,7 +15,7 @@ AI Denoise runs NAFNet-SIDD-width32 as a Core ML float16 package, `DarkslideDeno
 
 `scripts/build-app.sh` calls `scripts/denoise-model/build-model.sh`. The steps:
 
-1. **Cache check.** If `~/.cache/darkslide/models/<upstream weights SHA-256>/<stamp>/DarkslideDenoise.mlpackage` exists, the build uses it. The stamp hashes `build-model.sh`, `convert.py`, `nafnet.py` and `requirements.txt`, so a change to any of them builds into a new folder; a finished folder is never modified. `DS_MODEL_CACHE` overrides the cache location. Concurrent builds take turns on `/usr/bin/lockf` over the cache.
+1. **Cache check.** If `~/.cache/luxtable/models/<upstream weights SHA-256>/<stamp>/LuxtableDenoise.mlpackage` exists, the build uses it. The stamp hashes `build-model.sh`, `convert.py`, `nafnet.py` and `requirements.txt`, so a change to any of them builds into a new folder; a finished folder is never modified. `LT_MODEL_CACHE` overrides the cache location. Concurrent builds take turns on `/usr/bin/lockf` over the cache.
 2. **Venv.** Otherwise the script creates a venv in the cache (`venv-py313`, from `python3.13`). It installs `scripts/denoise-model/requirements.txt` with `pip --require-hashes --only-binary=:all:`. Every dependency is pinned by version and wheel hash: torch 2.14.1, coremltools 9.0, numpy 2.5.3 and their dependencies, for Python 3.13 on macOS arm64.
 3. **Convert.** `convert.py`:
    - downloads the pinned weights to a temporary name, renames them when complete, and checks their SHA-256 (a cached copy that doesn't match is downloaded again, once);
@@ -24,13 +24,13 @@ AI Denoise runs NAFNet-SIDD-width32 as a Core ML float16 package, `DarkslideDeno
    - checks that the converted weights hash to the pinned `EXPECTED_WEIGHTS_SHA256`.
 4. **Bundle.** The package is copied into the app, which grows by about 56 MB.
 
-`DS_SKIP_MODELS=1` skips the model for fast dev builds. A build without Python 3.13 or network, or with a failed check, prints a warning and still succeeds without the model.
+`LT_SKIP_MODELS=1` skips the model for fast dev builds. A build without Python 3.13 or network, or with a failed check, prints a warning and still succeeds without the model.
 
 The weights are reproducible bit for bit: a fresh venv from `requirements.txt` produced the pinned hash. `model.mlmodel` and `Manifest.json` embed a conversion date and random ids, so only the weights are pinned.
 
 ## Runtime
 
-- **Loading.** The app takes `Models/DarkslideDenoise.mlpackage` from its bundle. It checks the weights against `DenoiseModelDescriptor.weightsSHA256` (the same value as `convert.py`; a test keeps them equal). It then compiles the package once into `<support>/Models/` and passes the checksum to Rust as the identity of the model's cached results.
+- **Loading.** The app takes `Models/LuxtableDenoise.mlpackage` from its bundle. It checks the weights against `DenoiseModelDescriptor.weightsSHA256` (the same value as `convert.py`; a test keeps them equal). It then compiles the package once into `<support>/Models/` and passes the checksum to Rust as the identity of the model's cached results.
 - **No model in the build.** The AI Denoise control is disabled with "AI Denoise model not included in this build." Rust never gets a model id, so renders and exports ignore AI Denoise: export doesn't fail, it renders the original.
 - **Checksum mismatch.** The model is refused, the control is disabled with an explanation, and the model is never compiled.
 
@@ -69,7 +69,7 @@ The weights are reproducible bit for bit: a fresh venv from `requirements.txt` p
 
 ## Benchmarks
 
-`cargo bench -p ds-pipeline --bench denoise` measures one A9 frame (M4 Pro, under load):
+`cargo bench -p lt-pipeline --bench denoise` measures one A9 frame (M4 Pro, under load):
 
 | Step | Time |
 |---|---|

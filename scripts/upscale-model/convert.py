@@ -1,13 +1,13 @@
-"""Build DarkslideUpscale.mlpackage (RealESRGAN_x2plus, float16) for AI Upscale.
+"""Build LuxtableUpscale.mlpackage (RealESRGAN_x2plus, float16) for AI Upscale.
 
 `scripts/build-app.sh` runs it through `build-model.sh`, in the cached venv of the AI
 Denoise model (the same hash-locked requirements, see docs/UPSCALE_MODEL.md). It
 downloads the official release weights pinned below (checked by SHA-256), converts them
 with a fixed 256x256 float16 tensor input and 512x512 output ("input" -> "output", planar
-RGB, sRGB-encoded 0..1, the layout ds-pipeline's upscale tiles use), checks the Core ML
+RGB, sRGB-encoded 0..1, the layout lt-pipeline's upscale tiles use), checks the Core ML
 output against PyTorch float32 on the GPU and the Neural Engine, and checks that the
 converted weights are the pinned ones (EXPECTED_WEIGHTS_SHA256), leaving
-OUT_DIR/DarkslideUpscale.mlpackage.
+OUT_DIR/LuxtableUpscale.mlpackage.
 """
 import hashlib
 import os
@@ -27,7 +27,7 @@ WEIGHTS_SHA256 = "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266a
 EXPECTED_WEIGHTS_SHA256 = "d43bffce05fa1714f1a50e6ef19780f0ef5453a7e9448875316a4d564f46a310"
 TILE = 256
 SCALE = 2
-NAME = "DarkslideUpscale"
+NAME = "LuxtableUpscale"
 
 
 def sha256(path):
@@ -75,7 +75,7 @@ def main(out):
         compute_precision=ct.precision.FLOAT16,
         minimum_deployment_target=ct.target.macOS14,
     )
-    ml.author = "Xintao Wang et al. (Real-ESRGAN, BSD-3-Clause; BasicSR, Apache-2.0); converted for Darkslide"
+    ml.author = "Xintao Wang et al. (Real-ESRGAN, BSD-3-Clause; BasicSR, Apache-2.0); converted for Luxtable"
     ml.license = "BSD-3-Clause"
     ml.short_description = (f"RealESRGAN_x2plus 2x super-resolution, {TILE}x{TILE} planar RGB float16 "
                             f"(sRGB-encoded 0..1) in, {TILE * SCALE}x{TILE * SCALE} out.")

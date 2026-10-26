@@ -1,14 +1,14 @@
 # Supported cameras
 
-What Darkslide does with RAWs from each maker, measured by the opt-in compatibility test
-`crates/ds-raw/tests/compat.rs` on one or more CC0 sample files per format from
-[raw.pixls.us](https://raw.pixls.us) (manifest: `crates/ds-raw/tests/compat/samples.json`).
+What Luxtable does with RAWs from each maker, measured by the opt-in compatibility test
+`crates/lt-raw/tests/compat.rs` on one or more CC0 sample files per format from
+[raw.pixls.us](https://raw.pixls.us) (manifest: `crates/lt-raw/tests/compat/samples.json`).
 
 - **full**: imports, culls from the embedded preview, and develops (full sensor decode).
 - **cull only**: imports and culls (metadata, embedded preview, ratings, tags, compare);
-  the viewer says "Darkslide can't develop this file yet" instead of developing it.
+  the viewer says "Luxtable can't develop this file yet" instead of developing it.
 
-The **Decoder** column says which decoder develops the format: Darkslide's own (native,
+The **Decoder** column says which decoder develops the format: Luxtable's own (native,
 [RAWDEC.md](RAWDEC.md)) or rawler (in the separate RAW helper the app downloads on request; see RAWDEC.md). Native
 decodes of the corpus match rawler's sensor data; RAWDEC.md lists the few understood
 differences (rawler dithers some value mappings).
@@ -20,7 +20,7 @@ differences (rawler dithers some value mappings).
 | Canon CR2 | ✅ | ✅ | native for the EOS 5D Mark IV and 6D Mark II (`ColorData` layouts checked so far), rawler otherwise; colour matrix from rawler's camera DB |
 | Canon CR3 | ✅ (1620×1080 `PRVW` preview) | ✅ | rawler |
 | Fujifilm RAF, Bayer (GFX) | ✅ | ✅ | rawler |
-| Fujifilm RAF, X-Trans (X-T, X-S, X-H, X-Pro, X-E…) | ✅ | ❌ cull only: Darkslide demosaics 2×2 Bayer sensors only | – |
+| Fujifilm RAF, X-Trans (X-T, X-S, X-H, X-Pro, X-E…) | ✅ | ❌ cull only: Luxtable demosaics 2×2 Bayer sensors only | – |
 | Olympus / OM System ORF | ✅ (maker-note preview) | ✅ | rawler |
 | Panasonic RW2 | ✅ (`JpgFromRaw`) | ✅ | rawler |
 | Pentax PEF and DNG | ✅ | ✅ | native (K-3 Mark III fully, colour included; other bodies' matrices from rawler's DB) |
@@ -49,8 +49,8 @@ first read of the file's header; the embedded-preview budget is ≤ 10 ms.
 | CR3 | Canon EOS R5 | `canon-eos-r5.cr3` | ISO 100, 1/3, f/5.6, 50 mm, 2021-05-15, 28.3 ms | 1620×1080 (293 KB), 0.0 ms | 8192×5464 Rggb, 172 ms | full |
 | CR3 | Canon EOS R6 | `canon-eos-r6.cr3` | ISO 100, 1/4, f/25.0, 200 mm, 2021-05-12, 10.0 ms | 1620×1080 (447 KB), 0.0 ms | 5472×3648 Rggb, 75 ms | full |
 | RAF | Fujifilm GFX 50S | `fujifilm-gfx-50s.raf` | ISO 100, 1/280, f/14.0, 63 mm, 2017-05-25, 19.3 ms | 4000×3000 (1907 KB), 0.1 ms | 8256×6192 Rggb, 91 ms | full |
-| RAF | Fujifilm X-S10 | `fujifilm-x-s10.raf` | ISO 160, 1/3, f/4.0, 70 mm, 2020-11-28, 9.6 ms | 4416×2944 (2751 KB), 0.2 ms | not yet: X-Trans sensor (6×6 colour filter); Darkslide demosaics 2×2 Bayer sensors only | cull only |
-| RAF | Fujifilm X-T4 | `fujifilm-x-t4.raf` | ISO 160, 1/125, f/3.6, 16 mm, 2020-05-08, 10.1 ms | 4416×2944 (4118 KB), 0.3 ms | not yet: X-Trans sensor (6×6 colour filter); Darkslide demosaics 2×2 Bayer sensors only | cull only |
+| RAF | Fujifilm X-S10 | `fujifilm-x-s10.raf` | ISO 160, 1/3, f/4.0, 70 mm, 2020-11-28, 9.6 ms | 4416×2944 (2751 KB), 0.2 ms | not yet: X-Trans sensor (6×6 colour filter); Luxtable demosaics 2×2 Bayer sensors only | cull only |
+| RAF | Fujifilm X-T4 | `fujifilm-x-t4.raf` | ISO 160, 1/125, f/3.6, 16 mm, 2020-05-08, 10.1 ms | 4416×2944 (4118 KB), 0.3 ms | not yet: X-Trans sensor (6×6 colour filter); Luxtable demosaics 2×2 Bayer sensors only | cull only |
 | DNG | Google Pixel 7 Pro | `google-pixel-7-pro.dng` | ISO 142, 1/24, f/3.5, 19 mm, 2022-12-04, 0.3 ms | 1280×964 (210 KB), 0.0 ms | 3866×2908 Bggr, 15 ms | full |
 | DNG | Leica Camera AG LEICA M10-R | `leica-m10-r.dng` | ISO 100, 1/60, f/–, 50 mm, 2025-05-09, 0.4 ms | 7840×5184 (3365 KB), 0.2 ms | 7864×5200 Gbrg, 310 ms | full |
 | DNG | LEICA CAMERA AG LEICA Q2 | `leica-q2.dng` | ISO 100, 1/500, f/6.3, 28 mm, 2019-04-14, 0.5 ms | 8368×5584 (3814 KB), 0.2 ms | 8368×5584 Gbrg, 34 ms | full |
@@ -72,11 +72,11 @@ Metadata of the formats read through rawler (CR3, RAF, ORF, RW2) takes 7–30 ms
 ## Regenerate
 
 ```sh
-scripts/fetch-rawcompat.sh      # ~0.9 GB into ~/Library/Caches/darkslide-rawcompat, SHA-256 verified
-DS_RAWCOMPAT_DIR=~/Library/Caches/darkslide-rawcompat DS_RAWCOMPAT_REPORT=/tmp/cameras.md \
-  cargo test -p ds-raw --release --test compat -- --nocapture
-DS_RAWCOMPAT_DIR=~/Library/Caches/darkslide-rawcompat cargo bench -p ds-raw -- compat   # preview time per file
-DS_RAWCOMPAT_DIR=~/Library/Caches/darkslide-rawcompat cargo bench -p ds-raw -- decode/  # native vs rawler decode
+scripts/fetch-rawcompat.sh      # ~0.9 GB into ~/Library/Caches/luxtable-rawcompat, SHA-256 verified
+LT_RAWCOMPAT_DIR=~/Library/Caches/luxtable-rawcompat LT_RAWCOMPAT_REPORT=/tmp/cameras.md \
+  cargo test -p lt-raw --release --test compat -- --nocapture
+LT_RAWCOMPAT_DIR=~/Library/Caches/luxtable-rawcompat cargo bench -p lt-raw -- compat   # preview time per file
+LT_RAWCOMPAT_DIR=~/Library/Caches/luxtable-rawcompat cargo bench -p lt-raw -- decode/  # native vs rawler decode
 ```
 
 The same test run includes `native_decoders_match_rawler`, the native/rawler parity check

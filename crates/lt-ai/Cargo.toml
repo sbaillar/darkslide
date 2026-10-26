@@ -1,0 +1,31 @@
+[package]
+name = "lt-ai"
+description = "Luxtable culling scores (sharpness, exposure, noise), burst/near-duplicate grouping, and the natural-language edit parsing seam"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+lt-core.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+rayon.workspace = true
+wgpu.workspace = true
+pollster.workspace = true
+bytemuck.workspace = true
+
+[dev-dependencies]
+lt-testdata = { path = "../lt-testdata" }
+proptest.workspace = true
+criterion.workspace = true
+serde_json.workspace = true
+zune-jpeg = "0.5"
+
+[[bench]]
+name = "ai"
+harness = false
+
+[lints]
+workspace = true

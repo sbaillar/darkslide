@@ -1,12 +1,12 @@
-"""Build DarkslideDenoise.mlpackage (NAFNet-SIDD-width32, float16) for AI Denoise.
+"""Build LuxtableDenoise.mlpackage (NAFNet-SIDD-width32, float16) for AI Denoise.
 
 `scripts/build-app.sh` runs it through `build-model.sh`, in a cached venv with the
 hash-locked requirements.txt (see docs/DENOISE_MODEL.md). It downloads the official
 checkpoint mirror pinned below (checked by SHA-256), converts
 it with a fixed 512x512 float16 tensor input/output ("input" -> "output", planar RGB,
-sRGB-encoded 0..1, the layout ds-pipeline's tiles use), checks the Core ML output against
+sRGB-encoded 0..1, the layout lt-pipeline's tiles use), checks the Core ML output against
 PyTorch float32 on the GPU and the Neural Engine, and checks that the converted weights
-are the pinned ones (EXPECTED_WEIGHTS_SHA256), leaving OUT_DIR/DarkslideDenoise.mlpackage.
+are the pinned ones (EXPECTED_WEIGHTS_SHA256), leaving OUT_DIR/LuxtableDenoise.mlpackage.
 """
 import hashlib
 import os
@@ -25,7 +25,7 @@ WEIGHTS_SHA256 = "89c70e808d1783b6c07911306e106aaf0d4f7f3da8c61078b99ff7f8929a26
 # SHA-256 of the converted package's weights (Data/com.apple.CoreML/weights/weight.bin).
 EXPECTED_WEIGHTS_SHA256 = "90a2538b1881275d5aa964b6aa6451baffe32b3167db3a526d9a123a3e818d5f"
 TILE = 512
-NAME = "DarkslideDenoise"
+NAME = "LuxtableDenoise"
 
 
 def sha256(path):
@@ -65,7 +65,7 @@ def main(out):
         compute_precision=ct.precision.FLOAT16,
         minimum_deployment_target=ct.target.macOS14,
     )
-    ml.author = "megvii-research (NAFNet, MIT); converted for Darkslide"
+    ml.author = "megvii-research (NAFNet, MIT); converted for Luxtable"
     ml.license = "MIT"
     ml.short_description = (f"NAFNet-SIDD-width32 real-noise denoiser, {TILE}x{TILE} planar RGB "
                             "float16 (sRGB-encoded 0..1) in and out.")

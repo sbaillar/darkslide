@@ -1,0 +1,82 @@
+[package]
+name = "lt-ffi"
+description = "UniFFI facade over the Luxtable Rust core, consumed by the SwiftUI app"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lib]
+# staticlib: linked into the Swift app. cdylib: read by uniffi-bindgen (library mode).
+# lib: lets the Rust tests and the bindgen binary use the crate.
+crate-type = ["lib", "staticlib", "cdylib"]
+name = "lt_ffi"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+default = []
+bindgen = ["uniffi/cli"]
+# Links the LGPL rawler fallback into lt-raw (docs/RAWDEC.md). Luxtable.app leaves it
+# out and runs the separate rawler helper (crates/lt-rawler) when the user installs it.
+rawler = ["lt-raw/rawler"]
+
+[dependencies]
+lt-core.workspace = true
+lt-raw = { path = "../lt-raw", default-features = false }
+lt-session = { path = "../lt-session" }
+lt-c1 = { path = "../lt-c1" }
+lt-lr = { path = "../lt-lr" }
+lt-apple = { path = "../lt-apple" }
+lt-ai = { path = "../lt-ai" }
+lt-export = { path = "../lt-export", default-features = false }
+lt-pipeline = { path = "../lt-pipeline" }
+lt-merge = { path = "../lt-merge" }
+bytemuck = "1.25.2"
+lt-cache = { path = "../lt-cache" }
+half = "2.7.1"
+lt-template = { path = "../lt-template" }
+mozjpeg = "0.10.13"
+lt-archive = { path = "../lt-archive" }
+lt-import = { path = "../lt-import", default-features = false }
+lt-gphotos = { path = "../lt-gphotos" }
+lt-immich = { path = "../lt-immich" }
+lt-plugin = { path = "../lt-plugin" }
+lt-fsutil = { path = "../lt-fsutil" }
+lt-remote = { path = "../lt-remote", default-features = false }
+chrono = { version = "0.4.42", default-features = false, features = ["std", "clock"] }
+serde.workspace = true
+serde_json.workspace = true
+rustix = { version = "1", features = ["fs"] }
+blake3 = { workspace = true, features = ["mmap", "rayon"] }
+thiserror.workspace = true
+rayon.workspace = true
+libc = "0.2.189"
+uniffi = "0.32.2"
+futures-channel = "0.3.31"
+# Export: EXIF (and GPS) of JPEG/HEIF originals.
+kamadak-exif = "0.6.1"
+
+[dev-dependencies]
+# The tests decode synthetic Sony files, whose colour matrix comes from rawler's data.
+lt-raw = { path = "../lt-raw", features = ["rawler"] }
+tempfile.workspace = true
+png = "0.18.1"
+lt-testdata = { path = "../lt-testdata" }
+criterion.workspace = true
+futures-executor = "0.3.31"
+rusqlite = { version = "0.37", features = ["bundled"] }
+lt-gphotos = { path = "../lt-gphotos", features = ["mock"] }
+lt-immich = { path = "../lt-immich", features = ["mock"] }
+lt-archive = { path = "../lt-archive", features = ["mock"] }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "render"
+harness = false

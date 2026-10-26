@@ -4,7 +4,7 @@
 #
 #   bench/fetch-pack.sh [<manifest>] [<dest>]
 #
-# Defaults: bench/packs/standard-v1.json into ~/Library/Caches/darkslide-bench/<id>.
+# Defaults: bench/packs/standard-v1.json into ~/Library/Caches/luxtable-bench/<id>.
 # Files already there with the right hash are kept. Each file is verified against its
 # pinned SHA-256 (`shasum`, part of macOS) and, when `b3sum` is installed (brew install
 # b3sum), its pinned BLAKE3 too. A file that fails verification is deleted and the
@@ -17,7 +17,7 @@ MANIFEST="${1:-bench/packs/standard-v1.json}"
 [[ -f "$MANIFEST" ]] || die "no manifest $MANIFEST"
 field() { /usr/bin/plutil -extract "$1" raw -o - "$MANIFEST"; }
 ID="$(field id)"
-DEST="${2:-$HOME/Library/Caches/darkslide-bench/$ID}"
+DEST="${2:-$HOME/Library/Caches/luxtable-bench/$ID}"
 mkdir -p "$DEST"
 
 # SHA-256 always (the pack hash is built from it); BLAKE3 too when b3sum is installed.

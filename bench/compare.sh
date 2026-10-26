@@ -9,7 +9,7 @@
 # verified by hash) and repeats it to --count photos: results comparable across Macs.
 # --raws stages the first --count RAWs of your own <folder> (read only): a "custom"
 # result, never ranked. Either way the photos go to a scratch folder on the internal
-# SSD. It checks the machine state, runs Darkslide (in-app and on-screen) and Capture
+# SSD. It checks the machine state, runs Luxtable (in-app and on-screen) and Capture
 # One with the same files and settings, and writes <out>/report.md plus the shareable
 # <out>/result.json (docs/BENCHMARKS.md, Sharing results).
 # Lightroom Classic has no automated runner: see bench/lightroom-checklist.md.
@@ -57,18 +57,18 @@ fi
 [[ "$C1" == 0 || -d "$SESSION" ]] || die "--c1-session: an empty Capture One session folder (or --no-captureone)"
 # Viewer operations are compared only when timed on screen: without it there is no
 # cross-app comparison to make.
-[[ "$C1" == 0 || "$SCREEN" == 1 ]] || die "--no-screen gives no cross-app comparison: add --no-captureone (Darkslide only)"
+[[ "$C1" == 0 || "$SCREEN" == 1 ]] || die "--no-screen gives no cross-app comparison: add --no-captureone (Luxtable only)"
 [[ "$C1" == 0 ]] || C1_NAME="$(c1_app)"
 TMP="${TMPDIR:-/tmp}"
-OUT="${OUT:-${TMP%/}/darkslide-bench/$(date +%Y%m%d-%H%M%S)}"
+OUT="${OUT:-${TMP%/}/luxtable-bench/$(date +%Y%m%d-%H%M%S)}"
 [[ ! -e "$OUT" ]] || die "$OUT already exists"
 mkdir -p "$OUT"
 # Nothing is ever written into the source folder.
 case "$(cd "$OUT" && pwd -P)/" in "$(cd "$RAWS" && pwd -P)/"*) die "--out must not be inside --raws" ;; esac
 
 if [[ "$BUILD" == 1 ]]; then
-  log "build Darkslide (this checkout)"
-  DS_SKIP_MODELS=1 scripts/build-app.sh
+  log "build Luxtable (this checkout)"
+  LT_SKIP_MODELS=1 scripts/build-app.sh
 fi
 
 log "stage RAWs into $OUT/raws"
@@ -90,8 +90,8 @@ PURGED=true
 sudo -n true 2>/dev/null || { PURGED=false; PREFLIGHT+=$'\n'"WARN: no sudo: file cache not purged, first passes labelled warm"; }
 
 mkdir -p "$OUT/results"
-DS_VERSION="$(/usr/bin/sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-DS_BUILD="$(git rev-list --count HEAD 2>/dev/null || echo "")"
+LT_VERSION="$(/usr/bin/sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+LT_BUILD="$(git rev-list --count HEAD 2>/dev/null || echo "")"
 C1_VERSION="" C1_BUILD=""
 C1_INFO="/Applications/${C1_NAME:-none}.app/Contents/Info"
 if [[ -f "$C1_INFO.plist" ]]; then
@@ -112,7 +112,7 @@ C1_RAN=$([[ "$C1" == 1 ]] && echo true || echo false)
   echo "  \"fileCachePurged\": $PURGED,"
   echo "  \"jpegQuality\": ${BENCH_JPEG_QUALITY:-90},"
   echo "  \"apps\": ["
-  echo "    {\"name\": \"Darkslide\", \"version\": $(json_string "$DS_VERSION"), \"build\": $(json_string "$DS_BUILD"), \"ran\": true, \"note\": \"\"},"
+  echo "    {\"name\": \"Luxtable\", \"version\": $(json_string "$LT_VERSION"), \"build\": $(json_string "$LT_BUILD"), \"ran\": true, \"note\": \"\"},"
   echo "    {\"name\": \"Capture One\", \"version\": $(json_string "$C1_VERSION"), \"build\": $(json_string "$C1_BUILD"), \"ran\": $C1_RAN, \"note\": \"\"},"
   echo "    {\"name\": \"Lightroom Classic\", \"version\": \"\", \"ran\": $LR_RAN, \"note\": $(json_string "$LR_NOTE")}"
   echo "  ],"
@@ -126,16 +126,16 @@ C1_RAN=$([[ "$C1" == 1 ]] && echo true || echo false)
 
 screen_flag=()
 [[ "$SCREEN" == 1 ]] && screen_flag=(--screen)
-bench/run-darkslide.sh "$OUT/raws" "$OUT" --runs "$RUNS" --count "$N" ${screen_flag[@]+"${screen_flag[@]}"}
+bench/run-luxtable.sh "$OUT/raws" "$OUT" --runs "$RUNS" --count "$N" ${screen_flag[@]+"${screen_flag[@]}"}
 if [[ "$C1" == 1 ]]; then
   C1_APP="$C1_NAME" bench/run-captureone.sh "$OUT/raws" "$OUT" --session "$SESSION" --runs "$RUNS" --count "$N"
 fi
 
-BIN=dist/Darkslide.app/Contents/MacOS/Darkslide
-ds_tool "$BIN" --bench-report "$OUT/results" --out "$OUT/report.md"
+BIN=dist/Luxtable.app/Contents/MacOS/Luxtable
+lt_tool "$BIN" --bench-report "$OUT/results" --out "$OUT/report.md"
 pack_flag=()
 [[ -n "$MANIFEST" ]] && pack_flag=(--pack "$MANIFEST")
-ds_tool "$BIN" --bench-share "$OUT/results" --photos "$PHOTOS" \
+lt_tool "$BIN" --bench-share "$OUT/results" --photos "$PHOTOS" \
   ${pack_flag[@]+"${pack_flag[@]}"} --out "$OUT/result.json"
 /bin/rm -rf "$OUT/work"
 log "report: $OUT/report.md, shareable result: $OUT/result.json (raw samples: $OUT/results)"

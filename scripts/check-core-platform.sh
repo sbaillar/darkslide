@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Keeps the shared Swift targets buildable for iPadOS (docs/IPAD_PLAN.md, phase 1):
 #
-#   DarkslideCore  never imports SwiftUI.
-#   DarkslideCore, DarkslideUI
+#   LuxtableCore  never imports SwiftUI.
+#   LuxtableCore, LuxtableUI
 #                  import AppKit (or UIKit) and name AppKit types only in seam files
-#                  (a `Platform/` folder: DarkslideCore/Platform/, DarkslideUI/Views/Platform/),
+#                  (a `Platform/` folder: LuxtableCore/Platform/, LuxtableUI/Views/Platform/),
 #                  and there only inside `#if os(macOS)` (UIKit: `#else` / `#if os(iOS)`).
 #                  The same goes for macOS-only Foundation API (home folder, mounts, Host).
 #                  Other macOS-only frameworks (DiskArbitration, ScreenCaptureKit, Quartz,
 #                  ColorSync, IOKit) are imported only inside `#if os(macOS)` anywhere.
 #
-# DarkslideMac and the Darkslide executable are Mac-only and are not checked.
+# LuxtableMac and the Luxtable executable are Mac-only and are not checked.
 # Run by scripts/test-app.sh; exits non-zero with one line per violation.
 set -euo pipefail
 cd "$(dirname "$0")/../app/Sources"
@@ -44,12 +44,12 @@ unguarded_imports() {
 
 is_seam() { [[ "$1" == */Platform/* ]]; }
 
-for target in DarkslideCore DarkslideUI; do
+for target in LuxtableCore LuxtableUI; do
   [[ -d "$target" ]] || { report "missing target app/Sources/$target"; continue; }
   while IFS= read -r -d '' f; do
     rel="app/Sources/$f"
-    if [[ "$target" == DarkslideCore ]] && grep -nE '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)?import[[:space:]]+SwiftUI\b' "$f" >/dev/null; then
-      report "$rel imports SwiftUI (DarkslideCore has no views; move it to DarkslideUI)"
+    if [[ "$target" == LuxtableCore ]] && grep -nE '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)?import[[:space:]]+SwiftUI\b' "$f" >/dev/null; then
+      report "$rel imports SwiftUI (LuxtableCore has no views; move it to LuxtableUI)"
     fi
     while IFS=: read -r line mod; do
       [[ -n "$line" ]] || continue
@@ -69,6 +69,6 @@ for target in DarkslideCore DarkslideUI; do
 done
 
 if [[ "$fail" == 0 ]]; then
-  echo "check-core-platform: DarkslideCore and DarkslideUI keep AppKit behind Platform/ seams"
+  echo "check-core-platform: LuxtableCore and LuxtableUI keep AppKit behind Platform/ seams"
 fi
 exit "$fail"

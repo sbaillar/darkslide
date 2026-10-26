@@ -1,0 +1,26 @@
+[package]
+name = "lt-merge"
+description = "Luxtable HDR merge and panorama stitching: registration, exposure fusion in scene-linear light, projection and seam blending"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+lt-core.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+lt-testdata = { path = "../lt-testdata" }
+lt-raw = { path = "../lt-raw", features = ["rawler"] }
+lt-pipeline = { path = "../lt-pipeline" }
+criterion.workspace = true
+
+[[bench]]
+name = "merge"
+harness = false
+
+[lints]
+workspace = true

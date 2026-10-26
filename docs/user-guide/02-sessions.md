@@ -1,6 +1,6 @@
 # Sessions
 
-Everything in Darkslide happens in a session: a folder of photos and their sidecars. Each import usually becomes a new session, but you can import into an existing one, or open any folder of photos as it is.
+Everything in Luxtable happens in a session: a folder of photos and their sidecars. Each import usually becomes a new session, but you can import into an existing one, or open any folder of photos as it is.
 
 ![Your edits are written to the photo's sidecar. The indexes that make browsing and Library fast are built from the sidecars and can be rebuilt.](img/sidecars.svg)
 
@@ -12,7 +12,7 @@ Everything in Darkslide happens in a session: a folder of photos and their sidec
 
 ## Folders opened in place
 
-When you open a folder that isn't a Darkslide session, Darkslide works on it in place: it never moves, renames or changes your files, and writes only its own sidecars and index. Renamed or edited files are recognised again when you reopen the folder. Commands that would move files, such as moving rejects to the session Trash, are turned off for such folders and say why.
+When you open a folder that isn't a Luxtable session, Luxtable works on it in place: it never moves, renames or changes your files, and writes only its own sidecars and index. Renamed or edited files are recognised again when you reopen the folder. Commands that would move files, such as moving rejects to the session Trash, are turned off for such folders and say why.
 
 ## What is in a session folder
 
@@ -22,13 +22,17 @@ My Session/
   Selects/      picks moved out of Capture
   Output/       exports, unless a recipe says otherwise
   Trash/        the session trash (restorable)
-  .ds/          sidecars (the source of truth) and the rebuildable index
+  .lt/          sidecars (the source of truth) and the rebuildable index
 ```
 
 Because a session is self-contained, you can move it to another drive, copy it to another Mac, or archive it, and it opens the same way.
 
+A folder opened in place has just one `.lt/` folder at its top, with the same contents; your photos stay where they are.
+
+Sessions made by Darkslide, as Luxtable was called before, have a `.ds/` folder instead. The first time Luxtable opens such a session, it renames `.ds/` (and the `.ds/` folders next to the photos) to `.lt/` in place, with nothing copied or deleted. If the folder can't be renamed (a read-only drive, missing permissions), the session isn't opened and nothing in it changes. After that, Darkslide 0.1 can no longer open that session, because it looks for `.ds/`. See [Coming from Darkslide](14-migrate.md#coming-from-darkslide).
+
 ## Disconnected drives and missing files
 
 - Sessions on a drive that isn't connected stay listed, marked as disconnected. Nothing is hidden or removed.
-- If an original has been moved or renamed, Darkslide finds it again by its content. **Locate…** and **Locate Folder…** point it to files you moved yourself.
-- **Remove Missing** is only offered when Darkslide can prove the file is really gone from the right disk.
+- If an original has been moved or renamed, Luxtable finds it again by its content. **Locate…** and **Locate Folder…** point it to files you moved yourself.
+- **Remove Missing** is only offered when Luxtable can prove the file is really gone from the right disk.

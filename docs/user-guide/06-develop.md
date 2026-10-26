@@ -31,7 +31,7 @@ The histogram sits under the tool tabs, above the panels, whichever tab is open.
 - **White Balance:** as shot, presets, temperature and tint, or the picker (`W`): click something that should be neutral.
 - The picker's loupe, a magnifying circle beside the cursor, shows exactly what you are about to sample, with a readout below it. It opens zoomed out, showing about 60 pixels across, so you can see where you are picking. Scroll over the loupe to zoom in or out.
 - **Color Balance** wheels (master, shadows, midtones, highlights) and the **Color Editor** for individual colour ranges. Saturation is in Exposure and vibrance in Presence.
-- **Camera profiles** (looks): Darkslide Standard, Neutral and Vivid, or an imported Adobe DCP profile.
+- **Camera profiles** (looks): Luxtable Standard, Neutral and Vivid, or an imported Adobe DCP profile.
 - `I` is a colour readout picker; click to pin a readout.
 
 ![The white balance picker's loupe and readout.](../screenshots/wb-loupe.png)

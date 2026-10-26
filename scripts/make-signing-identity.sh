@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a stable, self-signed code-signing identity "Darkslide Dev" in the login
+# Create a stable, self-signed code-signing identity "Luxtable Dev" in the login
 # keychain, so every build has the same designated requirement and macOS privacy
 # (TCC) grants survive rebuilds. Ad-hoc signatures change the cdhash per build,
 # which silently drops grants such as Removable Volumes and Local Network.
@@ -11,7 +11,7 @@
 #   scripts/make-signing-identity.sh
 # build-app.sh picks the identity up automatically.
 set -euo pipefail
-NAME="Darkslide Dev"
+NAME="Luxtable Dev"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
 if security find-identity -p codesigning "$KEYCHAIN" | grep -q "\"$NAME\""; then

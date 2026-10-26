@@ -738,384 +738,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ds-ai"
-version = "0.1.27"
-dependencies = [
- "bytemuck",
- "criterion",
- "ds-core",
- "ds-testdata",
- "pollster",
- "proptest",
- "rayon",
- "serde",
- "serde_json",
- "thiserror",
- "wgpu",
- "zune-jpeg",
-]
-
-[[package]]
-name = "ds-apple"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "ds-core",
- "ds-lr",
- "ds-session",
- "plist",
- "rusqlite",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "ds-archive"
-version = "0.1.27"
-dependencies = [
- "base64",
- "blake3",
- "chrono",
- "ds-core",
- "ds-fsutil",
- "ds-template",
- "hmac",
- "md-5",
- "percent-encoding",
- "reflink-copy",
- "roxmltree",
- "rustix",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "ds-c1"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "ds-core",
- "ds-fsutil",
- "ds-session",
- "ds-testdata",
- "plist",
- "roxmltree",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "xmlparser",
-]
-
-[[package]]
-name = "ds-cache"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "criterion",
- "ds-core",
- "rusqlite",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "ds-core"
-version = "0.1.27"
-dependencies = [
- "half",
- "proptest",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "ds-export"
-version = "0.1.27"
-dependencies = [
- "chrono",
- "criterion",
- "ds-core",
- "ds-fsutil",
- "ds-raw",
- "ds-template",
- "ds-testdata",
- "jpeg-encoder",
- "kamadak-exif",
- "lcms2",
- "mozjpeg",
- "peak_alloc",
- "png",
- "rayon",
- "rustix",
- "serde_json",
- "tempfile",
- "thiserror",
- "tiff",
-]
-
-[[package]]
-name = "ds-ffi"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "bytemuck",
- "chrono",
- "criterion",
- "ds-ai",
- "ds-apple",
- "ds-archive",
- "ds-c1",
- "ds-cache",
- "ds-core",
- "ds-export",
- "ds-fsutil",
- "ds-gphotos",
- "ds-immich",
- "ds-import",
- "ds-lr",
- "ds-merge",
- "ds-pipeline",
- "ds-plugin",
- "ds-raw",
- "ds-remote",
- "ds-session",
- "ds-template",
- "ds-testdata",
- "futures-channel",
- "futures-executor",
- "half",
- "kamadak-exif",
- "libc",
- "mozjpeg",
- "png",
- "rayon",
- "rusqlite",
- "rustix",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "uniffi",
-]
-
-[[package]]
-name = "ds-fsutil"
-version = "0.1.27"
-dependencies = [
- "rustix",
- "tempfile",
- "tracing",
-]
-
-[[package]]
-name = "ds-gphotos"
-version = "0.1.27"
-dependencies = [
- "percent-encoding",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "ds-immich"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "ds-fsutil",
- "percent-encoding",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "ds-import"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "chrono",
- "criterion",
- "ds-core",
- "ds-fsutil",
- "ds-raw",
- "ds-template",
- "ds-testdata",
- "proptest",
- "rustix",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "ds-lr"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "ds-core",
- "ds-session",
- "ds-testdata",
- "roxmltree",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "xmlparser",
-]
-
-[[package]]
-name = "ds-merge"
-version = "0.1.27"
-dependencies = [
- "criterion",
- "ds-core",
- "ds-pipeline",
- "ds-raw",
- "ds-testdata",
- "rayon",
- "thiserror",
-]
-
-[[package]]
-name = "ds-pipeline"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "bytemuck",
- "criterion",
- "ds-core",
- "ds-raw",
- "ds-testdata",
- "half",
- "png",
- "pollster",
- "rayon",
- "serde",
- "serde_json",
- "thiserror",
- "wgpu",
-]
-
-[[package]]
-name = "ds-plugin"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "bytemuck",
- "ds-core",
- "ds-fsutil",
- "ed25519-dalek",
- "getrandom 0.3.4",
- "semver",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "toml 0.8.23",
- "wasmi",
- "wat",
- "zip",
-]
-
-[[package]]
-name = "ds-raw"
-version = "0.1.27"
-dependencies = [
- "criterion",
- "ds-core",
- "ds-testdata",
- "jpeg-encoder",
- "miniz_oxide 0.9.1",
- "proptest",
- "rawler",
- "rayon",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tracing",
- "zune-core",
- "zune-jpeg",
-]
-
-[[package]]
-name = "ds-rawler"
-version = "0.1.27"
-dependencies = [
- "ds-core",
- "ds-raw",
- "ds-testdata",
- "tempfile",
-]
-
-[[package]]
-name = "ds-remote"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "ds-core",
- "ds-fsutil",
- "ds-import",
- "ds-raw",
- "ds-session",
- "proptest",
- "rcgen",
- "ring",
- "rustls",
- "rustls-webpki",
- "serde",
- "serde_json",
- "spake2",
- "tempfile",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "ds-session"
-version = "0.1.27"
-dependencies = [
- "blake3",
- "criterion",
- "ds-core",
- "ds-fsutil",
- "rusqlite",
- "rustix",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "trash",
-]
-
-[[package]]
-name = "ds-template"
-version = "0.1.27"
-dependencies = [
- "chrono",
- "thiserror",
- "unicode-normalization",
-]
-
-[[package]]
-name = "ds-testdata"
-version = "0.1.27"
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1879,6 +1501,384 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+
+[[package]]
+name = "lt-ai"
+version = "0.2.0"
+dependencies = [
+ "bytemuck",
+ "criterion",
+ "lt-core",
+ "lt-testdata",
+ "pollster",
+ "proptest",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wgpu",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "lt-apple"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "lt-core",
+ "lt-lr",
+ "lt-session",
+ "plist",
+ "rusqlite",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "lt-archive"
+version = "0.2.0"
+dependencies = [
+ "base64",
+ "blake3",
+ "chrono",
+ "hmac",
+ "lt-core",
+ "lt-fsutil",
+ "lt-template",
+ "md-5",
+ "percent-encoding",
+ "reflink-copy",
+ "roxmltree",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "lt-c1"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "lt-core",
+ "lt-fsutil",
+ "lt-session",
+ "lt-testdata",
+ "plist",
+ "roxmltree",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "xmlparser",
+]
+
+[[package]]
+name = "lt-cache"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "criterion",
+ "lt-core",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "lt-core"
+version = "0.2.0"
+dependencies = [
+ "half",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "lt-export"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "criterion",
+ "jpeg-encoder",
+ "kamadak-exif",
+ "lcms2",
+ "lt-core",
+ "lt-fsutil",
+ "lt-raw",
+ "lt-template",
+ "lt-testdata",
+ "mozjpeg",
+ "peak_alloc",
+ "png",
+ "rayon",
+ "rustix",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tiff",
+]
+
+[[package]]
+name = "lt-ffi"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "bytemuck",
+ "chrono",
+ "criterion",
+ "futures-channel",
+ "futures-executor",
+ "half",
+ "kamadak-exif",
+ "libc",
+ "lt-ai",
+ "lt-apple",
+ "lt-archive",
+ "lt-c1",
+ "lt-cache",
+ "lt-core",
+ "lt-export",
+ "lt-fsutil",
+ "lt-gphotos",
+ "lt-immich",
+ "lt-import",
+ "lt-lr",
+ "lt-merge",
+ "lt-pipeline",
+ "lt-plugin",
+ "lt-raw",
+ "lt-remote",
+ "lt-session",
+ "lt-template",
+ "lt-testdata",
+ "mozjpeg",
+ "png",
+ "rayon",
+ "rusqlite",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "uniffi",
+]
+
+[[package]]
+name = "lt-fsutil"
+version = "0.2.0"
+dependencies = [
+ "rustix",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "lt-gphotos"
+version = "0.2.0"
+dependencies = [
+ "percent-encoding",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "lt-immich"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "lt-fsutil",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "lt-import"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "chrono",
+ "criterion",
+ "lt-core",
+ "lt-fsutil",
+ "lt-raw",
+ "lt-template",
+ "lt-testdata",
+ "proptest",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "lt-lr"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "lt-core",
+ "lt-session",
+ "lt-testdata",
+ "roxmltree",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "xmlparser",
+]
+
+[[package]]
+name = "lt-merge"
+version = "0.2.0"
+dependencies = [
+ "criterion",
+ "lt-core",
+ "lt-pipeline",
+ "lt-raw",
+ "lt-testdata",
+ "rayon",
+ "thiserror",
+]
+
+[[package]]
+name = "lt-pipeline"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "bytemuck",
+ "criterion",
+ "half",
+ "lt-core",
+ "lt-raw",
+ "lt-testdata",
+ "png",
+ "pollster",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wgpu",
+]
+
+[[package]]
+name = "lt-plugin"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "bytemuck",
+ "ed25519-dalek",
+ "getrandom 0.3.4",
+ "lt-core",
+ "lt-fsutil",
+ "semver",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "toml 0.8.23",
+ "wasmi",
+ "wat",
+ "zip",
+]
+
+[[package]]
+name = "lt-raw"
+version = "0.2.0"
+dependencies = [
+ "criterion",
+ "jpeg-encoder",
+ "lt-core",
+ "lt-testdata",
+ "miniz_oxide 0.9.1",
+ "proptest",
+ "rawler",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "zune-core",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "lt-rawler"
+version = "0.2.0"
+dependencies = [
+ "lt-core",
+ "lt-raw",
+ "lt-testdata",
+ "tempfile",
+]
+
+[[package]]
+name = "lt-remote"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "lt-core",
+ "lt-fsutil",
+ "lt-import",
+ "lt-raw",
+ "lt-session",
+ "proptest",
+ "rcgen",
+ "ring",
+ "rustls",
+ "rustls-webpki",
+ "serde",
+ "serde_json",
+ "spake2",
+ "tempfile",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "lt-session"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "criterion",
+ "lt-core",
+ "lt-fsutil",
+ "rusqlite",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "trash",
+]
+
+[[package]]
+name = "lt-template"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "thiserror",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "lt-testdata"
+version = "0.2.0"
 
 [[package]]
 name = "md-5"

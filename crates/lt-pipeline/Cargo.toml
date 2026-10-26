@@ -1,0 +1,57 @@
+[package]
+name = "lt-pipeline"
+description = "Luxtable develop pipeline: CPU reference renderer, wgpu/Metal GPU renderer, color science, auto tools"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+lt-core.workspace = true
+serde.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+wgpu.workspace = true
+pollster.workspace = true
+bytemuck.workspace = true
+half = "2.7.1"
+blake3.workspace = true
+
+[features]
+# Compiles the (ignored) timing audit of the CPU work in the GPU path; see gpu/stage_timings.rs.
+stage-timings = []
+
+[dev-dependencies]
+lt-testdata = { path = "../lt-testdata" }
+lt-raw = { path = "../lt-raw", features = ["rawler"] }
+criterion.workspace = true
+serde_json.workspace = true
+png = "0.18.1"
+
+[[bench]]
+name = "render"
+harness = false
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "denoise"
+harness = false
+
+[[bench]]
+name = "removal"
+harness = false
+
+[[bench]]
+name = "optimize"
+harness = false
+
+[[bench]]
+name = "effects"
+harness = false
+
+[[bench]]
+name = "admit"
+harness = false

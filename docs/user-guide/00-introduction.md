@@ -1,10 +1,10 @@
-# Welcome to Darkslide
+# Welcome to Luxtable
 
-Darkslide is a RAW photo workflow app for macOS. It takes you from a memory card to finished, backed-up photos: import and verify, cull, develop, export and archive. It is built around three ideas.
+Luxtable is a RAW photo workflow app for macOS. It takes you from a memory card to finished, backed-up photos: import and verify, cull, develop, export and archive. It is built around three ideas.
 
 - **Speed where you spend your time.** Thumbnails appear straight away from the preview each RAW file carries, and full renders fill in behind them. Culling is driven by single keys, and the develop pipeline runs on the GPU, so sliders respond as you drag.
-- **Sessions you own.** A session is an ordinary folder: your originals, plus a small sidecar file per photo that holds its rating, labels, keywords and edits. The sidecars are the source of truth. Darkslide keeps a database alongside them only to be fast, and can rebuild it from the sidecars at any time. Library mode still shows every session's photos together.
-- **Never losing a file.** Imports are checked byte for byte before they count as done. Darkslide never deletes anything from a memory card or from your archive, and every file it writes is written in full before it replaces the old one.
+- **Sessions you own.** A session is an ordinary folder: your originals, plus a small sidecar file per photo that holds its rating, labels, keywords and edits. The sidecars are the source of truth. Luxtable keeps a database alongside them only to be fast, and can rebuild it from the sidecars at any time. Library mode still shows every session's photos together.
+- **Never losing a file.** Imports are checked byte for byte before they count as done. Luxtable never deletes anything from a memory card or from your archive, and every file it writes is written in full before it replaces the old one.
 
 ![From the card to the keepers.](img/workflow.svg)
 

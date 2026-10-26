@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Darkslide for iPad (docs/IPAD_PLAN.md, ipad/README.md). A stub until the iPad app target
+# Luxtable for iPad (docs/IPAD_PLAN.md, ipad/README.md). A stub until the iPad app target
 # exists (phase 0): today it checks the toolchain, builds the Rust XCFramework and compiles
-# the shared targets (DarkslideCore, DarkslideUI) for the iOS simulator.
+# the shared targets (LuxtableCore, LuxtableUI) for the iOS simulator.
 #
 #   scripts/build-ipad.sh            check tools, XCFramework, shared targets for the simulator
 #   scripts/build-ipad.sh --check    only check the tools (prints what to install)
@@ -24,9 +24,9 @@ scripts/ffi.sh --xcframework
 
 # The shared targets on the iOS simulator. Until the package consumes the XCFramework on
 # iOS (ipad/README.md, step 2) this stops at the FFI link; compile errors in Core/UI show first.
-for scheme in DarkslideCore DarkslideUI; do
+for scheme in LuxtableCore LuxtableUI; do
   log "xcodebuild $scheme (iOS Simulator)"
   (cd app && xcodebuild build -scheme "$scheme" -destination 'generic/platform=iOS Simulator' -quiet)
 done
 
-log "next: the DarkslideTouch app target (ipad/README.md, phase 0)"
+log "next: the LuxtableTouch app target (ipad/README.md, phase 0)"

@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
 # Retake docs/screenshots/ in --demo mode: synthetic photos, sample sessions, no people,
 # no real file names or paths. Each run uses a fresh scratch support folder and the
-# snapshot defaults suite, so it never reads or writes the user's Darkslide data.
+# snapshot defaults suite, so it never reads or writes the user's Luxtable data.
 #
-#   scripts/screenshots.sh            all of them (build dist/Darkslide.app first)
+#   scripts/screenshots.sh            all of them (build dist/Luxtable.app first)
 #   scripts/screenshots.sh survey     one (by name)
 #
 # Look at every image before committing it.
 #
-# Launch safety: the app only ever runs with a fresh DS_SUPPORT_ROOT AND a private
+# Launch safety: the app only ever runs with a fresh LT_SUPPORT_ROOT AND a private
 # preferences suite inside it (`--defaults-suite`), and only a binary built from the
 # current sources that knows those switches: an older binary would ignore an unknown
 # flag and open the user's real library.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-APP="dist/Darkslide.app/Contents/MacOS/Darkslide"
+source scripts/lib/env-compat.sh
+APP="dist/Luxtable.app/Contents/MacOS/Luxtable"
 OUT="docs/screenshots"
 TIMEOUT=240 # seconds; the app's own snapshot watchdog gives up at 180
 
 die() { echo "error: $*" >&2; exit 1; }
-[[ -x "$APP" ]] || die "build first (DS_SKIP_MODELS=1 scripts/build-app.sh)"
+[[ -x "$APP" ]] || die "build first (LT_SKIP_MODELS=1 scripts/build-app.sh)"
 stale="$(find app/Sources app/.rust/lib -newer "$APP" -type f -print -quit 2>/dev/null || true)"
-[[ -z "$stale" ]] || die "$APP is older than $stale: rebuild it (DS_SKIP_MODELS=1 scripts/build-app.sh)"
+[[ -z "$stale" ]] || die "$APP is older than $stale: rebuild it (LT_SKIP_MODELS=1 scripts/build-app.sh)"
 # Strings of 15 bytes or fewer are inlined in Swift code, so check longer ones: the
 # private-suite switch and the snapshot run's own suite and scratch folder.
-for sentinel in --defaults-suite casa.baillargeon.darkslide.snapshot darkslide-snapshot-support; do
+for sentinel in --defaults-suite app.luxtable.Luxtable.snapshot luxtable-snapshot-support; do
   grep -aq -- "$sentinel" "$APP" || die "$APP lacks \"$sentinel\": refusing to launch it"
 done
 
@@ -55,7 +56,7 @@ for shot in "${shots[@]}"; do
   if [[ -n "$flag" ]]; then args+=("$flag"); fi
   if [[ -n "$arg" ]]; then args+=("$arg"); fi
   echo "==> $name"
-  DS_SUPPORT_ROOT="$root" "$APP" "${args[@]}" >"$log" 2>&1 &
+  LT_SUPPORT_ROOT="$root" "$APP" "${args[@]}" >"$log" 2>&1 &
   pid=$!
   for ((t = 0; t < TIMEOUT; t++)); do
     kill -0 "$pid" 2>/dev/null || break

@@ -1,23 +1,24 @@
-# Darkslide
+# Luxtable
 
-<p align="center"><img src="docs/brand/darkslide-logo.png" alt="darkslide: the wordmark in a camera viewfinder" width="640"></p>
+<p align="center"><img src="docs/brand/luxtable-logo.png" alt="Luxtable: the lowercase wordmark inside a camera viewfinder" width="640"></p>
 
 <p align="center"><b>A fast, local-first RAW photo workflow for macOS.</b><br>
-Card import, culling, sessions, editing, export and archiving, with a Rust core on the GPU and a native SwiftUI app.</p>
+Card import, culling, sessions, editing, export and archiving, with a Rust core on the GPU and a native SwiftUI app.<br>
+<a href="https://luxtable.app">luxtable.app</a> · Formerly Darkslide.</p>
 
 <p align="center">
   <a href="LICENSE"><img alt="Licence: Apache-2.0" src="https://img.shields.io/badge/licence-Apache--2.0-blue"></a>
   <img alt="Platform: macOS on Apple silicon" src="https://img.shields.io/badge/macOS-Apple%20silicon-black">
-  <a href="docs/Darkslide-User-Guide.pdf"><img alt="User guide (PDF)" src="https://img.shields.io/badge/user%20guide-PDF-orange"></a>
+  <a href="docs/Luxtable-User-Guide.pdf"><img alt="User guide (PDF)" src="https://img.shields.io/badge/user%20guide-PDF-orange"></a>
 </p>
 
-![Darkslide: the grid, filter bar and tools on a culling session](docs/screenshots/grid.png)
+![Luxtable: the grid, filter bar and tools on a culling session](docs/screenshots/grid.png)
 
-Darkslide is named after the plate that covers film in a holder. It is built for photographers who shoot a lot and want to get from the card to the keepers quickly: Capture One–style sessions, culling at the speed of your fingers, a GPU develop pipeline, and backups that never delete anything.
+Luxtable is built for photographers who shoot a lot and want to get from the card to the keepers quickly: Capture One–style sessions, culling at the speed of your fingers, a GPU develop pipeline, and backups that never delete anything.
 
-**Contents:** [Why Darkslide](#why-darkslide) · [Feature tour](#feature-tour) · [How it works](#how-it-works) · [Cameras](#supported-cameras) · [Install](#install-and-build-from-source) · [Privacy](#privacy-and-network-use) · [Docs](#documentation) · [Roadmap](#roadmap) · [Contributing](#contributing) · [Licence](#licence)
+**Contents:** [Why Luxtable](#why-luxtable) · [Feature tour](#feature-tour) · [How it works](#how-it-works) · [Cameras](#supported-cameras) · [Install](#install-and-build-from-source) · [Privacy](#privacy-and-network-use) · [Docs](#documentation) · [Roadmap](#roadmap) · [Contributing](#contributing) · [Licence](#licence)
 
-## Why Darkslide
+## Why Luxtable
 
 - **Instant browsing.** Thumbnails come from the RAW file's embedded preview straight away, and full renders fill in behind them, visible photos first. Moving to the next photo with the keyboard takes under 50 ms.
 - **Smooth editing.** The whole develop pipeline runs as GPU compute (Metal via wgpu). Dragging a slider re-renders a screen-sized proxy in 16 ms or less ([budgets](docs/ARCHITECTURE.md#budgets-release-build-m4-pro-a9-arw-file-in-page-cache)).
@@ -27,11 +28,11 @@ Darkslide is named after the plate that covers film in a holder. It is built for
 
 ## Feature tour
 
-The screenshots are taken in demo mode (`--demo`): synthetic photos, no people, no real files. A full walk-through is in the [user guide (PDF)](docs/Darkslide-User-Guide.pdf).
+The screenshots are taken in demo mode (`--demo`): synthetic photos, no people, no real files. A full walk-through is in the [user guide (PDF)](docs/Luxtable-User-Guide.pdf).
 
 ### Import from a card
 
-Darkslide detects memory cards, copies in parallel and verifies each file's checksum before the import counts as done. It skips anything already imported into any session, renames with templates, can resume an interrupted import, and offers a safe eject. Nothing is ever deleted from the card.
+Luxtable detects memory cards, copies in parallel and verifies each file's checksum before the import counts as done. It skips anything already imported into any session, renames with templates, can resume an interrupted import, and offers a safe eject. Nothing is ever deleted from the card.
 
 ![The import sheet part-way through a card import](docs/screenshots/import-card.png)
 
@@ -95,7 +96,7 @@ A GPU pipeline with Capture One–style tool tabs you can rearrange, a CPU refer
 - **Amazon Photos hand-off** (optional): originals are copied into the folder Amazon Photos backs up.
 - **Immich** (optional): your edited photos, stars and tags in a self-hosted [Immich](https://immich.app) server that indexes the archive (see [Immich](#immich) below).
 - The optional ones are off until you turn them on in Settings ▸ Plugins (see [Optional integrations](#optional-integrations)).
-- **Metadata in every export:** star rating (`xmp:Rating`), keywords as `dc:subject`, `lr:hierarchicalSubject` and `digiKam:TagsList`, and optionally the colour label and pick flag as `Darkslide/Label/Red`, `Darkslide/Pick`, `Darkslide/Reject` tags.
+- **Metadata in every export:** star rating (`xmp:Rating`), keywords as `dc:subject`, `lr:hierarchicalSubject` and `digiKam:TagsList`, and optionally the colour label and pick flag as `Luxtable/Label/Red`, `Luxtable/Pick`, `Luxtable/Reject` tags.
 
 ![The archive popover after a run](docs/screenshots/archive-popover.png)
 
@@ -103,26 +104,26 @@ A GPU pipeline with Capture One–style tool tabs you can rearrange, a CPU refer
 
 Settings ▸ Archive picks where sessions go. Each session gets its own folder there; switching destinations never moves or deletes what is already archived.
 
-- **Folder:** rsync to a mounted volume (a NAS share under `/Volumes`, an external drive) or a local folder. Nothing is written while the volume isn't mounted: changes wait, and the archive catches up when it is back. A local folder must exist (and can't be inside a session or Darkslide's own support folder).
-- **Object storage:** any S3-compatible service: Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO. Enter the endpoint (empty for Amazon S3, which uses the region), the region, the bucket, a path (key prefix: `darkslide/` puts a session at `darkslide/<session>/…`) and, if the service needs it, path-style addressing. The access key ID and secret access key are kept only in your Keychain, never in preferences or files; the secret is never shown again. Test Connection checks the bucket and leaves one small test object under the path in `.ds-archive-test/`.
+- **Folder:** rsync to a mounted volume (a NAS share under `/Volumes`, an external drive) or a local folder. Nothing is written while the volume isn't mounted: changes wait, and the archive catches up when it is back. A local folder must exist (and can't be inside a session or Luxtable's own support folder).
+- **Object storage:** any S3-compatible service: Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO. Enter the endpoint (empty for Amazon S3, which uses the region), the region, the bucket, a path (key prefix: `luxtable/` puts a session at `luxtable/<session>/…`) and, if the service needs it, path-style addressing. The access key ID and secret access key are kept only in your Keychain, never in preferences or files; the secret is never shown again. Test Connection checks the bucket and leaves one small test object under the path in `.lt-archive-test/`.
 
-Either way, the archive never deletes anything. A file that changed is archived again only after its previous version is moved aside (a folder's `.ds-archive-trash/<time>/`, or copied to `<path>.ds-archive-trash/<time>/` in the bucket). Unchanged files are skipped (on object storage by a BLAKE3 hash stored with each object); every upload is checked against its MD5 and SHA-256 by the service and verified afterwards; large files go up in 8 MB parts. The live session database is never copied, only a consistent snapshot of it, and caches and half-written files stay out. Developed copies and XMP sidecars travel with the session. Immich needs a folder it can index, so with object storage its album sync is skipped (Settings ▸ Immich says so); the Amazon Photos hand-off works with either destination.
+Either way, the archive never deletes anything. A file that changed is archived again only after its previous version is moved aside (a folder's `.lt-archive-trash/<time>/`, or copied to `<path>.lt-archive-trash/<time>/` in the bucket). Unchanged files are skipped (on object storage by a BLAKE3 hash stored with each object); every upload is checked against its MD5 and SHA-256 by the service and verified afterwards; large files go up in 8 MB parts. The live session database is never copied, only a consistent snapshot of it, and caches and half-written files stay out. Developed copies and XMP sidecars travel with the session. Immich needs a folder it can index, so with object storage its album sync is skipped (Settings ▸ Immich says so); the Amazon Photos hand-off works with either destination.
 
 ### Immich
 
-Immich can index the archive folder as an **external library** (mounted read-only is fine): Darkslide never uploads to Immich, and Immich never writes to the share. Turn it on in Settings ▸ Plugins, then set it up in Settings ▸ Immich:
+Immich can index the archive folder as an **external library** (mounted read-only is fine): Luxtable never uploads to Immich, and Immich never writes to the share. Turn it on in Settings ▸ Plugins, then set it up in Settings ▸ Immich:
 
 1. Enter the server address and an API key (Immich ▸ Account Settings ▸ API Keys; it is kept in your Keychain). Test Connection.
-2. Tell Darkslide where Immich sees the archive, e.g. `/mnt/photos` on the server is `/Volumes/photos` on this Mac. Detect fills it in from an archived photo Immich already has, or from the library's import path.
+2. Tell Luxtable where Immich sees the archive, e.g. `/mnt/photos` on the server is `/Volumes/photos` on this Mac. Detect fills it in from an archived photo Immich already has, or from the library's import path.
 3. Choose photos and use **Photo ▸ Keep a Developed Copy for Immich** (also in the browser's context menu): a full-size JPEG with every edit goes to the session's `Developed/` folder, is rendered again when you edit, re-rate or re-tag the photo, and the archive carries it to the NAS. A badge on the thumbnail shows the copy (orange when out of date). **Stop Updating Developed Copy** leaves the existing file alone: nothing deletes from the archive.
-4. With **XMP sidecars** on (the default), `IMG_0001.ARW.xmp` next to each archived original carries stars, title, caption, keywords and position, so RAWs show them in Immich too. A sidecar Darkslide didn't write (Lightroom, Capture One) is never touched.
-5. **Albums** follow rules ("★★★★★" → "Darkslide ★★★★★") across every archived session. After each archive run (or Sync Albums Now) Darkslide asks Immich to rescan, then adds the matching photos (the developed copy when there is one) and removes only the photos it added itself. Photos you put in an album by hand stay.
+4. With **XMP sidecars** on (the default), `IMG_0001.ARW.xmp` next to each archived original carries stars, title, caption, keywords and position, so RAWs show them in Immich too. A sidecar Luxtable didn't write (Lightroom, Capture One) is never touched.
+5. **Albums** follow rules ("★★★★★" → "Luxtable ★★★★★") across every archived session. After each archive run (or Sync Albums Now) Luxtable asks Immich to rescan, then adds the matching photos (the developed copy when there is one) and removes only the photos it added itself. Photos you put in an album by hand stay.
 
-Rate and tag in Darkslide: Immich shows what the sidecars and developed copies say. If you only want the developed JPEGs in Immich, add the exclusion pattern `**/*.ARW` (and your other RAW extensions) to the external library. Album changes and scan requests are the only things Darkslide asks of Immich; scans need an admin's API key (otherwise Immich finds new files on its own schedule).
+Rate and tag in Luxtable: Immich shows what the sidecars and developed copies say. If you only want the developed JPEGs in Immich, add the exclusion pattern `**/*.ARW` (and your other RAW extensions) to the external library. Album changes and scan requests are the only things Luxtable asks of Immich; scans need an admin's API key (otherwise Immich finds new files on its own schedule).
 
 ### Optional integrations
 
-Four integrations are built in but off until you turn them on, so Darkslide stays out of services you don't use. Turn each on or off in **Settings ▸ Plugins ▸ Integrations**; its own Settings tab appears while it is on.
+Four integrations are built in but off until you turn them on, so Luxtable stays out of services you don't use. Turn each on or off in **Settings ▸ Plugins ▸ Integrations**; its own Settings tab appears while it is on.
 
 | Integration | What it does | Where to set it up |
 |---|---|---|
@@ -136,9 +137,9 @@ Turning one off hides its menus, badges and panels and stops its background work
 ### Plug-ins, iPad link and other apps
 
 - **Plug-ins** (Settings ▸ Plugins): add looks, styles, voice phrases, or an export step written in WebAssembly that runs sandboxed. Nothing is granted at install ([docs/PLUGINS.md](docs/PLUGINS.md)).
-- **Mac ↔ iPad link** (Settings ▸ Devices, off by default): a paired device can browse the open session and send photos and edits back over mutually authenticated TLS 1.3. The iPad app is planned; the `ds-remote` command-line client uses the link today ([docs/REMOTE.md](docs/REMOTE.md)).
-- **Coming from Capture One or Lightroom Classic?** Darkslide reads Capture One sessions and settings and Lightroom Classic catalogs, XMP sidecars and presets, with a dry run first and a revert. It never modifies their files ([C1 mapping](docs/C1_FORMAT.md), [Lightroom mapping](docs/LR_FORMAT.md)).
-- **Coming from Aperture or iPhoto?** File ▸ Import Aperture or iPhoto Library… reads an Aperture 3 library or an iPhoto library (iPhoto 6 and later). It brings over ratings, rejects and hidden photos, flags, colour labels, keywords, titles, captions, places, projects, events and albums. It also brings the edits that map: exposure, recovery, contrast, definition, saturation, vibrancy, highlights and shadows, white balance on RAW files, straighten, crop and black & white. Levels, curves, retouching, brushed-in adjustments, sharpening, noise reduction, vignettes, faces and smart albums don't carry over, and the dry run lists every one it finds. An older iPhoto library kept edits only as rendered copies, so its originals come in unedited. The library is only read. Its originals open in place as a session, with Darkslide's data kept outside the library. Originals on a disk that isn't connected are listed until you connect it. Photos libraries aren't supported ([Aperture and iPhoto mapping](docs/APPLE_FORMAT.md)).
+- **Mac ↔ iPad link** (Settings ▸ Devices, off by default): a paired device can browse the open session and send photos and edits back over mutually authenticated TLS 1.3. The iPad app is planned; the `lt-remote` command-line client uses the link today ([docs/REMOTE.md](docs/REMOTE.md)).
+- **Coming from Capture One or Lightroom Classic?** Luxtable reads Capture One sessions and settings and Lightroom Classic catalogs, XMP sidecars and presets, with a dry run first and a revert. It never modifies their files ([C1 mapping](docs/C1_FORMAT.md), [Lightroom mapping](docs/LR_FORMAT.md)).
+- **Coming from Aperture or iPhoto?** File ▸ Import Aperture or iPhoto Library… reads an Aperture 3 library or an iPhoto library (iPhoto 6 and later). It brings over ratings, rejects and hidden photos, flags, colour labels, keywords, titles, captions, places, projects, events and albums. It also brings the edits that map: exposure, recovery, contrast, definition, saturation, vibrancy, highlights and shadows, white balance on RAW files, straighten, crop and black & white. Levels, curves, retouching, brushed-in adjustments, sharpening, noise reduction, vignettes, faces and smart albums don't carry over, and the dry run lists every one it finds. An older iPhoto library kept edits only as rendered copies, so its originals come in unedited. The library is only read. Its originals open in place as a session, with Luxtable's data kept outside the library. Originals on a disk that isn't connected are listed until you connect it. Photos libraries aren't supported ([Aperture and iPhoto mapping](docs/APPLE_FORMAT.md)).
 
 | Plug-ins | Devices |
 |---|---|
@@ -151,7 +152,7 @@ This is a feature-level comparison based on the other products' publicly documen
 
 ✅ yes · ◐ partial or limited · ❌ no
 
-| Feature | Darkslide | Capture One | Lightroom Classic |
+| Feature | Luxtable | Capture One | Lightroom Classic |
 |---|---|---|---|
 | **Library model** | | | |
 | Session-based workflow (self-contained folders) | ✅ | ✅ | ❌ (catalog) |
@@ -211,7 +212,7 @@ This is a feature-level comparison based on the other products' publicly documen
 | Reads Capture One sessions and Lightroom Classic libraries | ✅ | ◐ Lightroom only | ❌ |
 | Platforms | macOS (Apple silicon) | macOS, Windows, iPad | macOS, Windows |
 
-Capture One is a trademark of Capture One A/S. Lightroom and Adobe are trademarks of Adobe. Darkslide is not affiliated with or endorsed by either company.
+Capture One is a trademark of Capture One A/S. Lightroom and Adobe are trademarks of Adobe. Luxtable is not affiliated with or endorsed by either company.
 
 </details>
 
@@ -219,33 +220,33 @@ Capture One is a trademark of Capture One A/S. Lightroom and Adobe are trademark
 
 ### Architecture
 
-The app is SwiftUI and AppKit. Everything that touches pixels or files is Rust, reached through one UniFFI facade (`ds-ffi`). On-device models run in the app through Core ML and Vision.
+The app is SwiftUI and AppKit. Everything that touches pixels or files is Rust, reached through one UniFFI facade (`lt-ffi`). On-device models run in the app through Core ML and Vision.
 
 ```mermaid
 flowchart TD
-    App["Darkslide.app<br/>SwiftUI + AppKit, Metal viewer,<br/>Vision and Core ML models"]
-    FFI["ds-ffi<br/>UniFFI facade"]
+    App["Luxtable.app<br/>SwiftUI + AppKit, Metal viewer,<br/>Vision and Core ML models"]
+    FFI["lt-ffi<br/>UniFFI facade"]
     App <-->|"Swift bindings"| FFI
     FFI --> Library & Render & Flow & Connect
 
     subgraph Library["Sessions and library"]
         direction TB
-        Session["ds-session<br/>sessions, sidecars, SQLite,<br/>Library, search, presets"] ~~~ Cache["ds-cache<br/>thumbnails, job scheduler"] ~~~ AI["ds-ai<br/>cull scores, grouping"]
+        Session["lt-session<br/>sessions, sidecars, SQLite,<br/>Library, search, presets"] ~~~ Cache["lt-cache<br/>thumbnails, job scheduler"] ~~~ AI["lt-ai<br/>cull scores, grouping"]
     end
     subgraph Render["Rendering"]
         direction TB
-        Raw["ds-raw<br/>RAW decode, previews, EXIF"] ~~~ Pipeline["ds-pipeline<br/>wgpu/Metal GPU develop,<br/>CPU reference"] ~~~ Merge["ds-merge<br/>HDR, panorama"]
+        Raw["lt-raw<br/>RAW decode, previews, EXIF"] ~~~ Pipeline["lt-pipeline<br/>wgpu/Metal GPU develop,<br/>CPU reference"] ~~~ Merge["lt-merge<br/>HDR, panorama"]
     end
     subgraph Flow["Import and output"]
         direction TB
-        Import["ds-import<br/>card copy, BLAKE3 verify"] ~~~ Export["ds-export<br/>recipes, encoders"] ~~~ Archive["ds-archive<br/>rsync or S3, Amazon Photos"]
+        Import["lt-import<br/>card copy, BLAKE3 verify"] ~~~ Export["lt-export<br/>recipes, encoders"] ~~~ Archive["lt-archive<br/>rsync or S3, Amazon Photos"]
     end
     subgraph Connect["Interop and services"]
         direction TB
-        Interop["ds-c1, ds-lr, ds-apple<br/>Capture One, Lightroom, Aperture, iPhoto"] ~~~ GPhotos["ds-gphotos<br/>Google Photos"] ~~~ Immich["ds-immich<br/>Immich albums"] ~~~ Remote["ds-remote<br/>Mac ↔ iPad link"] ~~~ Plugin["ds-plugin<br/>plug-ins, WebAssembly"]
+        Interop["lt-c1, lt-lr, lt-apple<br/>Capture One, Lightroom, Aperture, iPhoto"] ~~~ GPhotos["lt-gphotos<br/>Google Photos"] ~~~ Immich["lt-immich<br/>Immich albums"] ~~~ Remote["lt-remote<br/>Mac ↔ iPad link"] ~~~ Plugin["lt-plugin<br/>plug-ins, WebAssembly"]
     end
 
-    Library & Render & Flow & Connect --> Core["ds-core<br/>plain data types, no I/O"]
+    Library & Render & Flow & Connect --> Core["lt-core<br/>plain data types, no I/O"]
 ```
 
 The crate contracts and performance budgets are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the Rust↔Swift interface in [docs/FFI.md](docs/FFI.md).
@@ -284,7 +285,7 @@ The BASE stage is cached per image and view level, so moving a slider, white bal
 
 ```mermaid
 flowchart LR
-    Edit["Your edit or rating"] -->|"atomic write"| Sidecar[".ds/ sidecar<br/>per photo"]
+    Edit["Your edit or rating"] -->|"atomic write"| Sidecar[".lt/ sidecar<br/>per photo"]
     Sidecar -->|"indexed"| Index["SQLite index<br/>per session"]
     Index -->|"synced"| Global["Global index<br/>Library, Find, Map"]
     Sidecar -.->|"rebuild any time"| Index
@@ -297,10 +298,12 @@ My Session/
   Capture/      originals
   Selects/      picks moved out of Capture
   Trash/        session trash (restorable)
-  .ds/          sidecars (source of truth) and the rebuildable SQLite index
+  .lt/          sidecars (source of truth) and the rebuildable SQLite index
 ```
 
-Darkslide can also open an existing folder of photos in place, without moving anything.
+Luxtable can also open an existing folder of photos in place, without moving anything.
+
+Coming from Darkslide (Luxtable's name before 0.2): the first launch copies its preferences, support folder and Keychain keys and leaves the originals alone, and each session's `.ds/` folder is renamed `.lt/` when the session is first opened, after which Darkslide 0.1 can't open that session any more ([user guide](docs/user-guide/14-migrate.md#coming-from-darkslide)).
 
 ## Supported cameras
 
@@ -308,9 +311,9 @@ The reference camera is the Sony A9 (ILCE-9). Sony ARW, Nikon NEF, Canon CR2 and
 
 ### RAW decoding and the RAW helper
 
-Darkslide decodes RAW files with its own decoders, written for this project under Apache-2.0 ([docs/RAWDEC.md](docs/RAWDEC.md)): DNG (including iPhone ProRAW, Pixel and Leica), Sony ARW, Canon CR2, Nikon NEF and Pentax PEF. They produce exactly the same sensor data as the [rawler](https://github.com/dnglab/dnglab) library Darkslide used before, or more exact values where rawler adds dither, and they're faster on every file tested:
+Luxtable decodes RAW files with its own decoders, written for this project under Apache-2.0 ([docs/RAWDEC.md](docs/RAWDEC.md)): DNG (including iPhone ProRAW, Pixel and Leica), Sony ARW, Canon CR2, Nikon NEF and Pentax PEF. They produce exactly the same sensor data as the [rawler](https://github.com/dnglab/dnglab) library Luxtable used before, or more exact values where rawler adds dither, and they're faster on every file tested:
 
-| File | Format | Darkslide (ms) | rawler (ms) | Faster by |
+| File | Format | Luxtable (ms) | rawler (ms) | Faster by |
 |---|---|---:|---:|---:|
 | Sony A9 | ARW uncompressed | 1.25 | 3.22 | 2.6× |
 | Sony A7 III | ARW compressed | 4.9 | 8.5 | 1.7× |
@@ -327,16 +330,16 @@ Darkslide decodes RAW files with its own decoders, written for this project unde
 | iPhone XS | DNG | 4.9 | 9.9 | 2.0× |
 | Google Pixel 7 Pro | DNG | 7.0 | 12.4 | 1.8× |
 
-*Full decode of one file to sensor data, release build, Apple M4 Pro, file in the page cache, median of 10 runs (`cargo bench -p ds-raw --bench raw -- decode/`, with the compatibility corpus from `scripts/fetch-rawcompat.sh`).*
+*Full decode of one file to sensor data, release build, Apple M4 Pro, file in the page cache, median of 10 runs (`cargo bench -p lt-raw --bench raw -- decode/`, with the compatibility corpus from `scripts/fetch-rawcompat.sh`).*
 
 **What rawler still does better:**
 
-- **More formats:** Canon CR3, Fujifilm RAF, Olympus/OM ORF, Panasonic RW2, Minolta MRW and other older formats. Darkslide's own decoders don't read these yet.
-- **More variants of the formats Darkslide does read:** lossy and 12-bit Nikon NEF, Canon CR2s from more bodies, and the older Pentax PEF code.
-- **A camera database:** a non-DNG RAW file doesn't carry its colour matrix (and sometimes its crop and white level), so a decoder needs per-camera data. rawler has it for hundreds of cameras. Darkslide's own table has only data it may redistribute, which today is one camera (the Pentax K-3 Mark III).
+- **More formats:** Canon CR3, Fujifilm RAF, Olympus/OM ORF, Panasonic RW2, Minolta MRW and other older formats. Luxtable's own decoders don't read these yet.
+- **More variants of the formats Luxtable does read:** lossy and 12-bit Nikon NEF, Canon CR2s from more bodies, and the older Pentax PEF code.
+- **A camera database:** a non-DNG RAW file doesn't carry its colour matrix (and sometimes its crop and white level), so a decoder needs per-camera data. rawler has it for hundreds of cameras. Luxtable's own table has only data it may redistribute, which today is one camera (the Pentax K-3 Mark III).
 - **Writing DNG:** HDR merges and panoramas are saved with rawler's DNG writer.
 
-rawler is licensed under the LGPL-2.1, so it isn't built into Darkslide. It lives in a separate program, the **RAW helper** (`darkslide-rawler`), that you install only if you need it. Darkslide runs the helper for whatever its own decoders don't cover.
+rawler is licensed under the LGPL-2.1, so it isn't built into Luxtable. It lives in a separate program, the **RAW helper** (`luxtable-rawler`), that you install only if you need it. Luxtable runs the helper for whatever its own decoders don't cover.
 
 **Do you need it?**
 
@@ -349,13 +352,13 @@ rawler is licensed under the LGPL-2.1, so it isn't built into Darkslide. It live
 
 **Getting it:**
 
-- **In the app:** open **Settings ▸ RAW ▸ Download RAW Helper**, or click **Get RAW Helper** on a photo that needs it. Darkslide downloads it from this repository's [GitHub releases](https://github.com/sbaillar/darkslide/releases), checks it against the SHA-256 fingerprint built into the app, and installs it in `~/Library/Application Support/Darkslide/Helpers/`. Remove it in the same place.
+- **In the app:** open **Settings ▸ RAW ▸ Download RAW Helper**, or click **Get RAW Helper** on a photo that needs it. Luxtable downloads it from this repository's [GitHub releases](https://github.com/sbaillar/luxtable/releases), checks it against the SHA-256 fingerprint built into the app, and installs it in `~/Library/Application Support/Luxtable/Helpers/`. Remove it in the same place.
 - **From source:** `scripts/build-rawler-helper.sh --install`.
-- **Licence:** the helper is distributed under the LGPL-2.1's terms. Its README, [crates/ds-rawler](crates/ds-rawler/README.md), explains how it works and how to rebuild it with a modified rawler.
+- **Licence:** the helper is distributed under the LGPL-2.1's terms. Its README, [crates/lt-rawler](crates/lt-rawler/README.md), explains how it works and how to rebuild it with a modified rawler.
 
 ## Install and build from source
 
-Download the app from [Releases](https://github.com/sbaillar/darkslide/releases) (`Darkslide-X.Y.Z-macos-arm64.zip`; macOS 26, Apple silicon). It's ad-hoc signed, not notarized: the first time, right-click Darkslide.app and choose **Open**. From then on Darkslide updates itself (Settings ▸ Updates).
+Download the app from [Releases](https://github.com/sbaillar/luxtable/releases) (`Luxtable-X.Y.Z-macos-arm64.zip`; macOS 26, Apple silicon). It's ad-hoc signed, not notarized: the first time, right-click Luxtable.app and choose **Open**. From then on Luxtable updates itself (Settings ▸ Updates).
 
 Or build it from source. You need:
 
@@ -363,13 +366,13 @@ Or build it from source. You need:
 - Rust 1.90 or newer (Homebrew `rust` or rustup).
 
 ```sh
-git clone https://github.com/sbaillar/darkslide.git
-cd darkslide
-DS_SKIP_MODELS=1 scripts/build-app.sh --run      # build dist/Darkslide.app and launch it
-dist/Darkslide.app/Contents/MacOS/Darkslide --demo   # try it on synthetic photos; touches none of your files
+git clone https://github.com/sbaillar/luxtable.git
+cd luxtable
+LT_SKIP_MODELS=1 scripts/build-app.sh --run      # build dist/Luxtable.app and launch it
+dist/Luxtable.app/Contents/MacOS/Luxtable --demo   # try it on synthetic photos; touches none of your files
 ```
 
-- `DS_SKIP_MODELS=1` skips converting the AI Denoise model (it needs Python 3.13); AI Denoise then shows as unavailable. Drop it for a full build.
+- `LT_SKIP_MODELS=1` skips converting the AI Denoise model (it needs Python 3.13); AI Denoise then shows as unavailable. Drop it for a full build.
 - `scripts/build-app.sh --test` builds and runs the app's self-test.
 - `scripts/make-signing-identity.sh` creates a local code-signing identity, so macOS keeps the app's permissions across rebuilds.
 
@@ -377,20 +380,20 @@ dist/Darkslide.app/Contents/MacOS/Darkslide --demo   # try it on synthetic photo
 
 ### Updates and betas
 
-Darkslide looks for a new version on this repository's [releases](https://github.com/sbaillar/darkslide/releases) shortly after it starts and then about once a day, and tells you with a small notice (never a dialog in the middle of culling). **Darkslide ▸ Check for Updates…** checks right away. The update sheet shows what changed; **Download & Restart** downloads it, checks it (SHA-256, bundle identifier, version, code signature), quits the normal way (pending changes are saved first) and reopens on the session and photo you were on. **Download** installs it the next time you quit, **Skip This Version** stops the reminders for that version. The version it replaces is kept in `~/Library/Application Support/Darkslide/Previous Version/` (one, replaced by the next update), so you can go back by dragging it to Applications.
+Luxtable looks for a new version on this repository's [releases](https://github.com/sbaillar/luxtable/releases) shortly after it starts and then about once a day, and tells you with a small notice (never a dialog in the middle of culling). **Luxtable ▸ Check for Updates…** checks right away. The update sheet shows what changed; **Download & Restart** downloads it, checks it (SHA-256, bundle identifier, version, code signature), quits the normal way (pending changes are saved first) and reopens on the session and photo you were on. **Download** installs it the next time you quit, **Skip This Version** stops the reminders for that version. The version it replaces is kept in `~/Library/Application Support/Luxtable/Previous Version/` (one, replaced by the next update), so you can go back by dragging it to Applications.
 
 **Settings ▸ Updates** turns automatic checks off and has **Include beta versions**: betas are GitHub pre-releases of the next version (`v0.1.19-beta.1`), for trying new features early; they may have bugs. Once that version is released, beta users are offered the release. How releases and betas are published: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Privacy and network use
 
-Darkslide has no accounts, analytics or telemetry. Your photos stay on your Mac and the drives you choose. These are the only things that use the network, and only when you use them:
+Luxtable has no accounts, analytics or telemetry. Your photos stay on your Mac and the drives you choose. These are the only things that use the network, and only when you use them:
 
 | What | When | What is sent |
 |---|---|---|
 | On-device AI models (remove, sky and people masks, lens blur depth, photo search) | Downloaded once from pinned upstream revisions on Hugging Face, the first time you use the feature; each file is checked against its SHA-256 | Download requests only; no photos |
 | AI Upscale model | When you choose Download AI Upscale Model… and agree to its terms (builds that set a download location) | Download requests only |
 | RAW helper | When you choose Download RAW Helper (Settings ▸ RAW, or on a photo that needs it); checked against its SHA-256 | Download requests to GitHub only |
-| Update check | Shortly after launch and about once a day (Settings ▸ Updates turns it off), and when you choose Check for Updates… | One request to GitHub's releases API with only `Darkslide/<version>` as the User-Agent; no identifiers. Downloading an update fetches the release's zip from GitHub |
+| Update check | Shortly after launch and about once a day (Settings ▸ Updates turns it off), and when you choose Check for Updates… | One request to GitHub's releases API with only `Luxtable/<version>` as the User-Agent; no identifiers. Downloading an update fetches the release's zip from GitHub |
 | Map tiles | In Map mode; asked once, and Settings ▸ General turns it off | The map areas you view are requested from Apple Maps; photos and their locations are never uploaded |
 | Google Photos | Only with a Google Photos export recipe, after you sign in | The exported files, to your own account |
 | Jev (TypeSafe) for Edit with words | Off by default; Settings ▸ AI with your own API key | The text you type, not the photo |
@@ -398,11 +401,11 @@ Darkslide has no accounts, analytics or telemetry. Your photos stay on your Mac 
 | Archive | When you set an archive target | To a folder: your sessions, copied by rsync to the drive or NAS you chose. To object storage: your sessions' files (originals, sidecars, developed copies, a snapshot of the session database), uploaded to the bucket you chose at the S3-compatible service you chose, signed with your access key (kept in your Keychain), with each file's BLAKE3 hash and modification time as object metadata, plus one small connection-test object when you press Test Connection |
 | Immich | Only after you set up Settings ▸ Immich, at each album sync (after archive runs, or Sync Albums Now) | To your own Immich server, with your API key: the paths of the archived photos the album rules match (to find them there), album names and membership changes, and library scan requests. No photos are uploaded: Immich reads them from the archive |
 
-Amazon Photos backup is a hand-off: Darkslide copies originals into a local folder and Amazon's own app uploads it.
+Amazon Photos backup is a hand-off: Luxtable copies originals into a local folder and Amazon's own app uploads it.
 
 ## Documentation
 
-- [User guide](docs/user-guide/README.md), one Markdown file per chapter, and as a [PDF](docs/Darkslide-User-Guide.pdf) built from them with `scripts/user-guide.sh`
+- [User guide](docs/user-guide/README.md), one Markdown file per chapter, and as a [PDF](docs/Luxtable-User-Guide.pdf) built from them with `scripts/user-guide.sh`
 - [Architecture and performance budgets](docs/ARCHITECTURE.md) · [Rust↔Swift FFI](docs/FFI.md) · [Benchmark method](docs/BENCHMARKS.md)
 - [Supported cameras](docs/CAMERAS.md) · [Plug-ins](docs/PLUGINS.md) · [Mac ↔ iPad link protocol](docs/REMOTE.md) · [Google Photos setup](docs/GOOGLE_PHOTOS.md)
 - [Capture One mapping](docs/C1_FORMAT.md) · [Lightroom mapping](docs/LR_FORMAT.md) · [Aperture and iPhoto mapping](docs/APPLE_FORMAT.md) · [AI Denoise model](docs/DENOISE_MODEL.md) · [AI Upscale model](docs/UPSCALE_MODEL.md)
@@ -410,7 +413,7 @@ Amazon Photos backup is a hand-off: Darkslide copies originals into a local fold
 ## Roadmap
 
 - **iPad app:** touch culling and light editing over the Mac ↔ iPad link ([docs/IPAD_PLAN.md](docs/IPAD_PLAN.md)).
-- **Native RAW decoder:** more formats and cameras in `ds-raw` itself (CR3, RAF, ORF, RW2, X-Trans, camera data, a DNG writer), so fewer photos need the RAW helper.
+- **Native RAW decoder:** more formats and cameras in `lt-raw` itself (CR3, RAF, ORF, RW2, X-Trans, camera data, a DNG writer), so fewer photos need the RAW helper.
 - **Signed releases:** a Developer ID–signed, notarized build ([docs/RELEASING.md](docs/RELEASING.md)).
 
 The product plan and its decisions are in [PLAN.md](PLAN.md).
@@ -421,6 +424,6 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the toolc
 
 ## Licence
 
-Darkslide is licensed under the [Apache License 2.0](LICENSE); see also [NOTICE](NOTICE). Third-party licences are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+Luxtable is licensed under the [Apache License 2.0](LICENSE); see also [NOTICE](NOTICE). Third-party licences are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
-Darkslide itself contains no LGPL code. The optional [RAW helper](crates/ds-rawler/README.md) is a separate program that statically links [rawler](https://github.com/dnglab/dnglab) (LGPL-2.1) and is distributed under the LGPL's terms; [CONTRIBUTING.md](CONTRIBUTING.md#relinking-rawler) shows how to rebuild it against a modified rawler.
+Luxtable itself contains no LGPL code. The optional [RAW helper](crates/lt-rawler/README.md) is a separate program that statically links [rawler](https://github.com/dnglab/dnglab) (LGPL-2.1) and is distributed under the LGPL's terms; [CONTRIBUTING.md](CONTRIBUTING.md#relinking-rawler) shows how to rebuild it against a modified rawler.

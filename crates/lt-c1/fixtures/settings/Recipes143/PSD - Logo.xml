@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<OR>
+	<E K="cropExportMethod" V="0" />
+	<E K="destinationSubFolder" V="&lt;TokenName Version=&quot;2&quot; /&gt;" />
+	<E K="enabled" V="1" />
+	<E K="fileName" V="&lt;TokenName version=&quot;2&quot;&gt;&lt;Token Type=&quot;1&quot; /&gt;&lt;/TokenName&gt;" />
+	<E K="fixedScale" V="amount:1;unit:1" />
+	<E K="jpegBits" V="8" />
+	<E K="MetadataIncludeAllOther" V="1" />
+	<E K="MetadataIncludeCameraData" V="1" />
+	<E K="MetadataIncludeCopyright" V="1" />
+	<E K="MetadataIncludeGPS" V="1" />
+	<E K="MetadataIncludeKeywords" V="1" />
+	<E K="MetadataIncludeRating" V="0" />
+	<E K="MetadataSelectedLibrariesWhitelist" V="" />
+	<E K="name" V="PSD - Logo" />
+	<E K="neverUpscale" V="0" />
+	<E K="OutputFileFormat" V="5" />
+	<E K="outputProfile" V="Display P3.icc" />
+	<E K="outputRootFolder" V="0" />
+	<E K="ProcessedFileOverwriteAction" V="0" />
+	<E K="recipeVersion" V="11" />
+	<E K="resolution" V="300" />
+	<E K="resolutionUnit" V="1" />
+	<E K="scaleMethod" V="0" />
+	<E K="SharpeningOutputAmount" V="80" />
+	<E K="SharpeningOutputControl" V="2" />
+	<E K="SharpeningOutputMethod" V="0" />
+	<E K="SharpeningOutputRadius" V="0.600000023841858" />
+	<E K="SharpeningOutputThreshold" V="0" />
+	<E K="skipThumbnail" V="0" />
+	<E K="sortIndex" V="3" />
+	<E K="tiffBits" V="16" />
+	<E K="tiffCompression" V="0" />
+	<E K="tileDimension" V="-1" />
+	<E K="WatermarkColor" V="red:1;green:1;blue:1;" />
+	<E K="WatermarkHTextPlacement" V="1" />
+	<E K="WatermarkText" V="© Luxtable" />
+	<E K="WatermarkTextOpacity" V="0.5" />
+	<E K="WatermarkType" V="1" />
+	<E K="WatermarkVTextPlacement" V="1" />
+</OR>

@@ -8,7 +8,7 @@
 # imported) and quit. It is copied per run and never written to. Each run:
 #   1. purge the OS file cache, launch Capture One on a fresh copy of the session;
 #   2. import: browse a fresh copy of the RAWs in place (like Lightroom's Add and
-#      Darkslide's Open Folder) until Capture One has built a preview for every one;
+#      Luxtable's Open Folder) until Capture One has built a preview for every one;
 #   3. open: close the session, open it again and browse the folder until every
 #      image is listed (previews already built);
 #   4. select, held →, exposure: the screen driver with bench/plans/captureone.json;
@@ -46,7 +46,7 @@ if pgrep -fq "/Applications/Capture One"; then
   die "quit Capture One first (every version): each run starts it fresh on a bench copy"
 fi
 
-BIN="$ROOT/dist/Darkslide.app/Contents/MacOS/Darkslide"
+BIN="$ROOT/dist/Luxtable.app/Contents/MacOS/Luxtable"
 [[ -x "$BIN" ]] || die "build first: scripts/build-app.sh (the screen driver is part of it)"
 RESULTS="$OUT/results"
 WORK="$OUT/work"
@@ -106,7 +106,7 @@ for r in $(seq 1 "$RUNS"); do
   CSV="$RESULTS/captureone-r$r.csv"
   echo "app,operation,mode,run,sample,ms,items,method,previewPx" >"$CSV"
   # A uniquely named copy: no real document can have this name, and every script checks it.
-  BENCH_NAME="DarkslideBench-$STAMP-r$r"
+  BENCH_NAME="LuxtableBench-$STAMP-r$r"
   SESSION="$WORK/$BENCH_NAME"
   RAWS="$WORK/c1-raws-r$r"
   EXPORT="$WORK/c1-export-r$r"
@@ -143,14 +143,14 @@ for r in $(seq 1 "$RUNS"); do
   # Viewer: select, held →, exposure (screen recording).
   c1_bench 'select current document variant (first variant of current document)' >/dev/null || true
   sleep 3
-  ds_tool "$BIN" --bench-drive bench/plans/captureone.json --out "$RESULTS/captureone-screen-r$r.csv" --run "$r" \
+  lt_tool "$BIN" --bench-drive bench/plans/captureone.json --out "$RESULTS/captureone-screen-r$r.csv" --run "$r" \
     --mode "$mode" --app-name "$C1" --expect-document "$BENCH_NAME"
   c1_bench 'set exposure of adjustments of primary variant to 0' >/dev/null || true
 
-  # Export: full-size sRGB JPEG at the mapped quality, the first 100 images (like Darkslide).
+  # Export: full-size sRGB JPEG at the mapped quality, the first 100 images (like Luxtable).
   E=$((N < 100 ? N : 100))
   c1_bench "tell current document
-        set rec to make new recipe with properties {name:\"Darkslide Bench\"}
+        set rec to make new recipe with properties {name:\"Luxtable Bench\"}
         set output format of rec to JPEG
         set JPEG quality of rec to $JPEG_QUALITY
         set color profile of rec to \"sRGB Color Space Profile\"
@@ -164,14 +164,14 @@ for r in $(seq 1 "$RUNS"); do
       end tell" >/dev/null
   t0="$(now_ms)"
   c1_bench "repeat with v in (variants 1 thru $E of current document)
-        process v recipe \"Darkslide Bench\"
+        process v recipe \"Luxtable Bench\"
       end repeat" >/dev/null
   wait_until 3600 "export: $E JPEGs" exported
   row export "$mode" "$(echo "$(now_ms) - $t0" | bc)" "$E" applescript
   bytes="$(find "$EXPORT" -iname '*.jpg' -exec stat -f %z {} + | awk '{s += $1} END {print s}')"
   log "Capture One export: $E JPEGs, $((bytes / E / 1024)) KB each on average"
 
-  c1_bench 'delete recipe "Darkslide Bench" of current document' >/dev/null || true
+  c1_bench 'delete recipe "Luxtable Bench" of current document' >/dev/null || true
   C1_EXPECTED=0
   c1 quit >/dev/null || true
   wait_until 120 "Capture One quits" bash -c "! pgrep -xq \"$C1\""

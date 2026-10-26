@@ -1,4 +1,4 @@
-/* Darkslide user guide: print stylesheet for WeasyPrint (scripts/user-guide.sh).
+/* Luxtable user guide: print stylesheet for WeasyPrint (scripts/user-guide.sh).
    It styles the HTML pandoc makes from the NN-*.md chapters: each chapter is a
    section.level1 (--section-divs), the contents are nav#TOC, and the cover is the
    section.cover the script puts first.
@@ -8,7 +8,7 @@
   size: A4;
   margin: 22mm 20mm 24mm 20mm;
   @top-left {
-    content: "Darkslide User Guide";
+    content: "Luxtable User Guide";
     font: 8pt "Avenir Next", "Helvetica Neue", sans-serif;
     color: #8a8580;
   }

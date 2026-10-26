@@ -1,0 +1,45 @@
+[package]
+name = "lt-session"
+description = "Luxtable sessions: variants, sidecars, SQLite index, filters, presets, undo, global index"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+lt-core.workspace = true
+lt-fsutil = { path = "../lt-fsutil" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+blake3.workspace = true
+rusqlite = { version = "0.37", features = ["bundled", "backup", "functions"] }
+trash = "5"
+rustix = { version = "1", features = ["fs"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+criterion.workspace = true
+
+[lib]
+bench = false
+
+[[bench]]
+name = "session"
+harness = false
+
+[[bench]]
+name = "search"
+harness = false
+
+[[bench]]
+name = "find"
+harness = false
+
+[[bench]]
+name = "library"
+harness = false
+
+[lints]
+workspace = true

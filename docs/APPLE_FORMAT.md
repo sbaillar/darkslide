@@ -1,10 +1,10 @@
-# Aperture and iPhoto libraries (as Darkslide reads them)
+# Aperture and iPhoto libraries (as Luxtable reads them)
 
-Darkslide imports ratings, flags, labels, keywords, titles, captions, places, the edits that map, and projects, events and albums from Apple's discontinued photo apps: Aperture 3 and iPhoto (6 and later). This file records what is read, how each field maps, and **what has not been confirmed**.
+Luxtable imports ratings, flags, labels, keywords, titles, captions, places, the edits that map, and projects, events and albums from Apple's discontinued photo apps: Aperture 3 and iPhoto (6 and later). This file records what is read, how each field maps, and **what has not been confirmed**.
 
 **Provenance.** No Aperture or iPhoto installation or library was available while this was written. Apple never published either format. Everything below comes from open-source readers of these libraries: osxphotos (MIT; it reads the same `RK…` schema in Photos 1–4 libraries, which descend from Aperture's), aperture2darktable and ApertureExporter (Apache-2.0; projects, versions, archived adjustments) and iphoto2xmp (read for the iPhoto 9.x tables, no code taken). It also draws on a public schema dump of a Photos 1.x `Library.apdb` and on published descriptions of `AlbumData.xml`. Details only one source shows, or none, are marked **UNCONFIRMED**. The reader is built so that a wrong guess costs one field, with a warning or a "not imported" line in the report, and never the whole import. Every optional table and column is feature-detected, every column is read by its actual SQLite type, and the tests use synthetic libraries built in the test code. No real library is committed.
 
-The code is `crates/ds-apple`: `detect.rs` (what a path is), `sql.rs` (copying and reading the databases), `apdb.rs` (Aperture 3 / iPhoto 9.3+), `albumdata.rs` (older iPhoto), `archive.rs` (archived adjustment parameters), `map.rs` (adjustments → Darkslide). The import itself is ds-lr's engine (`ds_lr::import` with `ds_apple::FLAVOR`).
+The code is `crates/lt-apple`: `detect.rs` (what a path is), `sql.rs` (copying and reading the databases), `apdb.rs` (Aperture 3 / iPhoto 9.3+), `albumdata.rs` (older iPhoto), `archive.rs` (archived adjustment parameters), `map.rs` (adjustments → Luxtable). The import itself is lt-lr's engine (`lt_lr::import` with `lt_apple::FLAVOR`).
 
 ## Formats
 
@@ -13,7 +13,7 @@ The code is `crates/ds-apple`: `detect.rs` (what a path is), `sql.rs` (copying a
 | Aperture 3 (`.aplibrary`) | `Database/apdb/Library.apdb` (or `Database/Library.apdb`) | `Library.apdb`, `Properties.apdb` |
 | iPhoto 9.3 and later (`.photolibrary`, `.migratedphotolibrary` after Photos migrated it) | the same database layout | the same |
 | iPhoto 6 to 9.2 | `AlbumData.xml` at the library's top | `AlbumData.xml` |
-| Photos (`.photoslibrary`, or `database/Photos.sqlite` / `database/photos.db`) | refused: "… is a Photos library, which Darkslide doesn't read" | — |
+| Photos (`.photoslibrary`, or `database/Photos.sqlite` / `database/photos.db`) | refused: "… is a Photos library, which Luxtable doesn't read" | — |
 | Aperture 1 or 2 (`Aperture.aplib`, or `ZRKVERSION` instead of `RKVersion`) | refused: open it once in Aperture 3 to upgrade it | — |
 
 The library is never written to. Its databases are copied, with any `-wal` or `-journal` beside them, into a temporary directory, and the copies are read. Nothing inside the package is locked, given a `-shm` file or changed, and a database Aperture left locked or mid-transaction still reads (as committed). `AlbumData.xml` is read with plain `File::open`. Only real tables are queried, the read has a time limit and can be cancelled, and property lists are checked for depth and size before they are parsed.
@@ -33,7 +33,7 @@ The library is never written to. Its databases are copied, with any `-wal` or `-
 
 **Originals.** A managed original is `<library>/Masters/<imagePath>`. A referenced one (`volumeId` set) is `/Volumes/<RKVolume.name>/<imagePath>`. An original on a volume that isn't connected is not found, like a missing original in the Lightroom import: the report lists it by folder and warns "N referenced originals are on "Disk", which isn't connected". An original in the trash, or whose path would leave its folder through `..`, is left out.
 
-**Versions.** A version in the trash is left out. So is an original version iPhoto keeps hidden once the photo has been edited (`showInLibrary` 0), when the photo has a shown one. A photo's first version (by `versionNumber`) is its Darkslide photo; the others become extra variants, as Lightroom's virtual copies do.
+**Versions.** A version in the trash is left out. So is an original version iPhoto keeps hidden once the photo has been edited (`showInLibrary` 0), when the photo has a shown one. A photo's first version (by `versionNumber`) is its Luxtable photo; the others become extra variants, as Lightroom's virtual copies do.
 
 ## Older iPhoto (`AlbumData.xml`)
 
@@ -43,14 +43,14 @@ An XML property list. `Archive Path` is where the library was when iPhoto wrote 
 
 ## What maps
 
-| Aperture / iPhoto | Darkslide |
+| Aperture / iPhoto | Luxtable |
 |---|---|
 | Rating 0–5 | Rating |
 | Rating -1 (Aperture's reject) | Rejected, rating 0 |
 | Hidden (iPhoto) | Rejected |
 | Flagged | Picked (a reject wins over a flag) |
 | Colour label 1–6: red, orange, yellow, green, blue, purple (`colorLabelIndex`, **UNCONFIRMED**: the order of Aperture's label menu, 0 none) | Colour tag |
-| Colour label 7, grey | Not imported, reported ("Label Gray has no Darkslide colour") |
+| Colour label 7, grey | Not imported, reported ("Label Gray has no Luxtable colour") |
 | Keywords | Keywords (the keyword itself, not its parents) |
 | Version name (Aperture) / title (iPhoto `Caption`), unless it is the file's own name | Title |
 | Caption (`Caption/Abstract`; iPhoto `Comment`) | Caption |
@@ -58,13 +58,13 @@ An XML property list. `Archive Path` is where the library was when iPhoto wrote 
 | Capture date with its time-zone offset | Used only to match photos by name and time |
 | Projects (Aperture) and events (iPhoto) | Albums named after them, inside the folders around them ("Travel / Paris") |
 | Albums | Albums ("Paris / Best" for an album inside a project) |
-| Smart albums | Not imported, reported (a saved search Darkslide can't read) |
+| Smart albums | Not imported, reported (a saved search Luxtable can't read) |
 | Books, slideshows, light tables, web pages | Not imported, reported |
 | Faces | Not imported (deferred: face names are not read) |
 
-Edits (`RKImageAdjustment.data` is an `NSKeyedArchiver` archive of the adjustment's parameters, decoded as the open-source readers do). The parameter names follow Core Image's `input<Name>` convention and are **UNCONFIRMED** one by one. A parameter is looked up without its `input` prefix, ignoring case. An adjustment whose expected parameters aren't there is listed as "its settings weren't recognised", never guessed at. Everything is approximate: Apple's engine is not Darkslide's.
+Edits (`RKImageAdjustment.data` is an `NSKeyedArchiver` archive of the adjustment's parameters, decoded as the open-source readers do). The parameter names follow Core Image's `input<Name>` convention and are **UNCONFIRMED** one by one. A parameter is looked up without its `input` prefix, ignoring case. An adjustment whose expected parameters aren't there is listed as "its settings weren't recognised", never guessed at. Everything is approximate: Apple's engine is not Luxtable's.
 
-| Aperture / iPhoto adjustment | Darkslide |
+| Aperture / iPhoto adjustment | Luxtable |
 |---|---|
 | Exposure: Exposure (EV) | Exposure (clamped to ±5 EV) |
 | Exposure: Recovery (0–1.5) | Highlights (0–100) |
@@ -85,4 +85,4 @@ Edits (`RKImageAdjustment.data` is an `NSKeyedArchiver` archive of the adjustmen
 
 ## The import
 
-The same engine as the Lightroom import (`ds_lr::import`), with the same three-way merge, categories, dry run, conflicts, notes and revert. It keeps its own record (`<store>/.ds/settings/apple-import.json`) and journal (`apple-import-undo.json`), so reverting an Aperture import never takes back a Lightroom one, or the reverse. Photos are matched to the session's by path (a session opened in place on the library's `Masters` or `Originals` folder), by content (BLAKE3 of the file where the library says it is) and by name and capture time. A folder inside a library package can be opened as a session: its index and sidecars are then kept in Darkslide's own store, never inside the library.
+The same engine as the Lightroom import (`lt_lr::import`), with the same three-way merge, categories, dry run, conflicts, notes and revert. It keeps its own record (`<store>/.lt/settings/apple-import.json`) and journal (`apple-import-undo.json`), so reverting an Aperture import never takes back a Lightroom one, or the reverse. Photos are matched to the session's by path (a session opened in place on the library's `Masters` or `Originals` folder), by content (BLAKE3 of the file where the library says it is) and by name and capture time. A folder inside a library package can be opened as a session: its index and sidecars are then kept in Luxtable's own store, never inside the library.

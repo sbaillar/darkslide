@@ -1,4 +1,4 @@
-# cargo-about: the licences of the crates linked into Darkslide.app (scripts/licenses.sh).
+# cargo-about: the licences of the crates linked into Luxtable.app (scripts/licenses.sh).
 # Keep this list in step with deny.toml's [licenses] allow. LGPL-2.1 is accepted here for
 # rawler's text; deny.toml (run first by scripts/licenses.sh) allows it for rawler only.
 accepted = [
@@ -22,5 +22,5 @@ accepted = [
 targets = ["aarch64-apple-darwin"]
 ignore-build-dependencies = true
 ignore-dev-dependencies = true
-# Darkslide's own crates (unpublished) are covered by LICENSE.
+# Luxtable's own crates (unpublished) are covered by LICENSE.
 private = { ignore = true }

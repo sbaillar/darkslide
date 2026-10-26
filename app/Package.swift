@@ -1,9 +1,9 @@
 // swift-tools-version: 6.2
-// Darkslide macOS app. Build via `scripts/build-app.sh` (it builds the Rust
+// Luxtable macOS app. Build via `scripts/build-app.sh` (it builds the Rust
 // static library and the generated bindings first); test via `scripts/test-app.sh`.
 //
-// DarkslideCore and DarkslideUI are shared with the iPad app (docs/IPAD_PLAN.md,
-// ipad/README.md); DarkslideMac and the Darkslide executable are Mac-only.
+// LuxtableCore and LuxtableUI are shared with the iPad app (docs/IPAD_PLAN.md,
+// ipad/README.md); LuxtableMac and the Luxtable executable are Mac-only.
 import Foundation
 import PackageDescription
 
@@ -28,52 +28,52 @@ let testingLinker: [LinkerSetting] = useCLTTesting
     ? [.unsafeFlags(["-F", cltFrameworks, "-Xlinker", "-rpath", "-Xlinker", cltFrameworks])] : []
 
 let package = Package(
-    name: "Darkslide",
-    // SwiftPM has no per-target platforms: iOS is listed for DarkslideCore and DarkslideUI
-    // (and the AI/FFI targets they use). DarkslideMac and Darkslide are never built for it.
+    name: "Luxtable",
+    // SwiftPM has no per-target platforms: iOS is listed for LuxtableCore and LuxtableUI
+    // (and the AI/FFI targets they use). LuxtableMac and Luxtable are never built for it.
     platforms: [.macOS(.v26), .iOS(.v26)],
-    products: [.executable(name: "Darkslide", targets: ["Darkslide"])],
+    products: [.executable(name: "Luxtable", targets: ["Luxtable"])],
     targets: [
         // Generated C header + module map for the Rust static library (scripts/ffi.sh).
-        .systemLibrary(name: "ds_ffiFFI", path: "Sources/ds_ffiFFI"),
+        .systemLibrary(name: "lt_ffiFFI", path: "Sources/lt_ffiFFI"),
         // Generated UniFFI Swift bindings.
         .target(
-            name: "DarkslideFFI",
-            dependencies: ["ds_ffiFFI"],
+            name: "LuxtableFFI",
+            dependencies: ["lt_ffiFFI"],
             swiftSettings: [.swiftLanguageMode(.v5)],
-            linkerSettings: [.unsafeFlags(["-L", rustLibDir]), .linkedLibrary("ds_ffi")]
+            linkerSettings: [.unsafeFlags(["-L", rustLibDir]), .linkedLibrary("lt_ffi")]
         ),
         // On-device AI on Apple frameworks (Vision, FoundationModels). No UI, no FFI.
-        .target(name: "DarkslideAI"),
+        .target(name: "LuxtableAI"),
         // Models, services, AppModel logic, codecs, AI, the viewer renderer, mocks.
         // No SwiftUI; AppKit only in Platform/ seams (scripts/check-core-platform.sh).
         .target(
-            name: "DarkslideCore",
-            dependencies: ["DarkslideFFI", "DarkslideAI"]
+            name: "LuxtableCore",
+            dependencies: ["LuxtableFFI", "LuxtableAI"]
         ),
         // Shared SwiftUI views: DS tokens, panels, controls, browser, viewer.
         // AppKit only in Views/Platform/ seams.
         .target(
-            name: "DarkslideUI",
-            dependencies: ["DarkslideCore", "DarkslideFFI", "DarkslideAI"]
+            name: "LuxtableUI",
+            dependencies: ["LuxtableCore", "LuxtableFFI", "LuxtableAI"]
         ),
         // The Mac app: shell, menus, keyboard monitor, sheets, settings, archive, cards.
         .target(
-            name: "DarkslideMac",
-            dependencies: ["DarkslideCore", "DarkslideUI", "DarkslideFFI", "DarkslideAI"]
+            name: "LuxtableMac",
+            dependencies: ["LuxtableCore", "LuxtableUI", "LuxtableFFI", "LuxtableAI"]
         ),
-        .executableTarget(name: "Darkslide", dependencies: ["DarkslideCore", "DarkslideMac"]),
+        .executableTarget(name: "Luxtable", dependencies: ["LuxtableCore", "LuxtableMac"]),
         .testTarget(
-            name: "DarkslideKitTests",
-            dependencies: ["DarkslideCore", "DarkslideUI", "DarkslideMac"],
+            name: "LuxtableKitTests",
+            dependencies: ["LuxtableCore", "LuxtableUI", "LuxtableMac"],
             // Tiny identity Core ML models for the AI Denoise engine (no network in tests).
             resources: [.copy("Fixtures")],
             swiftSettings: testingFlags,
             linkerSettings: testingLinker
         ),
         .testTarget(
-            name: "DarkslideAITests",
-            dependencies: ["DarkslideAI"],
+            name: "LuxtableAITests",
+            dependencies: ["LuxtableAI"],
             swiftSettings: testingFlags,
             linkerSettings: testingLinker
         ),

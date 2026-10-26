@@ -1,7 +1,7 @@
-# Darkslide: plan
+# Luxtable: plan
 
 A macOS RAW workflow app: fast culling, sessions, layers, and copy/apply of adjustments. It is designed around the most common complaints photographers have about existing RAW tools.
-Working name: **Darkslide**, after the plate that covers film in a holder. Changing it is **D0**.
+Name: **Luxtable** (https://luxtable.app).
 
 Status: **plan only. No code yet.** Decision points are tagged **D#** and collected in [§10](#10-decision-points). Each one has a recommended default, and I'll proceed with that default unless you override it.
 
@@ -51,17 +51,17 @@ Status: **plan only. No code yet.** Decision points are tagged **D#** and collec
 │            │  UniFFI bindings (async, callbacks for progress/events)      │
 ├────────────▼──────────────────────────────────────────────────────────────┤
 │  Rust core (workspace)                                                    │
-│   ds-session   sessions, variants, ratings/tags, sidecar I/O, SQLite idx  │
-│   ds-import    volume watch, copy+verify, dedupe, rename templates        │
-│   ds-raw       decode (rawler; LibRaw fallback, D2), embedded previews,   │
+│   lt-session   sessions, variants, ratings/tags, sidecar I/O, SQLite idx  │
+│   lt-import    volume watch, copy+verify, dedupe, rename templates        │
+│   lt-raw       decode (rawler; LibRaw fallback, D2), embedded previews,   │
 │                EXIF/maker notes                                           │
-│   ds-pipeline  GPU develop pipeline (wgpu→Metal compute), color mgmt      │
-│   ds-layers    layer stack, mask rasterization, brush strokes             │
-│   ds-cache     thumbnail/preview pyramid, mmap'd, LRU, visible-first      │
-│   ds-jobs      prioritized work scheduler (tokio + rayon)                 │
-│   ds-export    recipes → JPEG/HEIC/TIFF (16-bit)/DNG passthrough          │
-│   ds-archive   rsync scheduler/runner                                     │
-│   ds-cloud     Amazon Photos adapter (D3)                                 │
+│   lt-pipeline  GPU develop pipeline (wgpu→Metal compute), color mgmt      │
+│   lt-layers    layer stack, mask rasterization, brush strokes             │
+│   lt-cache     thumbnail/preview pyramid, mmap'd, LRU, visible-first      │
+│   lt-jobs      prioritized work scheduler (tokio + rayon)                 │
+│   lt-export    recipes → JPEG/HEIC/TIFF (16-bit)/DNG passthrough          │
+│   lt-archive   rsync scheduler/runner                                     │
+│   lt-cloud     Amazon Photos adapter (D3)                                 │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -76,21 +76,21 @@ Status: **plan only. No code yet.** Decision points are tagged **D#** and collec
 A session is a self-contained folder:
 
 ```
-~/Pictures/Darkslide/2026-09-25 Fall Hike/
-  2026-09-25 Fall Hike.dsession     # SQLite index (WAL); rebuildable
+~/Pictures/Luxtable/2026-09-25 Fall Hike/
+  2026-09-25 Fall Hike.ltsession     # SQLite index (WAL); rebuildable
   Capture/                          # originals, as imported
-    .ds/settings/IMG_0412.CR3.json  # sidecar = source of truth (D4)
+    .lt/settings/IMG_0412.CR3.json  # sidecar = source of truth (D4)
   Selects/                          # "move to Selects" target
   Output/                           # export recipes land here
   Trash/                            # session trash (never auto-emptied)
-  .ds/cache/                        # thumbs/previews. Excluded from rsync, disposable
+  .lt/cache/                        # thumbs/previews. Excluded from rsync, disposable
 ```
 
 - **Variant** = an image plus an adjustment stack (virtual copy). Several variants can share one original.
 - **Sidecar JSON** holds every adjustment (serde, versioned schema), the layers with their masks (vector strokes, not bitmaps), rating, color tag, keywords, and the crop. The format is plain and diff-able.
 - **Session index** (SQLite) holds the fast-query mirror: file hash, EXIF, rating, tag, and a thumbnail pointer. "Rebuild index" re-reads the sidecars.
 - **Session favorites/albums**: smart albums (by rating, tag, or date) and manual albums.
-- **Global index** (phase 3): `~/Library/Application Support/Darkslide/global.db` lists every session path and file hash. It gives cross-session search and "already imported?" dedupe. It is only an index and is never required to open a session.
+- **Global index** (phase 3): `~/Library/Application Support/Luxtable/global.db` lists every session path and file hash. It gives cross-session search and "already imported?" dedupe. It is only an index and is never required to open a session.
 
 ---
 
@@ -171,10 +171,10 @@ Copy and apply adjustments:
 ## 9. Archive (rsync) and Amazon Photos
 
 ### 9a. rsync archive
-- **Target:** a mounted folder the user chooses, typically a NAS share (for example `/Volumes/Archive/Darkslide/`). If the NAS already backs that share up to a second machine, the archive gets **3 copies with no new infrastructure**. rsync runs on the Mac against the mounted share, never on the NAS, so no SSH keys are needed.
-- **What syncs:** `Capture/`, `Selects/`, `Output/`, the sidecars, and a **consistent snapshot of the session DB** taken with the SQLite backup API into `.ds/index-snapshot.db`. The live WAL file is never copied. `.ds/cache/` is excluded.
+- **Target:** a mounted folder the user chooses, typically a NAS share (for example `/Volumes/Archive/Luxtable/`). If the NAS already backs that share up to a second machine, the archive gets **3 copies with no new infrastructure**. rsync runs on the Mac against the mounted share, never on the NAS, so no SSH keys are needed.
+- **What syncs:** `Capture/`, `Selects/`, `Output/`, the sidecars, and a **consistent snapshot of the session DB** taken with the SQLite backup API into `.lt/index-snapshot.db`. The live WAL file is never copied. `.lt/cache/` is excluded.
 - **When:** after each import, every N minutes (default 10) while a session has changes (FSEvents-debounced), and on session close.
-- **Safety:** never `--delete` by default. Deletions and overwritten files go to `--backup-dir=.ds-archive-trash/{date}` on the target. It runs `--partial` and uses a lock file per target.
+- **Safety:** never `--delete` by default. Deletions and overwritten files go to `--backup-dir=.lt-archive-trash/{date}` on the target. It runs `--partial` and uses a lock file per target.
 - **Binary:** macOS now ships **openrsync** (protocol 29). The app will bundle or require **Homebrew rsync 3.x** for `--info=progress2`, reliable `--partial`, and better perf (D7).
 - **Offline target** (volume unmounted, NAS down): changes queue, a menu-bar badge shows "archive behind by N files", and the sync retries with backoff. Editing is never blocked. A notification after 24 h behind is optional.
 
@@ -183,7 +183,7 @@ Amazon has **no public Photos API**. The Amazon Drive developer API was closed o
 
 | Option | How | Risk |
 |---|---|---|
-| **A. Folder hand-off (recommended)** | Darkslide exports to a watched folder. The **official Amazon Photos Mac app** backs that folder up. Darkslide only manages what lands in the folder. | None; officially supported. The Amazon app must be installed and running. |
+| **A. Folder hand-off (recommended)** | Luxtable exports to a watched folder. The **official Amazon Photos Mac app** backs that folder up. Luxtable only manages what lands in the folder. | None; officially supported. The Amazon app must be installed and running. |
 | B. Private web API | Call the service's undocumented web endpoints. | Against the terms of service and can break without notice. **Rejected; never built.** |
 | C. Automate the official app | Drive the official app's upload through UI automation. | Brittle; no real advantage over A. |
 
@@ -195,7 +195,7 @@ What to upload is a separate choice (**D8**). Prime's unlimited full-resolution 
 
 | # | Decision | Options | Recommended default |
 |---|---|---|---|
-| **D0** | Name | Darkslide / something else | Darkslide (working name) |
+| **D0** | Name | Luxtable / something else | Luxtable (working name) |
 | **D1** | GUI stack | (a) **SwiftUI/AppKit shell + Rust core via UniFFI**; (b) pure Rust with **GPUI** (Zed's framework: fast and pretty, but young, thin docs, weak on native controls/accessibility); (c) egui/iced (fast to build, won't feel like a Mac app) | **(a)**. "Nice GUI" plus macOS-only favors native. All hot paths are still Rust. |
 | **D2** | RAW decoder | (a) **rawler** (pure Rust, from dnglab; good CR3/NEF/ARW/RAF/DNG coverage); (b) LibRaw via FFI (widest coverage, C++); (c) Apple CIRAWFilter (great support, but not our pipeline or look) | **rawler primary + LibRaw fallback**. **Depends on your camera(s): see Q1.** |
 | **D3** | Amazon Photos | A folder hand-off / B private API / C UI automation | **A**. B is rejected. |
@@ -210,7 +210,7 @@ What to upload is a separate choice (**D8**). Prime's unlimited full-resolution 
 
 **Questions only you can answer**
 - **Q1. Answered:** Sony A9 (first gen, ILCE-9), ARW. Sample RAWs live in the git-ignored `samples/` folder.
-- ~~Q1~~ Which camera(s) and RAW formats? Fuji X-Trans changes the demosaic work a lot, and CR3/ARW/NEF/DNG are all fine. **Please drop 5–10 sample RAWs somewhere** (for example `~/src/darkslide/samples/`, git-ignored) for the phase-0 spike.
+- ~~Q1~~ Which camera(s) and RAW formats? Fuji X-Trans changes the demosaic work a lot, and CR3/ARW/NEF/DNG are all fine. **Please drop 5–10 sample RAWs somewhere** (for example `~/src/luxtable/samples/`, git-ignored) for the phase-0 spike.
 - **Q2.** Typical shoot size and resolution (hundreds or thousands of images; 24 MP or 45–61 MP)? This sizes the caches.
 - **Q3. Answered:** compatible with reading Capture One session information (ratings, tags, keywords and supported adjustments), read-only, with a dry run and revert.
 - **Q4. Answered:** backup only.

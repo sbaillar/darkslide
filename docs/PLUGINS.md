@@ -1,8 +1,8 @@
 # Plug-ins and extensions
 
-Status: **v1 built** (2026-10-10), revised after the design review (`H1`–`H9` and the v1 MEDs are folded in; the rest is the v2 list at the end). "What v1 ships" lists what works today; the rest is the plan the contracts are shaped for. The code is `crates/ds-plugin` (host, runtime, CLI), `crates/ds-core/src/edit_keys.rs` (the edit vocabulary), the `PostProcess` seam in `crates/ds-export/src/post.rs`, `crates/ds-ffi/src/plugins.rs` and `features.rs` (FFI contract 43) and `app/Sources/DarkslideCore/Plugins/`. The reference plug-ins are in `plugins/`.
+Status: **v1 built** (2026-10-10), revised after the design review (`H1`–`H9` and the v1 MEDs are folded in; the rest is the v2 list at the end). "What v1 ships" lists what works today; the rest is the plan the contracts are shaped for. The code is `crates/lt-plugin` (host, runtime, CLI), `crates/lt-core/src/edit_keys.rs` (the edit vocabulary), the `PostProcess` seam in `crates/lt-export/src/post.rs`, `crates/lt-ffi/src/plugins.rs` and `features.rs` (FFI contract 43) and `app/Sources/LuxtableCore/Plugins/`. The reference plug-ins are in `plugins/`.
 
-Darkslide is extended with **plug-ins**: packages named `*.dsplugin` that declare what they add in a manifest. A plug-in can be pure data (looks, styles, voice phrases, later export recipes, profiles, Core ML models) or carry code (a WebAssembly module; later, on macOS, a helper program). The app's own optional features are packaged the same way, so the core stays small and every extension point has at least one real user.
+Luxtable is extended with **plug-ins**: packages named `*.ltplugin` that declare what they add in a manifest. A plug-in can be pure data (looks, styles, voice phrases, later export recipes, profiles, Core ML models) or carry code (a WebAssembly module; later, on macOS, a helper program). The app's own optional features are packaged the same way, so the core stays small and every extension point has at least one real user.
 
 ## Goals
 
@@ -19,21 +19,23 @@ Darkslide is extended with **plug-ins**: packages named `*.dsplugin` that declar
 
 ## Package format
 
-A `.dsplugin` is either a **folder** (Finder shows it as one item: the app declares the package type) or a **zip** of the same layout (`ds-plugin pack --zip`), for downloading and mailing.
+A `.ltplugin` is either a **folder** (Finder shows it as one item: the app declares the package type) or a **zip** of the same layout (`lt-plugin pack --zip`), for downloading and mailing.
 
 ```
-Film Border.dsplugin/
+Film Border.ltplugin/
   plugin.toml          the manifest (required)
   looks.json           data files the manifest names
   border.wasm          a code module the manifest names (or border.wat: compiled at load)
   SIGNATURE            optional: an Ed25519 signature over the file list
 ```
 
-**Package rules** (checked on every read, install and load; `crates/ds-plugin/src/package.rs`):
+**Package rules** (checked on every read, install and load; `crates/lt-plugin/src/package.rs`):
 - Regular files only: no symbolic links, no hard links. File names are printable ASCII (stricter than NFC normalisation: no Unicode name forms to normalise), unique ignoring case (APFS can't tell `Looks.json` from `looks.json`), and sorted by their UTF-8 bytes wherever order matters. Dotfiles (`.DS_Store`, AppleDouble `._*`, `.git`) and a zip's `__MACOSX` folder are ignored: never hashed, never read.
 - At most 512 files and 64 MB; a data file at most 1 MB and 200 items; a module at most 16 MB.
-- A zip is read into memory with its names checked (no absolute paths, no `..`, no link entries, sizes capped before inflating), and a single top folder `Name.dsplugin/` is stripped.
+- A zip is read into memory with its names checked (no absolute paths, no `..`, no link entries, sizes capped before inflating), and a single top folder `Name.ltplugin/` is stripped.
 - **Read once:** every file is read into memory once, without following links. Hashing, the signature, parsing and compiling all use those bytes; nothing is reopened by path after it was verified.
+
+**Plug-ins made for Darkslide** (Luxtable's name before 0.2) keep working unchanged: a `.dsplugin` folder or zip installs like a `.ltplugin` one (`lt-plugin pack` writes `.ltplugin`), `min_darkslide` is read as `min_luxtable`, a signature made then still verifies (its domain prefix was `darkslide-plugin-sig-v1\0`), and a module importing `darkslide.*` host functions and exporting `ds_api`, `ds_alloc`, `ds_post_process` and `ds_output_layout` runs as before. The old bundled ids `darkslide.*` stay reserved, and the choices recorded for them (on, off, grants) carry over to `luxtable.*`.
 
 ### The manifest (`plugin.toml`)
 
@@ -43,7 +45,7 @@ id = "com.example.film-border"      # reverse-DNS, unique, never reused for anot
 name = "Film Border"
 version = "1.1.0"                   # the plug-in's own semver
 api = 1                             # host API major version it was written for
-min_darkslide = "0.2.0"             # optional
+min_luxtable = "0.2.0"             # optional
 authors = ["Jane Doe"]
 summary = "A plain border around each exported photo, like a print's margin."
 platforms = ["macos"]               # optional; default: every platform
@@ -54,7 +56,7 @@ permissions = []                    # see "Permissions"; empty = none
 id = "border"                       # unique inside the plug-in
 name = "Film Border"
 module = "border.wat"
-entry = "ds_post_process"
+entry = "lt_post_process"
 contract = 1
 apron_rows = 0                      # rows of context above and below each strip (0–256)
 params = [
@@ -66,43 +68,43 @@ params = [
 
 - **TOML** because people write it by hand and it allows comments.
 - **Unknown keys and features (the policy):**
-  - An unknown *optional* key (top level or inside a contribution) is a **warning** at load, shown in the Plugins pane, so a manifest using a newer optional key still loads on an older Darkslide.
-  - Anything *required* that this Darkslide doesn't know is a **refusal**: a newer `manifest` format or host `api`, a `min_darkslide` above this version, an unknown permission, a contract outside the supported range, or a module importing a host function this Darkslide lacks. The plug-in is listed with "needs a newer Darkslide" and loads nothing.
-  - An unknown contribution *kind* is skipped with a warning (the rest of the plug-in loads); an unknown key or field inside a data item leaves that item out ("needs a newer Darkslide").
-  - At author time (`ds-plugin validate` and `pack`) every unknown key and every warning is an **error**, so typos don't ship.
-- **Identity** is `id`. Two packages with one id never load together (see "Clashes"). Ids starting with `darkslide.` are reserved for bundled plug-ins, and a bundled plug-in must use one.
-- **Names and text** (`name`, `summary`, param labels, error messages) are cleaned to one line without control or bidirectional-override characters, and capped (name 40, label 40, summary 200, message 300). A third-party name containing "Darkslide", "Built-in", "Apple", "macOS" or "System" is refused. The app shows plug-in text only quoted inside its own sentences ("“Film Border” says: …"), never as a prompt, an alert or a sheet title.
+  - An unknown *optional* key (top level or inside a contribution) is a **warning** at load, shown in the Plugins pane, so a manifest using a newer optional key still loads on an older Luxtable.
+  - Anything *required* that this Luxtable doesn't know is a **refusal**: a newer `manifest` format or host `api`, a `min_luxtable` above this version, an unknown permission, a contract outside the supported range, or a module importing a host function this Luxtable lacks. The plug-in is listed with "needs a newer Luxtable" and loads nothing.
+  - An unknown contribution *kind* is skipped with a warning (the rest of the plug-in loads); an unknown key or field inside a data item leaves that item out ("needs a newer Luxtable").
+  - At author time (`lt-plugin validate` and `pack`) every unknown key and every warning is an **error**, so typos don't ship.
+- **Identity** is `id`. Two packages with one id never load together (see "Clashes"). Ids starting with `luxtable.` are reserved for bundled plug-ins, and a bundled plug-in must use one.
+- **Names and text** (`name`, `summary`, param labels, error messages) are cleaned to one line without control or bidirectional-override characters, and capped (name 40, label 40, summary 200, message 300). A third-party name containing "Luxtable", "Built-in", "Apple", "macOS" or "System" is refused. The app shows plug-in text only quoted inside its own sentences ("“Film Border” says: …"), never as a prompt, an alert or a sheet title.
 - **Every path** is relative, stays inside the package (no `..`, no absolute paths) and must be one of the package's files.
 - **Params** are typed (`float`, `int`, `bool`, `choice`, `color`, `text`) with ranges and defaults. The host draws their UI and validates values, so a plug-in never sees an out-of-range value. Colours are sRGB `#RRGGBB` / `#RRGGBBAA`.
 
 ### Signing and trust
 
-A `SIGNATURE` file holds a signer's Ed25519 public key, the name it claims, and a signature over the domain prefix (`darkslide-plugin-sig-v1\0`), **that name and key**, and the byte-sorted list of `(path, BLAKE3, executable bit)` of every file. A signature relabelled with another name fails.
+A `SIGNATURE` file holds a signer's Ed25519 public key, the name it claims, and a signature over the domain prefix (`luxtable-plugin-sig-v1\0`), **that name and key**, and the byte-sorted list of `(path, BLAKE3, executable bit)` of every file. A signature relabelled with another name fails.
 
 | Level | How | What it may do |
 |---|---|---|
-| **Built-in** | In `Darkslide.app/Contents/Resources/Plugins/`, and its files are exactly the ones **compiled into the app** (`crates/ds-plugin/build.rs` hashes `plugins/builtin/**` into the binary). A bundled folder that differs doesn't load. No signing key is involved | Anything its manifest declares; no prompts |
+| **Built-in** | In `Luxtable.app/Contents/Resources/Plugins/`, and its files are exactly the ones **compiled into the app** (`crates/lt-plugin/build.rs` hashes `plugins/builtin/**` into the binary). A bundled folder that differs doesn't load. No signing key is involved | Anything its manifest declares; no prompts |
 | **Signed** | The signature verifies with a key the user trusted | Declared permissions, each granted explicitly |
 | **Signed, untrusted** | The signature verifies with a key the user hasn't trusted | Its code waits for Trust Signer (that key, by fingerprint) |
 | **Unsigned** | No signature | Data packs install after one confirmation. Code waits for its own **Allow** (this plug-in only; an unsigned update asks again, since anyone could have made it). Its file, network and account permissions additionally need Settings ▸ Plugins ▸ "Allow unsigned code plug-ins" (the authors' switch, which also allows every unsigned plug-in at once); each is still its own Grant, and turning the switch off takes them back |
 
-- **The key is the identity, not the name.** The app shows the key's **fingerprint** (`3F2A-91C0-7D44-E815`) and the name only as "it claims to be “Jane”". Trusted keys are stored by key. Signer names containing "Darkslide" or "Built-in" are refused.
+- **The key is the identity, not the name.** The app shows the key's **fingerprint** (`3F2A-91C0-7D44-E815`) and the name only as "it claims to be “Jane”". Trusted keys are stored by key. Signer names containing "Luxtable" or "Built-in" are refused.
 - **The signer is pinned per id** (trust on first use). `state.json` records, per id, the key that first installed it (or "unsigned"). A package with that id signed by another key, or a change between signed and unsigned, is a different plug-in: the install is refused ("signed by a different key … remove the installed one first"), and such a folder dropped into the Plugins folder by hand doesn't load. It never inherits grants. Shadowing (below) only happens between packages from the same signer.
 - **Changes are noticed.** At install the host pins every file's BLAKE3; at each load it hashes again. A plug-in whose files changed, or one put in the folder by hand, waits for approval.
-- **Keys never enter the repository.** Darkslide is open source: no private key is committed or needed to build. Bundled plug-ins are trusted through the hashes compiled into the binary, so contributors build and test the app with no key at all. Plug-in authors make their own key with `ds-plugin keygen` (kept outside any repository; `*.key.json` is git-ignored here), or develop unsigned with a development folder (below). If a release signing key is ever introduced (for example for a plug-in catalogue), it is read at release time from a git-ignored file or an environment variable, and a contributor's build uses their own dev key in its place.
+- **Keys never enter the repository.** Luxtable is open source: no private key is committed or needed to build. Bundled plug-ins are trusted through the hashes compiled into the binary, so contributors build and test the app with no key at all. Plug-in authors make their own key with `lt-plugin keygen` (kept outside any repository; `*.key.json` is git-ignored here), or develop unsigned with a development folder (below). If a release signing key is ever introduced (for example for a plug-in catalogue), it is read at release time from a git-ignored file or an environment variable, and a contributor's build uses their own dev key in its place.
 
 ## Install, enable, disable
 
-- **Location:** `<support>/Plugins/<id>.dsplugin` (support = `~/Library/Application Support/Darkslide`, or `$DS_SUPPORT_ROOT`). Bundled plug-ins load from the app bundle and can't be removed, only disabled.
-- **Install** (drop a `.dsplugin` folder or zip on Settings ▸ Plugins, or Install…):
+- **Location:** `<support>/Plugins/<id>.ltplugin` (support = `~/Library/Application Support/Luxtable`, or `$LT_SUPPORT_ROOT`). Bundled plug-ins load from the app bundle and can't be removed, only disabled.
+- **Install** (drop a `.ltplugin` folder or zip on Settings ▸ Plugins, or Install…):
   1. The package is read and **copied into `Plugins/.staging-<random>` first**, read back, and must hash the same. A staged copy is valid for 30 minutes and until the sheet is dismissed or another package is dropped; the pinned signer is checked again when it is installed. Leftover staging folders are removed at open only once they are older than that, so another window's open sheet keeps its copy.
   2. The **staged copy** is validated (manifest, files, modules, signature, pinned signer) and the install sheet shows it: name, version, signer fingerprint, what it adds, the permissions it asks for, and what it replaces.
   3. Install renames exactly that staged copy into place (the old version goes to `Plugins/.replaced/` and is removed once the new one has loaded; if the app stops between the two renames, the old version is put back at the next launch). Cancel deletes it. The user's own folder is never touched, and a change to it after the sheet opened changes nothing.
   Nothing is granted at install.
 - **Versions:** the same version with the same files is a no-op; the same version with different files is refused (bump the version); an older version than the one installed is refused unless the user confirms "Install Older Version". An update keeps its enabled state and the grants it still asks for; a permission it adds waits for a Grant. File, network and account grants (and their folders) carry over only to an update signed by the pinned key: an unsigned update, which anyone could have made, waits for them to be granted again.
-- **Clashes:** two packages with one id (and one signer): a development folder wins, then the higher version, then the managed copy `<id>.dsplugin`, then the bundled one. The others are listed as "Replaced by another copy" and contribute nothing. A development folder is checked against the pinned signer like any copy, and its enabled state, grants and Allow are kept apart from the installed id's (`dev:<id>` in the state), so it never inherits them.
+- **Clashes:** two packages with one id (and one signer): a development folder wins, then the higher version, then the managed copy `<id>.ltplugin`, then the bundled one. The others are listed as "Replaced by another copy" and contribute nothing. A development folder is checked against the pinned signer like any copy, and its enabled state, grants and Allow are kept apart from the installed id's (`dev:<id>` in the state), so it never inherits them.
 - **Remove** moves the folder to the Trash, then forgets the id's grants, pinned files and pinned signer (a package put back later is a new install); it keeps only whether it was enabled.
-- **Development folders** (Settings ▸ Plugins ▸ Add Development Folder…, needs "Allow unsigned code plug-ins"): a plug-in is loaded in place from the author's folder, never pinned, so edits apply on Reload without re-approval. It is marked **DEV**, wins over an installed copy of its id, and still needs explicit grants. It can't be inside Darkslide's own folders.
+- **Development folders** (Settings ▸ Plugins ▸ Add Development Folder…, needs "Allow unsigned code plug-ins"): a plug-in is loaded in place from the author's folder, never pinned, so edits apply on Reload without re-approval. It is marked **DEV**, wins over an installed copy of its id, and still needs explicit grants. It can't be inside Luxtable's own folders.
 - **State:** `<support>/Plugins/state.json` (atomic writes): per id, enabled, granted permissions (with the folder chosen for each `files.*` one), pinned files, pinned signer and version; the trusted keys; "Allow unsigned code plug-ins"; development folders. An unreadable file is moved aside and an empty state used: that only ever takes permissions away.
 - **Off the main thread:** the app has one `PluginHost` (`PluginHosts.shared`, also the one export steps resolve through). Every change and reload runs off the main actor; the pane updates when it is done.
 - **Settings ▸ Plugins:** one row per package (“name”, version, "Built-in" / "Key 3F2A-… (“Jane”)" / "Unsigned", DEV, what it adds, its state), an enable switch, each decision it waits for with its button (Approve, Trust Signer, Allow, Grant — a `files.*` Grant asks for the folder; Allow allows that one unsigned plug-in), its granted permissions with Revoke, and load problems in plain words. Install…, Reveal Plugins Folder, Reload, Add Development Folder…, Remove or Unlink, and the "Allow unsigned code plug-ins" switch. Changes take effect at once.
@@ -131,7 +133,7 @@ Each contribution kind has a contract number. The host supports a range per kind
 
 ### Data packs
 
-The edit vocabulary is one table, `ds_core::edit_keys`: every `EditCodec` key with its adjustment group, kind (amount, choice, wheel hue/saturation, flag, index) and range. The validator (`ds-plugin validate`) and the loader use it; the app's `EditCodec` must match it key for key (a Swift test fails when they drift).
+The edit vocabulary is one table, `lt_core::edit_keys`: every `EditCodec` key with its adjustment group, kind (amount, choice, wheel hue/saturation, flag, index) and range. The validator (`lt-plugin validate`) and the loader use it; the app's `EditCodec` must match it key for key (a Swift test fails when they drift).
 
 **`look@1`** (`looks.json`, an array):
 ```json
@@ -141,7 +143,7 @@ The edit vocabulary is one table, `ds_core::edit_keys`: every `EditCodec` key wi
 ```
 - **Amounts only**, so Intensity scales every field exactly and Intensity 0 restores the photo exactly: curves, colour ranges, skin tone, switches, `crop.aspect` and `crop.angle` are refused in looks (make it a style).
 - The loader derives what the built-in looks always had, with the same Swift functions: groups are the groups it changes, exposure/presence/HDR add to the photo's own values, and its `exact` keys plus every setting of each effect it uses are set exactly.
-- **Identity:** a third-party look is stored as `<plugin-id>/<id>` and its preset UUID is derived by the host from the plug-in id and look id, so packs can't collide with each other or with Darkslide's own. Only bundled (`darkslide.*`) packs set `id` and `uuid` verbatim (the migrated `look.portrait`… and their `…B001`… UUIDs).
+- **Identity:** a third-party look is stored as `<plugin-id>/<id>` and its preset UUID is derived by the host from the plug-in id and look id, so packs can't collide with each other or with Luxtable's own. Only bundled (`luxtable.*`) packs set `id` and `uuid` verbatim (the migrated `look.portrait`… and their `…B001`… UUIDs).
 
 **`style@1`** (`styles.json`, an array): a saved preset with everything explicit:
 ```json
@@ -152,12 +154,12 @@ Sections appear in the order of first appearance. Third-party UUIDs are derived 
 
 **`phrases@1`** (`{ "language": "en", "phrases": { "keeper": "key-pick" } }`): phrase → voice command id. Voice commands are English only today, so a pack in another language is listed, not used. The user's own phrases come first; a pack can't take a phrase that already means something (the phrase book's own rules), and a phrase two packs claim is left out of both, with a note.
 
-**Newer data on an older Darkslide:** an item using a key, a group or a field this Darkslide doesn't know is left out with "needs a newer Darkslide" (listed in the pane) rather than applied partially. Values are checked against each key's range. `ds-plugin validate` turns any left-out item into an error.
+**Newer data on an older Luxtable:** an item using a key, a group or a field this Luxtable doesn't know is left out with "needs a newer Luxtable" (listed in the pane) rather than applied partially. Values are checked against each key's range. `lt-plugin validate` turns any left-out item into an error.
 
 ### Post-process contract (`export_post_process`, contract 1)
 
-- **When:** on each exported file at its final size (after resizing and output sharpening), on that file's own working copy (never a render shared between recipes), on the 8-bit and the 16-bit paths alike. Plug-in steps run in the recipe's order, then the **watermark, last** (the native provider of the same `ds_export::PostProcess` seam), so a border never covers a mark.
-- **Canvas:** a module may export `ds_output_layout(ctx_ptr, ctx_len, width, height, out_ptr) -> i32` and write four u32 at `out_ptr`: the new canvas width and height and where the image goes in it. The host allocates the bigger canvas (black margin, opaque), places the image, and passes it on; `photo_rect(ptr)` tells a module where the photo is. That is how Film Border draws a margin *around* the photo. A canvas may grow to at most twice the image's area (and 100 MP), whatever the steps ask.
+- **When:** on each exported file at its final size (after resizing and output sharpening), on that file's own working copy (never a render shared between recipes), on the 8-bit and the 16-bit paths alike. Plug-in steps run in the recipe's order, then the **watermark, last** (the native provider of the same `lt_export::PostProcess` seam), so a border never covers a mark.
+- **Canvas:** a module may export `lt_output_layout(ctx_ptr, ctx_len, width, height, out_ptr) -> i32` and write four u32 at `out_ptr`: the new canvas width and height and where the image goes in it. The host allocates the bigger canvas (black margin, opaque), places the image, and passes it on; `photo_rect(ptr)` tells a module where the photo is. That is how Film Border draws a margin *around* the photo. A canvas may grow to at most twice the image's area (and 100 MP), whatever the steps ask.
 - **Strips:** pixels are passed in strips of at most 4 MB plus `apron_rows` rows of context above and below (see "Host API"), so memory stays bounded at any image size.
 - **Failure:** a step that fails, traps, runs out of fuel, panics (native or WebAssembly: every call is isolated with `catch_unwind`) or asks for an impossible canvas **fails that file's export**: nothing is written, and the export report names the plug-in and its message. A recipe naming a plug-in that is missing, disabled or not approved **can't start** ("the plug-in step … isn't available"), in the sheet's own check. A contribution that failed three times in a row stops for the rest of the session, so the rest of the batch fails with that message.
 - **Versions:** each recipe step remembers the plug-in version it was set up with; after an update the recipe editor says so ("Set up with Film Border 1.0.0; 1.1.0 is installed"). A stored value the update's params no longer allow is clamped into the new range (or the default is used) with a note in the editor; the recipe keeps exporting.
@@ -165,11 +167,11 @@ Sections appear in the order of first appearance. Third-party UUIDs are derived 
 
 ### Native features (`native_feature`, contract 1)
 
-Darkslide's own optional integrations are bundled plug-ins whose code stays native: the plug-in is the **switch** and the **catalogue entry** (name, summary, what it reaches). Settings ▸ Plugins lists them first, under **Integrations**, each with an on/off switch.
+Luxtable's own optional integrations are bundled plug-ins whose code stays native: the plug-in is the **switch** and the **catalogue entry** (name, summary, what it reaches). Settings ▸ Plugins lists them first, under **Integrations**, each with an on/off switch.
 
 ```toml
 manifest = 1
-id = "darkslide.immich"
+id = "luxtable.immich"
 name = "Immich"
 version = "1.0.0"
 api = 1
@@ -182,18 +184,18 @@ contract = 1
 uses = ["Your Immich server (the address and API key you enter)"]   # what it reaches, in words
 ```
 
-- **Bundled only.** Only a package under a `darkslide.*` id may declare `native_feature`, and those load only from the app bundle with the hashes compiled in. A third-party manifest declaring it is refused when it is validated, so at `ds-plugin validate`, at install and at load; a `darkslide.*` id outside the bundle is refused as before, and a tampered bundled folder doesn't load (its feature stays off).
-- **No files, no params.** A native feature names no `file`, `module`, `entry` or `params`; `uses` (plain text, cleaned like a summary) is allowed only here. Its `permissions` describe the app's own code: listed, never asked for, and no "never used" warning. A feature id this Darkslide doesn't know is skipped with a warning (an error at author time).
+- **Bundled only.** Only a package under a `luxtable.*` id may declare `native_feature`, and those load only from the app bundle with the hashes compiled in. A third-party manifest declaring it is refused when it is validated, so at `lt-plugin validate`, at install and at load; a `luxtable.*` id outside the bundle is refused as before, and a tampered bundled folder doesn't load (its feature stays off).
+- **No files, no params.** A native feature names no `file`, `module`, `entry` or `params`; `uses` (plain text, cleaned like a summary) is allowed only here. Its `permissions` describe the app's own code: listed, never asked for, and no "never used" warning. A feature id this Luxtable doesn't know is skipped with a warning (an error at author time).
 - **Off until turned on.** A bundled plug-in with a native feature is off until the user turns it on (other bundled plug-ins are on until turned off). The first launch with feature plug-ins decides each one once (`Host::seed_features`): **on when the user had already set the feature up** (Archive: a target; Amazon Photos: a folder; Immich: a server address; Google Photos: signed in, or their own OAuth client entered; the client built into the app doesn't count), otherwise off. The decision is written to `state.json`, so later launches never re-decide it and read no preferences or Keychain items for it (`undecided_features` is empty). Onboarding offers the archive (off until the user turns it on there) and shows the Amazon Photos step only while that integration is on; Finish turns on what was set up in it.
-- **What "off" means.** The feature's Settings tab, menu and context-menu items, toolbar and status-bar entries, badges, tool panels and Export-sheet section go away (the Export sheet keeps one quiet line saying where uploads are turned on), and nothing it would do runs: the app asks `PluginHost.native_features` after every change (`FeatureGates`), and Rust code that runs on its own asks the registry itself (`ds_ffi::features::FeatureGate`: the archive driver starts no rsync run, Amazon hand-off or Immich sidecar or album step while its feature is off). Work already going finishes rather than stopping half-way (an rsync run, a hand-off batch, a developed-copy render, an album sync, the current recipe's Google upload); nothing new starts. A recipe that uploads to Google Photos can't start while Google Photos is off ("turn it on in Settings ▸ Plugins, or turn the upload off"), like a recipe naming a disabled post-process step.
+- **What "off" means.** The feature's Settings tab, menu and context-menu items, toolbar and status-bar entries, badges, tool panels and Export-sheet section go away (the Export sheet keeps one quiet line saying where uploads are turned on), and nothing it would do runs: the app asks `PluginHost.native_features` after every change (`FeatureGates`), and Rust code that runs on its own asks the registry itself (`lt_ffi::features::FeatureGate`: the archive driver starts no rsync run, Amazon hand-off or Immich sidecar or album step while its feature is off). Work already going finishes rather than stopping half-way (an rsync run, a hand-off batch, a developed-copy render, an album sync, the current recipe's Google upload); nothing new starts. A recipe that uploads to Google Photos can't start while Google Photos is off ("turn it on in Settings ▸ Plugins, or turn the upload off"), like a recipe naming a disabled post-process step.
 - **Nothing is deleted.** Turning a feature off keeps its settings, credentials (Keychain) and data; turning it on restores it exactly, at once, without a relaunch. Changes pending while the archive was off are archived when it comes back.
 
 | Plug-in | Feature | Gated in Swift | Gated in Rust |
 |---|---|---|---|
-| `darkslide.archive` | `archive` | Settings ▸ Archive, the toolbar badge and popover, the Import & Archive panel, the quit and delete-rejected notes | the archive driver (no run starts, not even Sync Now) |
-| `darkslide.amazon-photos` | `amazon-photos` | Settings ▸ Amazon Photos, the Output panel, the popover's hand-off lines, the onboarding step | the hand-off pass and `mirror_to_amazon` |
-| `darkslide.immich` | `immich` | Settings ▸ Immich, Photo-menu and context-menu items, thumbnail badges, the status line, the album watch and renders | sidecars before archive runs, the album-sync queue |
-| `darkslide.google-photos` | `google-photos` | Settings ▸ Google Photos, the Export sheet's upload section, the album list, each recipe's upload | (uploads run only when the app asks) |
+| `luxtable.archive` | `archive` | Settings ▸ Archive, the toolbar badge and popover, the Import & Archive panel, the quit and delete-rejected notes | the archive driver (no run starts, not even Sync Now) |
+| `luxtable.amazon-photos` | `amazon-photos` | Settings ▸ Amazon Photos, the Output panel, the popover's hand-off lines, the onboarding step | the hand-off pass and `mirror_to_amazon` |
+| `luxtable.immich` | `immich` | Settings ▸ Immich, Photo-menu and context-menu items, thumbnail badges, the status line, the album watch and renders | sidecars before archive runs, the album-sync queue |
+| `luxtable.google-photos` | `google-photos` | Settings ▸ Google Photos, the Export sheet's upload section, the album list, each recipe's upload | (uploads run only when the app asks) |
 
 ## Execution model
 
@@ -203,7 +205,7 @@ uses = ["Your Immich server (the address and API key you enter)"]   # what it re
 2. **WebAssembly in an interpreter** (`wasmi` 2, loop dispatch) for code that transforms data.
    - Pure Rust, no JIT: runs on iPadOS. A module is compiled once per load from the package's bytes.
    - **Sandbox by construction:** a module may import only the host API below. There is no import for files, the network, the clock, or the host's own state (grants, trust, `state.json`), and a module that imports anything else is refused at load.
-   - **Time:** fuel on every entry: 10 M instructions for `start`, `ds_api`, `ds_alloc` and `ds_output_layout`, and 5 M + 400 per pixel for each strip. Running out stops the call ("took too long").
+   - **Time:** fuel on every entry: 10 M instructions for `start`, `lt_api`, `lt_alloc` and `lt_output_layout`, and 5 M + 400 per pixel for each strip. Running out stops the call ("took too long").
    - **Memory:** one linear memory per module (multi-memory is turned off, since the limit is per memory) of at most 64 MB; one table of at most 100 000 elements; one instance per image; and one global budget of 512 MB across all running instances (at most eight at once, whatever the thread count). Modules are at most 16 MB.
    - **Isolation:** every call runs on its own thread with an 8 MB stack, and every trap, panic, bad pointer (buffers are bounds-checked) or bad return value becomes that file's error, naming the plug-in.
    - **Speed:** an interpreter is roughly 10–50× slower than native code: fine for export steps, not for interactive develop filters.
@@ -225,7 +227,7 @@ Declared in `permissions`, shown at install, granted one by one, revocable in Se
 | `account:<name>` | Signing in through the host's OAuth; the token is attached by the host, only to that account's `api_hosts` |
 | `clock` | Wall time (later; without it the export's start time) |
 
-Nothing ever grants deleting a file, reading other plug-ins' data, or reaching Darkslide's own state.
+Nothing ever grants deleting a file, reading other plug-ins' data, or reaching Luxtable's own state.
 
 ## Host API (WebAssembly, API 1)
 
@@ -234,11 +236,11 @@ Modules target `wasm32-unknown-unknown`. Exchange is pointer-and-length over the
 The module exports:
 
 ```
-ds_api() -> i32                         // the host API major it was built for (1)
-ds_alloc(len: i32) -> i32               // a buffer for the host to write into (bounds-checked by the host)
-ds_free(ptr: i32, len: i32)             // (the host allocates its buffers once per image and never frees)
-ds_output_layout(ctx_ptr, ctx_len, width, height, out_ptr) -> i32   // optional: the canvas (four u32 at out_ptr)
-ds_post_process(ctx_ptr, ctx_len, px_ptr, width, height, stride, format,
+lt_api() -> i32                         // the host API major it was built for (1)
+lt_alloc(len: i32) -> i32               // a buffer for the host to write into (bounds-checked by the host)
+lt_free(ptr: i32, len: i32)             // (the host allocates its buffers once per image and never frees)
+lt_output_layout(ctx_ptr, ctx_len, width, height, out_ptr) -> i32   // optional: the canvas (four u32 at out_ptr)
+lt_post_process(ctx_ptr, ctx_len, px_ptr, width, height, stride, format,
                 buf_y0, buf_rows, core_y0, core_rows) -> i32
 //   width × height is the whole canvas; the buffer holds rows buf_y0 .. buf_y0+buf_rows,
 //   `stride` bytes apart (stride is in bytes); only rows core_y0 .. core_y0+core_rows are
@@ -248,9 +250,9 @@ ds_post_process(ctx_ptr, ctx_len, px_ptr, width, height, stride, format,
 //   ctx = {"params": {...}, "output": {"space": "srgb"}, "photo": {...}}  (photo only with photo_metadata)
 ```
 
-A bump allocator is enough (`plugins/film-border.dsplugin/border.wat`).
+A bump allocator is enough (`plugins/film-border.ltplugin/border.wat`).
 
-The host provides (module `darkslide`):
+The host provides (module `luxtable`):
 
 ```
 log(level, ptr, len)                    // kept with the call's result (≤ 100 lines)
@@ -263,7 +265,7 @@ param_bool(key_ptr, key_len) -> i32     // 1 / 0 (−1 when missing)
 param_color(key_ptr, key_len) -> i64    // 0xRRGGBBAA, sRGB (−1 when missing)
 ```
 
-Later, with the contracts that need them: `now_ms`, `http_request` (destinations), `file_read` (a handed-over file), a small `state_get`/`state_set` store. Any language that targets WASM works against this ABI; `ds-plugin pack` compiles `.wat` to `.wasm`.
+Later, with the contracts that need them: `now_ms`, `http_request` (destinations), `file_read` (a handed-over file), a small `state_get`/`state_set` store. Any language that targets WASM works against this ABI; `lt-plugin pack` compiles `.wat` to `.wasm`.
 
 ### Online destinations (OAuth, Keychain, network) — specified in v1
 
@@ -293,23 +295,23 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
 - **Tokens go only to the account's own API hosts.** Each `[accounts.x]` lists `api_hosts` (each also a `network:` permission). A request with `"auth": "google"` to any other host — even one on the plug-in's network list — is refused, and a redirect that changes host drops the `Authorization` header. The sign-in sheet shows the hosts ("Google account, used with photoslibrary.googleapis.com").
 - **Well-known account names** (`google`, `amazon`, `microsoft`, `dropbox`, `apple`) are reserved to those services' real sign-in hosts: a look-alike plug-in can't run its own OAuth client under a trusted name. Other accounts show the client's domain on the sign-in sheet.
 - **Sign-in** is the host's (`ASWebAuthenticationSession`, PKCE S256, a random `state`); the plug-in never sees the code or a token.
-- **Keychain:** a generic-password item, service `casa.baillargeon.darkslide.plugin`, account `<plugin id>/<account>`, `AfterFirstUnlockThisDeviceOnly`, not synced; deleted (and revoked) on sign-out or removal. Nothing secret goes in `state.json` or the logs.
-- **Requests** (`ds_plugin::destination::check_request`): HTTPS to a granted host, a known method, no host-only headers (`Authorization`, `Cookie`, `Host`…), a body only from a file the job handed over (streamed by the host), with timeouts, retries on 429/5xx and a 4 MB response cap.
+- **Keychain:** a generic-password item, service `app.luxtable.Luxtable.plugin`, account `<plugin id>/<account>`, `AfterFirstUnlockThisDeviceOnly`, not synced; deleted (and revoked) on sign-out or removal. Nothing secret goes in `state.json` or the logs.
+- **Requests** (`lt_plugin::destination::check_request`): HTTPS to a granted host, a known method, no host-only headers (`Authorization`, `Cookie`, `Host`…), a body only from a file the job handed over (streamed by the host), with timeouts, retries on 429/5xx and a 4 MB response cap.
 - **Local hand-off** (Amazon Photos' watched folder): `files.write:<label>` on the folder the user chooses, written through the host's atomic writes.
-- **Traits** live next to their consumer (`ds_export` owns `PostProcess`, and will own `Destination`); `ds-plugin` adapts modules to them, so there is no dependency cycle and wasmi never enters the export crate.
+- **Traits** live next to their consumer (`lt_export` owns `PostProcess`, and will own `Destination`); `lt-plugin` adapts modules to them, so there is no dependency cycle and wasmi never enters the export crate.
 
 ## Versioning rules
 
 - **`manifest`**: the manifest's format. Adding an optional key doesn't change it (older hosts warn and ignore it); renaming or removing a key does.
-- **`api`**: the host API major. Within a major the host only adds imports; a module importing something this Darkslide lacks fails to load ("needs a newer Darkslide"). `ds_api()` must return the manifest's `api`.
+- **`api`**: the host API major. Within a major the host only adds imports; a module importing something this Luxtable lacks fails to load ("needs a newer Luxtable"). `lt_api()` must return the manifest's `api`.
 - **`contract` per kind**: the shape of one extension point. Additive fields don't bump it; a changed meaning does. A data item that uses something this host doesn't know is left out, not half-applied.
 - **`FFI_CONTRACT`** (Rust ↔ Swift) is internal (43 with native features); the number is assigned at merge.
 - A plug-in's own `version` is semver: updates, downgrades and clashes use it.
 
 ## Built-ins as plug-ins
 
-- Optional features become **bundled plug-ins** in `plugins/builtin/`, copied into `Darkslide.app/Contents/Resources/Plugins/` by `scripts/build-app.sh` and **hashed into the binary** at build time; a dev build and the tests read the source tree's folder (same hashes). The user can disable them like any other.
-- The registry is in `ds-plugin`; each extension point's trait lives with its consumer (`ds_export::PostProcess`); `ds-ffi` wires the two.
+- Optional features become **bundled plug-ins** in `plugins/builtin/`, copied into `Luxtable.app/Contents/Resources/Plugins/` by `scripts/build-app.sh` and **hashed into the binary** at build time; a dev build and the tests read the source tree's folder (same hashes). The user can disable them like any other.
+- The registry is in `lt-plugin`; each extension point's trait lives with its consumer (`lt_export::PostProcess`); `lt-ffi` wires the two.
 - The Swift side asks the registry over FFI and never reads plug-in folders itself.
 - New optional, self-contained features that fit an extension point ship as bundled plug-ins. The core keeps decode, the develop pipeline, sessions and sidecars, import verification, export encoding and the FFI.
 
@@ -320,29 +322,29 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
 | **Looks** (18) and **styles** (20) | `looks` / `style` data packs | **Done in v1** (below) |
 | **Voice phrases** | `voice_phrases` packs | Easy: the loader exists; the built-in catalog stays the parser |
 | **Watermark** | `export_post_process` | Medium: it is the seam's native provider today; a WASM port needs a host text rasteriser and would be seconds per export in an interpreter, so it stays native |
-| **Google Photos destination** | `native_feature` today; `export_destination` (OAuth + network) later | **Optional in v1.1** (`darkslide.google-photos`, off by default). Its narrow uploader fits the destination contract; it moves to WASM once the host HTTP/OAuth imports ship |
-| **Amazon Photos hand-off** | `native_feature` today; `export_destination` (local folder) later | **Optional in v1.1** (`darkslide.amazon-photos`, off by default) |
-| **Immich** | `native_feature` | **Optional in v1.1** (`darkslide.immich`, off by default); it rides on the archive's runs, so its code stays native |
-| **rsync archive** | `native_feature` (a helper later) | **Optional in v1.1** (`darkslide.archive`, off until turned on); its volume-safety logic stays in the host |
+| **Google Photos destination** | `native_feature` today; `export_destination` (OAuth + network) later | **Optional in v1.1** (`luxtable.google-photos`, off by default). Its narrow uploader fits the destination contract; it moves to WASM once the host HTTP/OAuth imports ship |
+| **Amazon Photos hand-off** | `native_feature` today; `export_destination` (local folder) later | **Optional in v1.1** (`luxtable.amazon-photos`, off by default) |
+| **Immich** | `native_feature` | **Optional in v1.1** (`luxtable.immich`, off by default); it rides on the archive's runs, so its code stays native |
+| **rsync archive** | `native_feature` (a helper later) | **Optional in v1.1** (`luxtable.archive`, off until turned on); its volume-safety logic stays in the host |
 | **Capture One importer** | `import_source` (native built-in) | Hard: it writes deeply into sessions |
 | **AI Upscale model** | `ai_models` (`upscale@1`) | Medium: only where the model comes from changes (~33 MB out of the bundle) |
 | **Soft proof**, **Map** | stay core | Not candidates (profiles and overlays can extend them) |
 
 **Reference plug-ins:**
-1. **`plugins/builtin/darkslide-looks.dsplugin`** — the 18 looks and 20 styles moved out of Swift, generated from the old tables. `PluginTests` checks every one **field for field** against those tables (kept as test data in `LegacyBuiltIns.swift`: id, name, summary, groups, relative, absolute fields, edit, category, order), applies each to a corrected photo against a recorded fixture, and checks Intensity 0 restores the photo exactly for every look. Look ids and UUIDs are unchanged, so sidecars and thumbnails keep working.
-2. **`plugins/film-border.dsplugin`** — a WASM export step written in WAT, the code template: a border around the photo (growing the canvas) or over its edge, any colour with alpha.
-3. **`plugins/builtin/darkslide-{archive,amazon-photos,immich,google-photos}.dsplugin`** — manifest-only `native_feature` switches for the optional integrations (v1.1).
+1. **`plugins/builtin/luxtable-looks.ltplugin`** — the 18 looks and 20 styles moved out of Swift, generated from the old tables. `PluginTests` checks every one **field for field** against those tables (kept as test data in `LegacyBuiltIns.swift`: id, name, summary, groups, relative, absolute fields, edit, category, order), applies each to a corrected photo against a recorded fixture, and checks Intensity 0 restores the photo exactly for every look. Look ids and UUIDs are unchanged, so sidecars and thumbnails keep working.
+2. **`plugins/film-border.ltplugin`** — a WASM export step written in WAT, the code template: a border around the photo (growing the canvas) or over its edge, any colour with alpha.
+3. **`plugins/builtin/luxtable-{archive,amazon-photos,immich,google-photos}.ltplugin`** — manifest-only `native_feature` switches for the optional integrations (v1.1).
 
 ## SDK and authoring
 
-- **`ds-plugin` CLI** (`cargo run -p ds-plugin -- <command>`):
+- **`lt-plugin` CLI** (`cargo run -p lt-plugin -- <command>`):
   - `new <name> --kind looks|post-process [--id <reverse-dns>] [--dir <parent>]`: a template folder;
   - `validate <folder or zip>`: everything the loader checks, strictly (unknown keys and left-out items are errors), and runs each post-processor with its defaults on 64×64 in both formats, through its layout;
-  - `pack <folder> --out <parent>` or `--zip <file.dsplugin>`: a clean copy, `.wat` compiled to `.wasm`;
+  - `pack <folder> --out <parent>` or `--zip <file.ltplugin>`: a clean copy, `.wat` compiled to `.wasm`;
   - `keygen <signer> --out <key.json>` (never overwrites; written owner-only, 0600; keep the file out of any repository) and `sign <folder> --key <key.json>` (signs exactly the bytes it validated);
   - `contracts`.
-- **Looks, 2 minutes:** in Darkslide, set a photo up as you like and click **Styles ▸ Copy as Look JSON** (amounts only; the toast says what a look can't carry). `ds-plugin new "My Looks" --kind looks`, paste the item into `looks.json`, `ds-plugin validate`, and drop the folder on Settings ▸ Plugins. Data packs need no signature.
-- **Post-process:** `ds-plugin new "Frame" --kind post-process --id com.example.frame`, turn on "Allow unsigned code plug-ins", **Add Development Folder…** to load it in place, edit `border.wat`, Reload, export. When it's done: `keygen`, `sign`, `pack --zip`.
+- **Looks, 2 minutes:** in Luxtable, set a photo up as you like and click **Styles ▸ Copy as Look JSON** (amounts only; the toast says what a look can't carry). `lt-plugin new "My Looks" --kind looks`, paste the item into `looks.json`, `lt-plugin validate`, and drop the folder on Settings ▸ Plugins. Data packs need no signature.
+- **Post-process:** `lt-plugin new "Frame" --kind post-process --id com.example.frame`, turn on "Allow unsigned code plug-ins", **Add Development Folder…** to load it in place, edit `border.wat`, Reload, export. When it's done: `keygen`, `sign`, `pack --zip`.
 
 ## What v1.1 adds
 
@@ -350,9 +352,9 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
 
 ## What v1 ships
 
-- **`ds-plugin`:** manifest format 1 with the strict/lenient key policy; packages (folder or zip) read once, with the hygiene rules; the registry (bundled folders checked against compiled-in hashes, reserved ids, signer pinned per id, clashes, platforms, development folders); staging installs; downgrade and same-version rules; grants with checked folders; Ed25519 signatures with fingerprints; data packs validated against `ds_core::edit_keys`; the wasmi runtime (strips, canvas layout, fuel per entry, per-instance and global memory, isolation, three strikes); the `export_destination` contract types and checks; the CLI.
-- **ds-core:** `edit_keys` (the vocabulary, exported over FFI for the app's drift test).
-- **ds-export:** the `PostProcess` seam with canvas growth, panic isolation, watermark last.
+- **`lt-plugin`:** manifest format 1 with the strict/lenient key policy; packages (folder or zip) read once, with the hygiene rules; the registry (bundled folders checked against compiled-in hashes, reserved ids, signer pinned per id, clashes, platforms, development folders); staging installs; downgrade and same-version rules; grants with checked folders; Ed25519 signatures with fingerprints; data packs validated against `lt_core::edit_keys`; the wasmi runtime (strips, canvas layout, fuel per entry, per-instance and global memory, isolation, three strikes); the `export_destination` contract types and checks; the CLI.
+- **lt-core:** `edit_keys` (the vocabulary, exported over FFI for the app's drift test).
+- **lt-export:** the `PostProcess` seam with canvas growth, panic isolation, watermark last.
 - **FFI 28:** `PluginHost` (`open`, `list`, `preview`→staged token, `install`, `discard`, `forget`, `set_enabled`, `approve_files`, `grant(folder, protected)`/`revoke`, `trust_signer`/`untrust_signer`, `set_allow_unsigned_code`, `add_dev_folder`/`remove_dev_folder`/`dev_folders`, `user_folder`, `reload`, `data_packs`, `post_processors`), `edit_keys()`, `ExportRecipeSpec.post_process` (with the plug-in version).
 - **App:** Settings ▸ Plugins; looks, styles and voice phrases from the active plug-ins; the recipe editor's Post-processing section; Styles ▸ Copy as Look JSON; bundled plug-ins copied by `build-app.sh`.
 - Nothing needs real hardware; all tests use temporary folders.
@@ -360,13 +362,13 @@ scopes = ["https://www.googleapis.com/auth/photoslibrary.appendonly"]
 ## v2 list (from the design review)
 
 Not in v1, in rough order:
-- **M4 version rules:** require `api` only with a module and check it equals `ds_api()` at load (today only `ds_api()` is checked); `pack` fills `min_darkslide` from what is used; per-contribution `formats` for post-processors (half-float or HDR exports) with conversion or refusal; a per-contract deprecation policy shown in the pane.
+- **M4 version rules:** require `api` only with a module and check it equals `lt_api()` at load (today only `lt_api()` is checked); `pack` fills `min_luxtable` from what is used; per-contribution `formats` for post-processors (half-float or HDR exports) with conversion or refusal; a per-contract deprecation policy shown in the pane.
 - **M9 helpers:** spawn in their own process group (`POSIX_SPAWN_SETSID`) and kill the group, or run them as an XPC service or under a sandbox profile; say plainly they run with the user's privileges.
-- **M10 iPad:** `.dsplugin` zip import through the Files picker; the App Review 2.5.2 constraint on downloaded interpreted code in IPAD_PLAN; the look's display name in `AppliedLookEdit` (additive) so a plug-in look applied on the Mac reads right on an iPad without it; offering missing data packs over the Mac–iPad link.
-- **M11 authoring:** ship `ds-plugin` inside the app with "Install Command Line Tool"; a typed Rust SDK crate and template with a prebuilt `.wasm`; `ds-plugin run <folder> --in photo.jpg --out out.jpg`; "Save Selected Presets as Look Pack…"; watching development folders for changes instead of Reload.
+- **M10 iPad:** `.ltplugin` zip import through the Files picker; the App Review 2.5.2 constraint on downloaded interpreted code in IPAD_PLAN; the look's display name in `AppliedLookEdit` (additive) so a plug-in look applied on the Mac reads right on an iPad without it; offering missing data packs over the Mac–iPad link.
+- **M11 authoring:** ship `lt-plugin` inside the app with "Install Command Line Tool"; a typed Rust SDK crate and template with a prebuilt `.wasm`; `lt-plugin run <folder> --in photo.jpg --out out.jpg`; "Save Selected Presets as Look Pack…"; watching development folders for changes instead of Reload.
 - **M12 parser input:** icons (≤ 512², decoded off the main thread), ICC/DCP profile and model packs listed as "parsed by the system" with a confirmation.
-- **M13 required built-ins:** make `darkslide.looks` hideable but not unloadable, or give `LookSuggester` its candidates from the registry with a `suggest` tag per look; today disabling it empties AI Looks.
+- **M13 required built-ins:** make `luxtable.looks` hideable but not unloadable, or give `LookSuggester` its candidates from the registry with a `suggest` tag per look; today disabling it empties AI Looks.
 - **M15 concurrency:** an immutable registry snapshot per export job (today a job resolves its steps at start and keeps them, but a removal mid-job isn't specified); `progress` setting only an atomic.
 - **L1** the FFI contract number is assigned at merge. **L2** `serde_json` `float_roundtrip` for packs (the field-for-field test passes today without it). **L4** a criterion bench for Film Border at 24 MP (RGBA8, RGB16) to set the fuel factor, with a budget in ARCHITECTURE. **L5** `clock` (`now_ms`) when a contract needs it. **L7** localised names and labels (`name.de = "…"`). **L8** `cargo fuzz` targets for the manifest, package (zip) and signature parsers, and a larger adversarial-module suite.
-- **Signer names:** fold confusable characters (Unicode UTS #39 skeletons) before the reserved-name check, so homoglyphs of "Darkslide" are refused too (zero-width, control and bidi characters already are). The key is the identity: every place a signer name is shown keeps its fingerprint beside it, in v1 and after.
+- **Signer names:** fold confusable characters (Unicode UTS #39 skeletons) before the reserved-name check, so homoglyphs of "Luxtable" are refused too (zero-width, control and bidi characters already are). The key is the identity: every place a signer name is shown keeps its fingerprint beside it, in v1 and after.
 - Extension points after these: `commands` and `tool_panels`, `metadata_provider`/`event_hook`, running `export_destination` (Google Photos, then Amazon Photos), helpers, `ai_models`, `viewer_overlay`, `develop_filter`.

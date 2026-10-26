@@ -1,0 +1,21 @@
+# Luxtable's own looks and styles, as a data plug-in (bundled with the app).
+# Look ids and preset UUIDs are stored in sidecars: never change them.
+manifest = 1
+id = "luxtable.looks"
+name = "Luxtable Looks & Styles"
+version = "1.0.0"
+api = 1
+authors = ["Luxtable"]
+summary = "The one-touch looks and the built-in styles of the Styles panel."
+
+[[contributes.looks]]
+id = "looks"
+name = "Looks"
+file = "looks.json"
+contract = 1
+
+[[contributes.styles]]
+id = "styles"
+name = "Styles"
+file = "styles.json"
+contract = 1
