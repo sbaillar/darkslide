@@ -43,9 +43,9 @@ struct ViewerContainer: View {
                             guard !model.snapshotMode else { return }
                             if case .active(let p) = phase { viewer.hover(at: p) } else { viewer.hover(at: nil) }
                         }
+                        // The pointer stays visible with the loupe (a crosshair): hiding it
+                        // (pointerVisibility) starves the hover of mouse moves on macOS 27.
                         .pointerStyle(pointer)
-                        // The loupe stands in for the cursor while it shows.
-                        .pointerVisibility(viewer.pickerLoupe.shown ? .hidden : .automatic)
                 } else {
                     ViewerEmptyState(model: model)
                 }
@@ -91,7 +91,10 @@ struct ViewerContainer: View {
         switch viewer.activeTool {
         case .pan: viewer.state.zoom == .fit ? nil : .grabIdle
         case .crop, .linearGradient, .radialGradient, .straighten: .rectSelection
-        case .colorPicker, .wbPicker: .image(Image(systemName: "eyedropper"), hotSpot: .bottomLeading)
+        // With the loupe, the system crosshair: its hot spot is exactly the pick point (the
+        // eyedropper symbol's tip isn't at its corner, so it pointed a few points off).
+        case .colorPicker, .wbPicker:
+            viewer.pickerLoupe.shown ? .rectSelection : .image(Image(systemName: "eyedropper"), hotSpot: .bottomLeading)
         case .brush, .eraser: .image(Image(systemName: "circle"), hotSpot: .center)
         case .rotate: nil
         case .focusPoint: .image(Image(systemName: "scope"), hotSpot: .center)

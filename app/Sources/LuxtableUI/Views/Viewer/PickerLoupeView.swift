@@ -12,10 +12,6 @@ struct PickerLoupeView: View {
         if loupe.shown, let cursor = loupe.cursor, let kind = loupe.kind {
             let d = PickerLoupe.diameter
             let rect = PickerLoupe.placement(cursor: cursor, bounds: loupe.bounds)
-            // The pick point itself (the system cursor is hidden while the loupe shows).
-            PickPointMarker()
-                .position(cursor)
-                .allowsHitTesting(false)
             VStack(spacing: 6) {
                 magnifier(diameter: d)
                     .frame(width: d, height: d)
@@ -55,21 +51,6 @@ struct PickerLoupeView: View {
     /// VoiceOver: say the settled readout.
     static func announce(_ text: String?) {
         if let text { Announcer.announce(text) }
-    }
-}
-
-/// A small crosshair with an open centre at the pick point, light over dark.
-private struct PickPointMarker: View {
-    var body: some View {
-        ZStack {
-            ForEach(0..<4) { i in
-                Rectangle().fill(.black.opacity(0.7)).frame(width: 3, height: 7).offset(y: -7.5)
-                    .rotationEffect(.degrees(Double(i) * 90))
-                Rectangle().fill(.white).frame(width: 1, height: 6).offset(y: -7.5)
-                    .rotationEffect(.degrees(Double(i) * 90))
-            }
-        }
-        .frame(width: 24, height: 24)
     }
 }
 
