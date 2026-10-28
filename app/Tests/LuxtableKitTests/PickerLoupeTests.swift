@@ -201,6 +201,26 @@ import Testing
         v.endCanvasDrag()
         #expect(m.focusedEdit.whiteBalance == shown && m.wbPickerActive)
     }
+
+    /// User report: "I can't move it anymore - I select and it gets stuck". With the button
+    /// down there's no hover: the drag moves the loupe, and the release applies what it shows.
+    @Test func loupeFollowsADragAndTheReleaseAppliesItsReadout() async throws {
+        let (m, _) = await Self.app()
+        let v = m.viewer, loupe = v.pickerLoupe
+        m.wbPickerActive = true
+        let img = try #require(v.layout.main?.image)
+        let p = CGPoint(x: img.minX + img.width * 0.3, y: img.minY + img.height * 0.6)
+        let q = CGPoint(x: img.minX + img.width * 0.7, y: img.minY + img.height * 0.2)
+        v.hover(at: p)
+        let start = try #require(loupe.pixel)
+        v.beginCanvasDrag(at: p)
+        v.updateCanvasDrag(to: q)
+        #expect(loupe.cursor == q && loupe.pixel != start)
+        #expect(await waitUntil { loupe.readout?.whiteBalance != nil && loupe.region?.local(loupe.pixel!) != nil })
+        let shown = try #require(loupe.readout?.whiteBalance)
+        v.endCanvasDrag()
+        #expect(m.focusedEdit.whiteBalance == shown)
+    }
 }
 
 /// The pipeline path with a tools double: the readout shows the pipeline's value for the

@@ -86,6 +86,8 @@ extension ViewerModel {
     }
 
     public func updateCanvasDrag(to p: CGPoint) {
+        // No hover with the button down: the eyedroppers' loupe follows the drag.
+        if loupeKind != nil { hover(at: p) }
         if colorToolMove(to: p) { return }
         guard var d = activeDrag, let pane = layout.main else { return }
         guard dragPhotoID == app?.focusedID else {
