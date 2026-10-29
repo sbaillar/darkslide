@@ -204,6 +204,7 @@ import Testing
         m.viewer.rotate(by: 1)
         let img = m.viewer.layout.main!.image
         m.viewer.canvasTool = .crop
+        m.settings.cropRatio = .free
         // Drag the full crop's bottom edge up to the middle: the top half of the (turned) display.
         m.viewer.beginCanvasDrag(at: CGPoint(x: img.midX, y: img.maxY))
         m.viewer.updateCanvasDrag(to: CGPoint(x: img.midX, y: img.midY))
