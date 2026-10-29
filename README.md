@@ -67,6 +67,7 @@ A GPU pipeline with Capture One–style tool tabs you can rearrange, a CPU refer
 - **Detail and lens:** clarity, structure, dehaze, sharpening, noise reduction, lens profiles, chromatic aberration, vignetting, keystone and an AI lens blur.
 - **Crop and straighten** with aspect presets; drag along the horizon to level it.
 - **Merge to HDR and Panorama** (⇧⌘H / ⇧⌘M): a new linear DNG next to the sources, with a RAW's full latitude.
+- **Best Shot** (⇧⌘B): one photo from a burst, starting from its best frame and taking open eyes, better faces and sharper areas from the others; it becomes the burst's cover unless you chose one.
 - **Copy and apply** (⇧⌘C / ⇧⌘V): all edited adjustments or just the groups you tick, with aspect-aware crop paste and relative exposure paste.
 - **Variants** (⌘D) and a per-session **History**.
 
@@ -348,7 +349,7 @@ rawler is licensed under the LGPL-2.1, so it isn't built into Luxtable. It lives
 | DNG (any camera, iPhone ProRAW, Pixel, Leica), Pentax K-3 Mark III | Develops | Develops |
 | Sony ARW, Nikon NEF, Canon CR2 | Culling from the embedded preview: these need rawler's camera data | Develops |
 | Canon CR3, Fujifilm RAF, Olympus/OM ORF, Panasonic RW2 and other formats | Culling from the embedded preview | Develops |
-| HDR and panorama merges | Not available | Available |
+| HDR, panorama and Best Shot merges | Not available | Available |
 
 **Getting it:**
 

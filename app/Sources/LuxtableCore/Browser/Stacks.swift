@@ -12,12 +12,16 @@ public struct PhotoStack: Identifiable, Hashable, Sendable {
     /// The frame the user chose (Use as Cover), when it is one of the members. Kept even
     /// while a higher-rated frame outranks it: it is the cover again when it ties.
     public let coverID: PhotoID?
+    /// A Best Shot made from this burst, when it is one of the members: the cover unless
+    /// the user chose one (`coverID`).
+    public let bestShotID: PhotoID?
 
-    public init(id: PhotoID, memberIDs: [PhotoID], topID: PhotoID, coverID: PhotoID? = nil) {
+    public init(id: PhotoID, memberIDs: [PhotoID], topID: PhotoID, coverID: PhotoID? = nil, bestShotID: PhotoID? = nil) {
         self.id = id
         self.memberIDs = memberIDs
         self.topID = topID
         self.coverID = coverID.flatMap { memberIDs.contains($0) ? $0 : nil }
+        self.bestShotID = bestShotID.flatMap { memberIDs.contains($0) ? $0 : nil }
     }
 
     public var count: Int { memberIDs.count }
@@ -44,6 +48,8 @@ public struct CoverAI: Equatable, Sendable {
 public enum CoverSource: Equatable, Sendable {
     /// The user chose it (Use as Cover) among the top-rated frames.
     case user
+    /// The Best Shot made from the burst (the user chose no cover).
+    case bestShot
     /// The AI preferred it among the top-rated frames.
     case ai
     /// The only top-rated frame, or the usual rule among them.
@@ -64,7 +70,9 @@ public struct CoverDecision: Equatable, Sendable {
 /// Which frame of a burst is its cover. The highest star rating wins (rejected frames
 /// only when every frame is rejected). Among frames tied for it: the user's choice, else
 /// the AI's preference (its pick, then its score), else picked before unflagged, earliest
-/// first (`StackBuilder.top`). Pure.
+/// first (`StackBuilder.top`). A Best Shot made from the burst is the cover whenever the
+/// user chose none (or the frame they chose is outranked), unless it is rejected: it was
+/// made to stand for the burst. Pure.
 public enum CoverRule {
     /// The frames that can be the cover, in `members` order, and their rating.
     public static func candidates(_ members: [Photo]) -> (ids: [PhotoID], topRating: Int) {
@@ -75,9 +83,13 @@ public enum CoverRule {
     }
 
     /// `members` must not be empty.
-    public static func decide(_ members: [Photo], chosen: PhotoID?, ai: CoverAI = CoverAI()) -> CoverDecision {
+    public static func decide(_ members: [Photo], chosen: PhotoID?, bestShot: PhotoID? = nil,
+                              ai: CoverAI = CoverAI()) -> CoverDecision {
         let (ids, top) = candidates(members)
         if let c = chosen, ids.contains(c) { return CoverDecision(cover: c, source: .user, candidates: ids, topRating: top) }
+        if let b = bestShot, let shot = members.first(where: { $0.id == b }), shot.pick != .rejected {
+            return CoverDecision(cover: b, source: .bestShot, candidates: ids, topRating: top)
+        }
         if ids.count > 1 {
             var pick: (id: PhotoID, rank: (Int, Double))?
             for id in ids {
@@ -207,14 +219,17 @@ public final class StackState {
         ai = CoverAI(best: best, scores: scores)
         let order = Dictionary(photos.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
         var snapshot: [PhotoID: Photo] = [:]
-        stacks = grouping.groups(photos).compactMap { ids -> PhotoStack? in
+        let groups = StackCovers.joiningBestShots(grouping.groups(photos), covers: covers)
+        stacks = groups.compactMap { ids -> PhotoStack? in
             let members = ids.filter { order[$0] != nil }.sorted { order[$0]! < order[$1]! }
             guard members.count >= 2 else { return nil }
             let membersPhotos = members.map { photos[order[$0]!] }
             for p in membersPhotos { snapshot[p.id] = p }
             let chosen = StackCovers.cover(for: members, in: covers)
+            let shot = StackCovers.bestShot(for: members, in: covers)
             return PhotoStack(id: members[0], memberIDs: members,
-                              topID: CoverRule.decide(membersPhotos, chosen: chosen, ai: ai).cover, coverID: chosen)
+                              topID: CoverRule.decide(membersPhotos, chosen: chosen, bestShot: shot, ai: ai).cover,
+                              coverID: chosen, bestShotID: shot)
         }
         .sorted { order[$0.id]! < order[$1.id]! }
         members = snapshot
@@ -225,13 +240,16 @@ public final class StackState {
         collapsed = collapsed.filter { id in stacks.contains { $0.id == id } }
     }
 
-    /// Apply changed cover choices to the current stacks (no regrouping; collapse state stays).
+    /// Apply changed cover choices to the current stacks (no regrouping; collapse state
+    /// stays: a new Best Shot joins its burst at the next rebuild).
     public func apply(covers: [StackCover]) {
         let updated = stacks.map { s in
             let chosen = StackCovers.cover(for: s.memberIDs, in: covers)
+            let shot = StackCovers.bestShot(for: s.memberIDs, in: covers)
             let photos = s.memberIDs.compactMap { members[$0] }
-            let top = photos.count == s.count ? CoverRule.decide(photos, chosen: chosen, ai: ai).cover : s.topID
-            return PhotoStack(id: s.id, memberIDs: s.memberIDs, topID: top, coverID: chosen)
+            let top = photos.count == s.count
+                ? CoverRule.decide(photos, chosen: chosen, bestShot: shot, ai: ai).cover : s.topID
+            return PhotoStack(id: s.id, memberIDs: s.memberIDs, topID: top, coverID: chosen, bestShotID: shot)
         }
         guard updated != stacks else { return }
         stacks = updated
@@ -304,7 +322,7 @@ public final class StackState {
     /// Why the stack shows its cover, from current ratings (nil: none of its photos found).
     public func decision(of s: PhotoStack, lookup: (PhotoID) -> Photo?) -> CoverDecision? {
         let photos = s.memberIDs.compactMap(lookup)
-        return photos.isEmpty ? nil : CoverRule.decide(photos, chosen: s.coverID, ai: ai)
+        return photos.isEmpty ? nil : CoverRule.decide(photos, chosen: s.coverID, bestShot: s.bestShotID, ai: ai)
     }
 
     /// The current top of every collapsed stack, in stack order.

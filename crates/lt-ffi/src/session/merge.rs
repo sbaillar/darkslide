@@ -1,4 +1,4 @@
-//! Merge to HDR and Merge to Panorama (see `docs/FFI.md`).
+//! Merge to HDR, Merge to Panorama and Merge to Best Shot (see `docs/FFI.md`).
 //!
 //! The sources are decoded and demosaiced to linear camera RGB (RCD, the export's
 //! demosaic, without white balance), merged by `lt-merge`, and written as a **linear
@@ -7,6 +7,12 @@
 //! new photo whose first variant starts at the exposure that matches the reference frame
 //! (a panorama also starts with lens corrections off: its geometry is already
 //! projected). The sources are only read.
+//!
+//! Best Shot (a burst composite, [`lt_merge::merge_burst`]) builds on the burst's best
+//! frame and takes better faces (open eyes) and sharper regions from the others. Faces
+//! come from the app (Vision) per source, normalized to the upright photo, so its frames
+//! are turned upright first and the result is written upright, like a panorama. At most
+//! [`BURST_MAX_FRAMES`] frames are decoded (the best scored, when there are more).
 //!
 //! Previews merge 2×2-binned frames ([`lt_merge::quick_frame`]) further box-downsampled
 //! to the preview size (panorama frames stay at the merge's 1000 px analysis size, so a
@@ -47,11 +53,15 @@ const PANO_PREVIEW_FRAME: u32 = 1000;
 const PREVIEW_CACHE: usize = 24;
 /// Focal lengths further apart than this (ratio) are different zoom settings.
 const FOCAL_TOLERANCE: f32 = 1.03;
+/// Most frames a Best Shot merge decodes (each 24 MP frame is 144 MB in memory).
+pub const BURST_MAX_FRAMES: usize = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum MergeKind {
     Hdr,
     Panorama,
+    /// Best Shot: the best parts of a burst in one picture.
+    Burst,
 }
 
 /// How aggressively moving objects are taken from a single exposure.
@@ -72,7 +82,8 @@ pub enum PanoProjection {
 }
 
 /// What to merge and how. HDR reads `align` and `deghost`; panoramas `projection` and
-/// `auto_crop`.
+/// `auto_crop`; Best Shot none of them (it always aligns, takes better faces and sharper
+/// regions).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
 pub struct MergeOptions {
     pub kind: MergeKind,
@@ -95,8 +106,34 @@ pub struct MergePreview {
     pub ghost_regions: u32,
     /// The initial exposure the new photo gets.
     pub exposure_ev: f32,
-    /// HDR: frames that could not be aligned (merged as they are).
+    /// HDR: frames that could not be aligned (merged as they are). Best Shot: frames that
+    /// could not be aligned (nothing was taken from them).
     pub unaligned_frames: u32,
+    /// Best Shot: faces taken from another frame (usually open eyes).
+    pub faces_replaced: u32,
+    /// Best Shot: regions taken from a sharper frame.
+    pub regions_replaced: u32,
+    /// Best Shot: better faces left as they were (the head moved too much to blend).
+    pub faces_kept: u32,
+}
+
+/// A face Vision found on a Best Shot source, normalized to the upright photo (top-left
+/// origin, y down).
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct BurstFaceSignal {
+    pub bounds: crate::frame::NormRect,
+    /// Probability (0..=1) that both eyes are open, if measured.
+    pub eyes_open: Option<f32>,
+    /// Vision's face capture quality, 0..=1, if known.
+    pub quality: Option<f32>,
+}
+
+/// What the app knows about one Best Shot source.
+#[derive(Debug, Clone, PartialEq, Default, uniffi::Record)]
+pub struct BurstSignals {
+    pub faces: Vec<BurstFaceSignal>,
+    /// Its overall quality (lt-ai's cull score, 0..=1), if known.
+    pub score: Option<f32>,
 }
 
 /// The photo a merge added.
@@ -317,17 +354,72 @@ fn check_compatible(metas: &[Option<&lt_raw::ImageMeta>]) -> Result<(), DsError>
     Ok(())
 }
 
-/// Merge the sources (panorama frames are turned upright first).
+/// A merge result and, for Best Shot, what it took from where.
+#[derive(Debug)]
+struct Outcome {
+    merged: Merged,
+    faces_replaced: u32,
+    regions_replaced: u32,
+    faces_kept: u32,
+}
+
+impl From<Merged> for Outcome {
+    fn from(merged: Merged) -> Self {
+        Self {
+            merged,
+            faces_replaced: 0,
+            regions_replaced: 0,
+            faces_kept: 0,
+        }
+    }
+}
+
+/// The frames a Best Shot merge uses: all of them up to [`BURST_MAX_FRAMES`], else the
+/// best scored (unscored last, capture order among equals), in their original order.
+fn burst_frames(signals: &[BurstSignals], n: usize) -> Vec<usize> {
+    if n <= BURST_MAX_FRAMES {
+        return (0..n).collect();
+    }
+    let key = |i: usize| {
+        signals
+            .get(i)
+            .and_then(|s| s.score)
+            .filter(|s| s.is_finite())
+            .unwrap_or(f32::NEG_INFINITY)
+    };
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by(|&a, &b| key(b).total_cmp(&key(a)).then(a.cmp(&b)));
+    order.truncate(BURST_MAX_FRAMES);
+    order.sort_unstable();
+    order
+}
+
+/// Signals for `n` sources: one each, or none at all (no faces, no scores).
+fn check_signals(signals: &[BurstSignals], n: usize) -> Result<(), DsError> {
+    if signals.is_empty() || signals.len() == n {
+        Ok(())
+    } else {
+        Err(DsError::invalid(format!(
+            "{} face lists for {n} photos",
+            signals.len()
+        )))
+    }
+}
+
+/// Merge the sources (panorama and Best Shot frames are turned upright first). `signals`:
+/// Best Shot's faces and scores per source, or none.
 fn run_merge(
     sources: &mut [Source],
     options: MergeOptions,
+    signals: &[BurstSignals],
     progress: &dyn lt_merge::Progress,
-) -> Result<Merged, DsError> {
+) -> Result<Outcome, DsError> {
     if sources.len() < 2 {
         return Err(merge_error(MergeError::TooFew));
     }
     let metas: Vec<Option<&lt_raw::ImageMeta>> = sources.iter().map(|s| s.meta.as_ref()).collect();
     check_compatible(&metas)?;
+    check_signals(signals, sources.len())?;
     match options.kind {
         MergeKind::Hdr => {
             let expo = exposures(&metas);
@@ -343,7 +435,9 @@ fn run_merge(
                 align: options.align,
                 deghost: options.deghost.into(),
             };
-            lt_merge::merge_hdr(&inputs, &opts, progress).map_err(merge_error)
+            lt_merge::merge_hdr(&inputs, &opts, progress)
+                .map(Outcome::from)
+                .map_err(merge_error)
         }
         MergeKind::Panorama => {
             for s in sources.iter_mut() {
@@ -361,9 +455,68 @@ fn run_merge(
                 auto_crop: options.auto_crop,
                 ..lt_merge::PanoOptions::default()
             };
-            lt_merge::merge_panorama(&inputs, &opts, progress).map_err(merge_error)
+            lt_merge::merge_panorama(&inputs, &opts, progress)
+                .map(Outcome::from)
+                .map_err(merge_error)
         }
+        MergeKind::Burst => run_burst(sources, signals, progress),
     }
+}
+
+/// [`run_merge`] for Best Shot: upright frames with their faces and scores.
+fn run_burst(
+    sources: &mut [Source],
+    signals: &[BurstSignals],
+    progress: &dyn lt_merge::Progress,
+) -> Result<Outcome, DsError> {
+    for s in sources.iter_mut() {
+        s.frame = std::mem::take(&mut s.frame).upright(s.color.orientation);
+    }
+    let faces: Vec<Vec<lt_merge::BurstFace>> = (0..sources.len())
+        .map(|i| {
+            signals.get(i).map_or_else(Vec::new, |s| {
+                s.faces
+                    .iter()
+                    .map(|f| lt_merge::BurstFace {
+                        bounds: lt_core::NormRect {
+                            x: f.bounds.x,
+                            y: f.bounds.y,
+                            w: f.bounds.w,
+                            h: f.bounds.h,
+                        },
+                        eyes_open: f.eyes_open,
+                        quality: f.quality,
+                    })
+                    .collect()
+            })
+        })
+        .collect();
+    let inputs: Vec<lt_merge::BurstInput<'_>> = sources
+        .iter()
+        .zip(&faces)
+        .enumerate()
+        .map(|(i, (s, faces))| lt_merge::BurstInput {
+            frame: &s.frame,
+            faces,
+            score: signals.get(i).and_then(|s| s.score),
+        })
+        .collect();
+    let c = lt_merge::merge_burst(&inputs, &lt_merge::BurstOptions::default(), progress)
+        .map_err(merge_error)?;
+    let count = |k: lt_merge::PatchKind| c.patches.iter().filter(|p| p.kind == k).count() as u32;
+    Ok(Outcome {
+        faces_replaced: count(lt_merge::PatchKind::Face),
+        regions_replaced: count(lt_merge::PatchKind::Sharper),
+        faces_kept: c.faces_kept,
+        merged: Merged {
+            frame: c.frame,
+            exposure_ev: 0.0,
+            reference: c.reference,
+            ghost_regions: 0,
+            projection: lt_merge::Projection::Perspective,
+            unaligned: c.unaligned,
+        },
+    })
 }
 
 /// `frame` as a linear raw with the reference frame's colour.
@@ -381,11 +534,11 @@ fn merged_raw(frame: Frame, reference: &Source, orientation: Orientation) -> Raw
 }
 
 /// The result's EXIF orientation: the reference's for HDR (sensor data), none for a
-/// panorama (stitched upright).
+/// panorama or a Best Shot (merged upright).
 fn result_orientation(reference: &Source, kind: MergeKind) -> Orientation {
     match kind {
         MergeKind::Hdr => reference.color.orientation,
-        MergeKind::Panorama => Orientation::Normal,
+        MergeKind::Panorama | MergeKind::Burst => Orientation::Normal,
     }
 }
 
@@ -430,15 +583,40 @@ pub async fn merge_preview(
     max_edge: u32,
     token: Arc<CancelToken>,
 ) -> Result<MergePreview, DsError> {
+    preview(paths, options, Vec::new(), max_edge, token).await
+}
+
+/// A preview of a Best Shot of the RAWs at `paths` with their `signals` (one per path, or
+/// none), its long edge at most `max_edge` px.
+#[uniffi::export]
+pub async fn burst_preview(
+    paths: Vec<String>,
+    signals: Vec<BurstSignals>,
+    max_edge: u32,
+    token: Arc<CancelToken>,
+) -> Result<MergePreview, DsError> {
+    preview(paths, BURST, signals, max_edge, token).await
+}
+
+async fn preview(
+    paths: Vec<String>,
+    options: MergeOptions,
+    signals: Vec<BurstSignals>,
+    max_edge: u32,
+    token: Arc<CancelToken>,
+) -> Result<MergePreview, DsError> {
     let t = token.clone();
     run_job(token, move |_| {
         let edge = max_edge.clamp(64, 4096);
         // A panorama registers at the merge's analysis size: a smaller preview could
         // fail to stitch what the merge stitches.
         let frame_edge = match options.kind {
-            MergeKind::Hdr => edge,
+            MergeKind::Hdr | MergeKind::Burst => edge,
             MergeKind::Panorama => PANO_PREVIEW_FRAME,
         };
+        check_signals(&signals, paths.len())?;
+        let keep = kept(options.kind, &signals, paths.len());
+        let (paths, signals) = (pick(&paths, &keep), pick(&signals, &keep));
         let mut sources = Vec::with_capacity(paths.len());
         for p in &paths {
             if t.is_cancelled() {
@@ -451,7 +629,8 @@ pub async fn merge_preview(
             report: &|_| {},
             last: AtomicU64::new(0),
         };
-        let merged = run_merge(&mut sources, options, &monitor)?;
+        let outcome = run_merge(&mut sources, options, &signals, &monitor)?;
+        let merged = outcome.merged;
         let (ev, ghosts, projection, unaligned) = (
             merged.exposure_ev,
             merged.ghost_regions,
@@ -474,9 +653,26 @@ pub async fn merge_preview(
             ghost_regions: ghosts,
             exposure_ev: ev.min(MAX_EV),
             unaligned_frames: unaligned,
+            faces_replaced: outcome.faces_replaced,
+            regions_replaced: outcome.regions_replaced,
+            faces_kept: outcome.faces_kept,
         })
     })
     .await
+}
+
+/// The sources a merge of `kind` uses (see [`burst_frames`]).
+fn kept(kind: MergeKind, signals: &[BurstSignals], n: usize) -> Vec<usize> {
+    if kind == MergeKind::Burst {
+        burst_frames(signals, n)
+    } else {
+        (0..n).collect()
+    }
+}
+
+/// `items` at `keep`.
+fn pick<T: Clone>(items: &[T], keep: &[usize]) -> Vec<T> {
+    keep.iter().filter_map(|&i| items.get(i).cloned()).collect()
 }
 
 /// The embedded preview of a merged frame: developed from a downsampled copy, and in
@@ -505,6 +701,7 @@ fn candidate_name(stem: &str, kind: MergeKind, n: u32) -> String {
     let tag = match kind {
         MergeKind::Hdr => "HDR",
         MergeKind::Panorama => "Pano",
+        MergeKind::Burst => "Best",
     };
     if n <= 1 {
         format!("{stem}-{tag}.dng")
@@ -599,7 +796,47 @@ impl SessionHandle {
         events.flush(std::time::Duration::from_secs(5));
         r
     }
+
+    /// Merge the burst of `variant_ids` into a Best Shot next to the first one, with the
+    /// app's `signals` (faces and scores, one per variant, or none). Progress events: kind
+    /// `"merge"`, permille.
+    pub async fn merge_burst(
+        self: Arc<Self>,
+        variant_ids: Vec<i64>,
+        signals: Vec<BurstSignals>,
+        listener: Option<Arc<dyn ProgressListener>>,
+        token: Arc<CancelToken>,
+    ) -> Result<MergeOutcome, DsError> {
+        let events = Arc::new(Dispatcher::new());
+        events.set_listener(listener);
+        let ev = events.clone();
+        let t = token.clone();
+        let r = run_job_on_thread("lt-merge", token, move |_| {
+            let report = move |p: u64| {
+                ev.emit(ProgressEvent {
+                    task_id: 1,
+                    kind: "merge".into(),
+                    phase: TaskPhase::Running,
+                    completed: p.min(PERMILLE),
+                    total: PERMILLE,
+                });
+            };
+            self.merge_with(&decode_file, &variant_ids, BURST, &signals, &t, &report)
+        })
+        .await;
+        events.flush(std::time::Duration::from_secs(5));
+        r
+    }
 }
+
+/// The options of a Best Shot merge (it reads none of them but the kind).
+const BURST: MergeOptions = MergeOptions {
+    kind: MergeKind::Burst,
+    align: true,
+    deghost: Deghost::Off,
+    projection: PanoProjection::Perspective,
+    auto_crop: false,
+};
 
 impl SessionHandle {
     fn merge_now(
@@ -610,8 +847,31 @@ impl SessionHandle {
         token: &CancelToken,
         report: &(dyn Fn(u64) + Sync),
     ) -> Result<MergeOutcome, DsError> {
+        self.merge_with(decode, variant_ids, options, &[], token, report)
+    }
+
+    /// [`Self::merge_now`] with Best Shot's `signals` (one per variant id, or none).
+    fn merge_with(
+        &self,
+        decode: Decode<'_>,
+        variant_ids: &[i64],
+        options: MergeOptions,
+        signals: &[BurstSignals],
+        token: &CancelToken,
+        report: &(dyn Fn(u64) + Sync),
+    ) -> Result<MergeOutcome, DsError> {
         self.check_folder()?;
-        let (rels, paths) = self.merge_sources(variant_ids)?;
+        check_signals(signals, variant_ids.len())?;
+        let (rels, paths, firsts) = self.merge_sources(variant_ids)?;
+        // One signal per distinct photo (its first variant's), then the frames used.
+        let signals: Vec<BurstSignals> = if signals.is_empty() {
+            Vec::new()
+        } else {
+            firsts.iter().map(|&i| signals[i].clone()).collect()
+        };
+        let keep = kept(options.kind, &signals, paths.len());
+        let (rels, paths) = (pick(&rels, &keep), pick(&paths, &keep));
+        let signals = pick(&signals, &keep);
         // The new photo carries the first selected photo's title, caption and credits.
         let iptc = lock(&self.session).variant(VariantId(variant_ids[0]))?.iptc;
         let monitor = Monitor {
@@ -630,7 +890,7 @@ impl SessionHandle {
             sources.push(load(decode, p, None)?);
             lt_merge::Progress::set(&step(0.0, 0.3), (i + 1) as f32 / paths.len() as f32);
         }
-        let merged = run_merge(&mut sources, options, &step(0.3, 0.9))?;
+        let merged = run_merge(&mut sources, options, &signals, &step(0.3, 0.9))?.merged;
         let (ev, frame) = (merged.exposure_ev, merged.frame);
         // Only the reference's description is needed from here on: drop every frame.
         let mut reference = sources.swap_remove(merged.reference);
@@ -685,18 +945,26 @@ impl SessionHandle {
         })
     }
 
-    /// The distinct photos of `variant_ids`: their session paths and files.
-    fn merge_sources(&self, variant_ids: &[i64]) -> Result<(Vec<String>, Vec<PathBuf>), DsError> {
+    /// The distinct photos of `variant_ids`: their session paths and files, and the index
+    /// into `variant_ids` of each one's first variant.
+    fn merge_sources(
+        &self,
+        variant_ids: &[i64],
+    ) -> Result<(Vec<String>, Vec<PathBuf>, Vec<usize>), DsError> {
+        let s = lock(&self.session);
         let mut images: Vec<ImageId> = Vec::new();
-        for id in self.images_of(variant_ids) {
-            if !images.contains(&id) {
-                images.push(id);
+        let mut firsts = Vec::new();
+        for (i, &v) in variant_ids.iter().enumerate() {
+            if let Ok(info) = s.variant(VariantId(v))
+                && !images.contains(&info.image)
+            {
+                images.push(info.image);
+                firsts.push(i);
             }
         }
         if images.len() < 2 {
             return Err(merge_error(MergeError::TooFew));
         }
-        let s = lock(&self.session);
         let mut rels = Vec::new();
         let mut paths = Vec::new();
         for id in &images {
@@ -704,7 +972,7 @@ impl SessionHandle {
             paths.push(s.original_path(info.rel_path.as_str()));
             rels.push(info.rel_path.as_str().to_owned());
         }
-        Ok((rels, paths))
+        Ok((rels, paths, firsts))
     }
 
     /// Add the written file at `rel` as a new photo starting at `ev` (see [`initial_edit`])

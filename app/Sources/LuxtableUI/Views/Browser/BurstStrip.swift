@@ -144,13 +144,16 @@ private struct BurstStripContent: View {
         }
     }
 
-    /// "Your pick" or "AI pick" when they broke a tie for the top rating, else "Cover".
+    /// "Best Shot" for the burst's Best Shot; "Your pick" or "AI pick" when they broke a tie
+    /// for the top rating; else "Cover".
     static func label(_ d: CoverDecision?) -> String {
-        guard let d, d.isTie else { return "Cover" }
+        guard let d else { return "Cover" }
+        if d.source == .bestShot { return "Best Shot" }
+        guard d.isTie else { return "Cover" }
         switch d.source {
         case .user: return "Your pick"
         case .ai: return "AI pick"
-        case .rule: return "Cover"
+        case .rule, .bestShot: return "Cover"
         }
     }
 }
@@ -162,7 +165,7 @@ private struct BurstFrame: View {
     let size: CGSize
     let isCurrent: Bool
     let isCover: Bool
-    /// "Cover", "Your pick" or "AI pick".
+    /// "Cover", "Your pick", "AI pick" or "Best Shot".
     let coverLabel: String
     /// Tied for the stack's highest rating: Use as Cover is offered.
     let canBeCover: Bool

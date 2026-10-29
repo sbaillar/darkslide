@@ -20,9 +20,12 @@ public struct MockPhotoMerger: PhotoMerging {
         let image = try Self.gradient(width: max(1, Int(Double(w) * scale)), height: max(1, Int(Double(h) * scale)))
         let projection: PhotoMergeOptions.Projection = options.kind == .hdr ? .perspective
             : options.projection == .auto ? (photos.count > 6 ? .spherical : .cylindrical) : options.projection
+        let blink = options.bestShot.contains { f in f.faces.contains { ($0.eyesOpen ?? 1) < 0.5 } }
         return PhotoMergePreview(image: image, width: w, height: h, projection: projection,
                                  ghostRegions: options.kind == .hdr && options.deghost != .off ? 2 : 0,
-                                 exposureEV: options.kind == .hdr ? 0.5 : 0)
+                                 exposureEV: options.kind == .hdr ? 0.5 : 0,
+                                 facesReplaced: options.kind == .burst && blink ? 1 : 0,
+                                 regionsReplaced: options.kind == .burst ? 1 : 0)
     }
 
     public func merge(_ photos: [PhotoID], in session: SessionInfo, options: PhotoMergeOptions,
@@ -39,11 +42,21 @@ public struct MockPhotoMerger: PhotoMerging {
         var meta = first.meta
         (meta.pixelWidth, meta.pixelHeight) = Self.size(of: sources, options: options)
         let base = (first.filename as NSString).deletingPathExtension
-        let name = "\(base)-\(options.kind == .hdr ? "HDR" : "Pano").dng"
+        let name = "\(base)-\(Self.tag(options.kind)).dng"
         return try await store.addPhoto(after: first.id, in: session, filename: name, meta: meta).id
     }
 
-    /// HDR keeps the frame; a panorama about 80% of the frames side by side (auto crop: a bit less).
+    /// The file name's tag, as lt-ffi names merges.
+    static func tag(_ kind: PhotoMergeKind) -> String {
+        switch kind {
+        case .hdr: "HDR"
+        case .panorama: "Pano"
+        case .burst: "Best"
+        }
+    }
+
+    /// HDR and a Best Shot keep the frame; a panorama about 80% of the frames side by side
+    /// (auto crop: a bit less).
     static func size(of photos: [Photo], options: PhotoMergeOptions) -> (Int, Int) {
         let w = photos.first?.meta.pixelWidth ?? 0
         let h = photos.first?.meta.pixelHeight ?? 0
