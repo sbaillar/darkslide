@@ -1,10 +1,12 @@
 //! Merge timings on A9-sized frames (6000×4000), synthetic so they run without samples:
-//! an aligned, deghosted HDR merge of three brackets and a three-frame panorama.
+//! an aligned, deghosted HDR merge of three brackets, a three-frame panorama and a
+//! three-frame burst composite with a face swap.
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use lt_core::NormRect;
 use lt_merge::{
-    Deghost, Frame, HdrInput, HdrOptions, NoProgress, PanoInput, PanoOptions, merge_hdr,
-    merge_panorama,
+    BurstFace, BurstInput, BurstOptions, Deghost, Frame, HdrInput, HdrOptions, NoProgress,
+    PanoInput, PanoOptions, PatchKind, merge_burst, merge_hdr, merge_panorama,
 };
 use rayon::prelude::*;
 
@@ -152,8 +154,81 @@ fn bench(c: &mut Criterion) {
             b.iter(|| merge_panorama(&inputs, &opts, &NoProgress).unwrap());
         });
     }
+
     g.finish();
 }
 
-criterion_group!(benches, bench);
+/// Three 24 MP frames of a handheld burst: alignment, a face swap, region search.
+fn burst(c: &mut Criterion) {
+    // A handheld burst of one person: the reference blinked, the next frame didn't.
+    let (fx, fy, rx, ry) = (3000.0f32, 1800.0f32, 420.0f32, 540.0f32);
+    let person = move |x: f32, y: f32, open: bool| {
+        if ((x - fx) / rx).powi(2) + ((y - fy) / ry).powi(2) > 1.0 {
+            return 0.1 + 0.5 * noise(x, y, 14.0);
+        }
+        let mut v = 0.5 + 0.1 * noise(x, y, 60.0);
+        for cx in [fx - 170.0, fx + 170.0] {
+            let d = ((x - cx) / 90.0).powi(2) + ((y - (fy - 120.0)) / 50.0).powi(2);
+            if d <= 1.0 {
+                v = match (open, d < 0.35) {
+                    (true, true) => 0.04,
+                    (true, false) => 0.85,
+                    (false, _) if (y - (fy - 120.0)).abs() < 6.0 => 0.15,
+                    (false, _) => v,
+                };
+            }
+        }
+        v
+    };
+    let shifts = [(0.0f32, 0.0f32), (9.0, -6.0), (-7.0, 5.0)];
+    let burst: Vec<Frame> = shifts
+        .iter()
+        .enumerate()
+        .map(|(i, &(dx, dy))| frame(move |x, y| person(x + dx, y + dy, i == 1)))
+        .collect();
+    let faces: Vec<[BurstFace; 1]> = shifts
+        .iter()
+        .enumerate()
+        .map(|(i, &(dx, dy))| {
+            [BurstFace {
+                bounds: NormRect {
+                    x: (fx - 380.0 - dx) / W as f32,
+                    y: (fy - 460.0 - dy) / H as f32,
+                    w: 760.0 / W as f32,
+                    h: 920.0 / H as f32,
+                },
+                eyes_open: Some(if i == 1 { 0.95 } else { 0.05 }),
+                quality: Some(0.7),
+            }]
+        })
+        .collect();
+    let inputs: Vec<BurstInput<'_>> = burst
+        .iter()
+        .zip(&faces)
+        .zip([0.9f32, 0.6, 0.5])
+        .map(|((frame, faces), score)| BurstInput {
+            frame,
+            faces,
+            score: Some(score),
+        })
+        .collect();
+    let opts = BurstOptions::default();
+    // The work is real: the frames align and the open eyes are taken.
+    let m = merge_burst(&inputs, &opts, &NoProgress).unwrap();
+    assert!(
+        m.patches
+            .iter()
+            .any(|p| p.kind == PatchKind::Face && p.frame == 1),
+        "{:?}",
+        m.patches
+    );
+    let mut g = c.benchmark_group("merge");
+    g.sample_size(10);
+    g.bench_function("burst_3x24mp_face_and_regions", |b| {
+        b.iter(|| merge_burst(&inputs, &opts, &NoProgress).unwrap());
+    });
+    g.finish();
+}
+
+criterion_group!(benches, bench, burst);
 criterion_main!(benches);

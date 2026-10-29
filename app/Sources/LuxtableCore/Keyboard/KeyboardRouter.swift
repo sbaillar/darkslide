@@ -131,6 +131,7 @@ public enum KeyboardRouter {
                       ("⌘⇧V", "Apply them to the selected photos but the copied one (one ⌘Z)"),
                       ("⌥⌘V", "Copy from previous"), ("⌥⇧⌘M", "Match total exposures to the focused photo"),
                       ("⇧⌘H", "Merge to HDR (2+ photos)"), ("⇧⌘M", "Merge to Panorama (2+ photos)"),
+                      ("⇧⌘B", "Merge a burst to one Best Shot (open eyes, sharpest parts)"),
                       ("⌘Z / ⇧⌘Z", "Undo / Redo"), ("?", "This cheat sheet")]),
             ("Voice", [("⌃⌘V", "Voice commands on / off; then say:"),
                        ("“next” “back”", "Next / previous photo (also “first”, “last”)"),

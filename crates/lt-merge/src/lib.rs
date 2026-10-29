@@ -20,12 +20,16 @@
 //! Heavy loops run on rayon by rows or bands and reuse their scratch, never allocating per
 //! pixel. [`estimate_bytes`] gives a panorama's peak memory before anything is decoded.
 
+mod burst;
 mod features;
 mod geom;
 mod hdr;
 mod image;
 mod pano;
 
+pub use burst::{
+    BurstFace, BurstInput, BurstOptions, Composite, MAX_BURST_FRAMES, Patch, PatchKind, merge_burst,
+};
 pub use geom::Mat3;
 pub use hdr::{Deghost, HdrInput, HdrOptions, merge_hdr};
 pub use image::{Frame, quick_frame};

@@ -74,6 +74,17 @@ public final class BrowserState {
         return covers
     }
 
+    /// `shot`, a Best Shot just made from `sources`, becomes their burst's cover unless the
+    /// user chose one. Returns every cover to save.
+    @discardableResult
+    public func addBestShot(_ shot: PhotoID, sources: [PhotoID]) -> [StackCover] {
+        covers = StackCovers.addingBestShot(shot, sources: sources, in: covers)
+        builtFrom = [] // the Best Shot joins its burst: regroup at the next refresh
+        builtVersion = nil
+        stacks.apply(covers: covers)
+        return covers
+    }
+
     /// Rebuild stacks when the photo list changed (ids or order). O(n); call on
     /// load/filter changes, not per keypress.
     public func refresh(photos: [Photo]) {

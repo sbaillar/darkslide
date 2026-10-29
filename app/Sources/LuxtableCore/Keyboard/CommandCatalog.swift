@@ -42,7 +42,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
     /// Upscale while it runs.
     case upscale
     /// Photo ▸ Merge to HDR… (⇧⌘H) / Merge to Panorama… (⇧⌘M): two or more selected photos.
-    case mergeHDR, mergePanorama
+    /// Merge to Best Shot… (⇧⌘B): two or more frames of a burst, or the burst of the one selected.
+    case mergeHDR, mergePanorama, mergeBestShot
     /// [history] View ▸ Show History: the History panel, wherever it lives.
     case showHistory
     /// [multiview] View ▸ Show Selection in Viewer: several selected photos side by side.
@@ -111,6 +112,7 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
         // ⌥⌘H is the system's Hide Others; ⌥⇧⌘M (match exposures) is not ⇧⌘M.
         case .mergeHDR: Shortcut(key: "h", modifiers: [.command, .shift])
         case .mergePanorama: Shortcut(key: "m", modifiers: [.command, .shift])
+        case .mergeBestShot: Shortcut(key: "b", modifiers: [.command, .shift])
         // ⌘+ / ⌘- zoom the photo and ⌥⌘= / ⌥⌘- are the system's Accessibility Zoom.
         case .largerFilmstripThumbnails: Shortcut(key: "=", modifiers: [.command, .control])
         case .smallerFilmstripThumbnails: Shortcut(key: "-", modifiers: [.command, .control])
@@ -203,6 +205,7 @@ public enum CommandCatalog {
         case .upscale: model.upscaler?.title(in: model) ?? "Upscale 2×"
         case .mergeHDR: "Merge to HDR…"
         case .mergePanorama: "Merge to Panorama…"
+        case .mergeBestShot: "Merge to Best Shot…"
         case .developForImmich: model.immich.developTitle
         case .stopDevelopingForImmich: model.immich.stopTitle
         }
@@ -214,7 +217,7 @@ public enum CommandCatalog {
     ]
 
     /// Photo ▸ merging the selection into a new photo.
-    public static let mergeMenu: [MenuCommand] = [.mergeHDR, .mergePanorama]
+    public static let mergeMenu: [MenuCommand] = [.mergeHDR, .mergePanorama, .mergeBestShot]
 
     /// The browser's context menu (grid and filmstrip): the cull-finishing commands
     /// are not only in the Photo menu (final-journeys2 discoverability).
@@ -241,6 +244,10 @@ public enum CommandCatalog {
             model.cull.canMove ? nil : CullFinisher.inPlaceReason
         case .upscale:
             model.upscaler.map { $0.help(in: model) } ?? UpscaleModelDescriptor.reasons.missing
+        case .mergeBestShot:
+            model.canMergeBestShot
+                ? "One new photo from the burst: the best frame, with open eyes and sharper areas from the others (⇧⌘B)"
+                : "Select two or more frames of a burst, or one photo of a burst"
         case .developForImmich: model.immich.developHelp
         case .stopDevelopingForImmich:
             "Stop updating the selection's developed copies. The copies already made stay in Developed and in the archive"
@@ -306,6 +313,7 @@ public enum CommandCatalog {
         case .matchExposures, .matchWhiteBalance: return model.canMatchSet
         case .upscale: return model.upscaler.map { $0.isEnabled(in: model) } ?? false
         case .mergeHDR, .mergePanorama: return model.canMergePhotos
+        case .mergeBestShot: return model.canMergeBestShot
         case .developForImmich: return model.immich.canDevelop
         case .stopDevelopingForImmich: return model.immich.canStopDeveloping
         // The viewer's strip only (the map's keeps its size); off at the end of the range.
@@ -373,6 +381,7 @@ public enum CommandCatalog {
         case .upscale: model.upscaler?.toggle()
         case .mergeHDR: model.beginMerge(.hdr)
         case .mergePanorama: model.beginMerge(.panorama)
+        case .mergeBestShot: model.beginMerge(.burst)
         case .developForImmich: Task { await model.immich.developSelected() }
         case .stopDevelopingForImmich: Task { await model.immich.stopDeveloping() }
         }

@@ -2,8 +2,8 @@ import LuxtableCore
 import LuxtableUI
 import SwiftUI
 
-/// Photo ▸ Merge to HDR… / Merge to Panorama…: a preview that follows the options,
-/// then the merge with its progress. The state lives in `MergeModel`.
+/// Photo ▸ Merge to HDR… / Merge to Panorama… / Merge to Best Shot…: a preview that
+/// follows the options, then the merge with its progress. The state lives in `MergeModel`.
 struct MergeSheet: View {
     @Bindable var model: MergeModel
 
@@ -72,6 +72,11 @@ struct MergeSheet: View {
             .frame(maxWidth: 300)
             Toggle("Auto crop", isOn: $model.options.autoCrop)
                 .accessibilityHint("Crops away the empty edges of the stitched panorama")
+        case .burst:
+            Text("Starts from the best frame and takes, from the others, faces that look better "
+                 + "(open eyes first) and areas that are sharper. Nothing that moved is taken.")
+                .font(DS.Font.label).foregroundStyle(DS.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

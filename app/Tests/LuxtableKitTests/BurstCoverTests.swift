@@ -215,6 +215,86 @@ private func frame(_ id: Int64, rating: Int = 0, pick: PickState = .none) -> Pho
     }
 }
 
+// MARK: - Best Shots: the cover unless the user chose one
+
+@Suite struct BestShotCoverTests {
+    @Test func aBestShotIsTheCoverUnlessTheUserChoseOneOrRejectedIt() {
+        let burst = [frame(1, rating: 3), frame(2, rating: 4), frame(7)]
+        let d = CoverRule.decide(burst, chosen: nil, bestShot: PhotoID(7), ai: CoverAI(best: [PhotoID(2)]))
+        #expect(d == CoverDecision(cover: PhotoID(7), source: .bestShot, candidates: ids([2]), topRating: 4),
+                "made to stand for the burst: before ratings and the AI")
+        #expect(CoverRule.decide(burst, chosen: PhotoID(2), bestShot: PhotoID(7)).source == .user, "the user's choice first")
+        #expect(CoverRule.decide(burst, chosen: PhotoID(1), bestShot: PhotoID(7)).cover == PhotoID(7),
+                "a choice outranked by a rating: the Best Shot")
+        let rejected = [frame(1, rating: 3), frame(2, rating: 4), frame(7, pick: .rejected)]
+        #expect(CoverRule.decide(rejected, chosen: nil, bestShot: PhotoID(7)).cover == PhotoID(2), "rejected: the usual rule")
+        #expect(CoverRule.decide(burst, chosen: nil, bestShot: PhotoID(9)).cover == PhotoID(2), "not in the burst")
+        #expect(PhotoStack(id: PhotoID(1), memberIDs: ids([1, 2]), topID: PhotoID(1), bestShotID: PhotoID(7)).bestShotID == nil)
+    }
+
+    @Test func bestShotsAreKeptApartFromChoices() {
+        let made = StackCovers.addingBestShot(PhotoID(7), sources: ids([1, 2, 3]), in: [])
+        #expect(made == [StackCover(members: ids([1, 2, 3, 7]), cover: PhotoID(7), bestShot: true)])
+        #expect(StackCovers.cover(for: ids([1, 2, 3, 7]), in: made) == nil, "not the user's choice")
+        #expect(StackCovers.bestShot(for: ids([1, 2, 3, 7]), in: made) == PhotoID(7))
+        #expect(StackCovers.bestShot(for: ids([1, 2, 3]), in: made) == nil, "it isn't in the stack")
+        // Choosing a cover keeps the Best Shot (the choice outranks it)…
+        let chosen = StackCovers.choosing(PhotoID(2), members: ids([1, 2, 3, 7]), in: made)
+        #expect(chosen.count == 2 && StackCovers.cover(for: ids([1, 2, 3, 7]), in: chosen) == PhotoID(2))
+        #expect(StackCovers.bestShot(for: ids([1, 2, 3, 7]), in: chosen) == PhotoID(7))
+        // …and a newer Best Shot of the same frames takes over from the older one.
+        let again = StackCovers.addingBestShot(PhotoID(8), sources: ids([1, 2, 3]), in: chosen)
+        #expect(again.filter(\.bestShot) == [StackCover(members: ids([1, 2, 3, 8]), cover: PhotoID(8), bestShot: true)])
+        #expect(again.count == 2, "the user's choice stays")
+    }
+
+    @Test func bestShotsJoinTheBurstTheyWereMadeFrom() {
+        let covers = [StackCover(members: ids([1, 2, 3, 7]), cover: PhotoID(7), bestShot: true),
+                      StackCover(members: ids([4, 5]), cover: PhotoID(5))]
+        #expect(StackCovers.joiningBestShots([ids([1, 2]), ids([3]), ids([7]), ids([4])], covers: covers)
+                == [ids([1, 2, 7]), ids([3]), ids([4])], "most of its frames; its own group goes")
+        #expect(StackCovers.joiningBestShots([ids([1, 2, 3, 7])], covers: covers) == [ids([1, 2, 3, 7])], "already there")
+        #expect(StackCovers.joiningBestShots([ids([7]), ids([4])], covers: covers) == [ids([7]), ids([4])], "its frames are gone")
+        #expect(StackCovers.joiningBestShots([ids([1, 2])], covers: covers) == [ids([1, 2])], "it is gone")
+    }
+
+    @Test func theFlagIsOnlyWrittenForBestShots() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lt-best-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("stacks.json")
+        let covers = [StackCover(members: ids([1, 2]), cover: PhotoID(2)),
+                      StackCover(members: ids([1, 2, 7]), cover: PhotoID(7), bestShot: true)]
+        try StackCoverFile.write(covers, to: url)
+        #expect(try StackCoverFile.read(url) == covers)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        #expect(text.components(separatedBy: "bestShot").count == 2, "once: files without Best Shots stay as they were")
+    }
+}
+
+@MainActor
+@Suite struct BestShotStackTests {
+    @Test func aNewBestShotStandsForItsBurstUntilTheUserChooses() {
+        var shot = samplePhoto(7)
+        shot.meta.captureDate = Date(timeIntervalSince1970: 5_000) // a grouping set it apart
+        let ps = burstPhotos() + [shot] // 1, 2 (4★), 3 · 4 · 5, 6 · 7
+        let b = BrowserState()
+        b.refresh(photos: ps)
+        b.stackBursts = true
+        #expect(b.displayIDs(ps.map(\.id)) == ids([2, 4, 5, 7]), "5–6: the earliest")
+        let saved = b.addBestShot(PhotoID(7), sources: ids([1, 2, 3]))
+        #expect(saved == [StackCover(members: ids([1, 2, 3, 7]), cover: PhotoID(7), bestShot: true)])
+        b.refresh(photos: ps) // the merge lists the session again
+        let s = b.stacks.stack(of: PhotoID(7))
+        #expect(s?.memberIDs == ids([1, 2, 3, 7]) && s?.bestShotID == PhotoID(7) && s?.coverID == nil)
+        #expect(b.displayIDs(ps.map(\.id)) == ids([7, 4, 5]), "the Best Shot stands for the burst")
+        #expect(b.stacks.decision(of: s!, lookup: { id in ps.first { $0.id == id } })?.source == .bestShot)
+        b.chooseCover(PhotoID(2))
+        #expect(b.displayIDs(ps.map(\.id)) == ids([2, 4, 5]), "the user's choice outranks it")
+        #expect(b.stacks.stack(of: PhotoID(7))?.bestShotID == PhotoID(7), "kept, for when the choice is outranked")
+    }
+}
+
 // MARK: - The picker model
 
 @MainActor

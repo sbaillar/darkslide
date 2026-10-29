@@ -1,4 +1,5 @@
 import CoreGraphics
+import LuxtableAI
 import LuxtableFFI
 import Foundation
 import ImageIO
@@ -45,7 +46,8 @@ private actor FakeMerger: PhotoMerging {
         return PhotoMergePreview(image: try MockPhotoMerger.gradient(width: 8, height: 4), width: 6000, height: 4000,
                                  projection: options.kind == .hdr ? .perspective : .cylindrical,
                                  ghostRegions: options.deghost == .off ? 0 : 3, exposureEV: 0.25,
-                                 unalignedFrames: unaligned)
+                                 unalignedFrames: unaligned,
+                                 facesReplaced: options.kind == .burst && !options.bestShot.isEmpty ? 1 : 0)
     }
 
     func merge(_ photos: [PhotoID], in session: SessionInfo, options: PhotoMergeOptions,
@@ -204,7 +206,8 @@ private final class Calls {
         let edit = KeyboardRouter.cheatSheet().first { $0.section == "Edit" }!.rows
         #expect(edit.contains { $0.keys == "⇧⌘H" && $0.action.contains("HDR") })
         #expect(edit.contains { $0.keys == "⇧⌘M" && $0.action.contains("Panorama") })
-        #expect(CommandCatalog.mergeMenu == [.mergeHDR, .mergePanorama])
+        #expect(edit.contains { $0.keys == "⇧⌘B" && $0.action.contains("Best Shot") })
+        #expect(CommandCatalog.mergeMenu == [.mergeHDR, .mergePanorama, .mergeBestShot])
         m.sheet = .openSession
         #expect(!CommandCatalog.isEnabled(.mergeHDR, model: m), "not over another sheet")
         m.beginMerge(.hdr)
@@ -272,6 +275,132 @@ private final class Calls {
         #expect(m.selection == Set(new.map { [$0.id] } ?? []))
     }
 
+    // MARK: - Best Shot
+
+    @Test func bestShotFindsTheFacesBeforeItsFirstPreview() async {
+        let merger = FakeMerger()
+        let calls = Calls()
+        let face = { (x: Double, open: Double) in
+            BestShotFrame.Face(bounds: CGRect(x: x, y: 0.2, width: 0.2, height: 0.3), eyesOpen: open, quality: 0.6)
+        }
+        let frames = [BestShotFrame(faces: [face(0.4, 0.1)], score: 0.8), BestShotFrame(faces: [face(0.41, 0.9)])]
+        let gate = AsyncStream<Void>.makeStream()
+        let m = MergeModel(kind: .burst, session: session, sources: [samplePhoto(1), samplePhoto(2)], merger: merger,
+                           debounce: .milliseconds(20), analyze: { photos in
+                               for await _ in gate.stream { break }
+                               return photos.count == 2 ? frames : []
+                           }, onMerged: { calls.merged.append($0) }, close: { calls.closed += 1 })
+        #expect(m.title == "Merge to Best Shot (2 Photos)")
+        m.start()
+        #expect(m.isAnalyzing && m.isPreviewing && !m.canMerge)
+        #expect(m.previewSummary == "Looking for faces\u{2026}")
+        m.merge()
+        #expect(!m.isMerging, "not before the faces are found")
+        gate.continuation.yield()
+        #expect(await waitUntil { m.preview != nil && !m.isPreviewing })
+        #expect(!m.isAnalyzing && m.canMerge && m.options.bestShot == frames)
+        let started = await merger.started
+        #expect(started.count == 1 && started.first?.bestShot == frames, "one preview, with the faces")
+        #expect(m.previewSummary == "6000 × 4000 · exposure +0.25 EV · 1 face improved")
+        m.merge()
+        #expect(await waitUntil { calls.closed == 1 })
+        #expect(await merger.merges.first?.options.bestShot == frames)
+    }
+
+    @Test func bestShotWithoutFacesStillMerges() async {
+        let calls = Calls()
+        let merger = FakeMerger()
+        // One face list for two photos can't be matched to them: none are sent.
+        let m = MergeModel(kind: .burst, session: session, sources: [samplePhoto(1), samplePhoto(2)], merger: merger,
+                           analyze: { _ in [BestShotFrame(faces: [], score: 0.5)] },
+                           onMerged: { calls.merged.append($0) }, close: { calls.closed += 1 })
+        m.start()
+        #expect(await waitUntil { m.preview != nil && !m.isPreviewing })
+        #expect(m.options.bestShot.isEmpty && m.previewSummary?.hasSuffix("nothing to improve") == true)
+        // No analyzer (not a Best Shot, or none given): the preview starts at once.
+        let plain = MergeModel(kind: .burst, session: session, sources: [samplePhoto(1), samplePhoto(2)], merger: merger,
+                               onMerged: { _ in }, close: {})
+        plain.start()
+        #expect(!plain.isAnalyzing && plain.isPreviewing)
+        #expect(await waitUntil { plain.preview != nil })
+        // Closing the sheet while Vision looks stops it.
+        let gate = AsyncStream<Void>.makeStream()
+        let closing = MergeModel(kind: .burst, session: session, sources: [samplePhoto(1), samplePhoto(2)], merger: merger,
+                                 analyze: { _ in
+                                     for await _ in gate.stream { break }
+                                     return []
+                                 }, onMerged: { _ in }, close: { calls.closed += 1 })
+        closing.start()
+        closing.cancel()
+        gate.continuation.yield()
+        #expect(calls.closed == 1 && closing.preview == nil)
+    }
+
+    @Test func bestShotSummarySaysWhatWasTaken() throws {
+        let image = try MockPhotoMerger.gradient(width: 2, height: 2)
+        func parts(faces: Int = 0, regions: Int = 0, kept: Int = 0, unaligned: Int = 0) -> [String] {
+            MergeModel.bestShotParts(PhotoMergePreview(image: image, width: 1, height: 1, projection: .perspective,
+                                                       unalignedFrames: unaligned, facesReplaced: faces,
+                                                       regionsReplaced: regions, facesKept: kept))
+        }
+        #expect(parts() == ["the best frame as it is: nothing to improve"])
+        #expect(parts(faces: 1, regions: 3) == ["1 face improved", "3 sharper regions"])
+        #expect(parts(faces: 2, regions: 1, kept: 1, unaligned: 2)
+                == ["2 faces improved", "1 sharper region", "1 face moved too much to swap", "2 frames not used"])
+    }
+
+    @Test func bestShotFacesComeUprightFromVision() {
+        let f = BestShotFrame.Face(FaceInfo(boundingBox: CGRect(x: 0.2, y: 0.1, width: 0.3, height: 0.4), captureQuality: 0.6,
+                                            leftEyeAspect: 0.3, rightEyeAspect: 0.26))
+        #expect(abs(f.bounds.minY - 0.5) < 1e-9 && f.bounds.minX == 0.2 && f.bounds.width == 0.3 && f.bounds.height == 0.4,
+                "Vision's origin is bottom-left")
+        #expect(f.eyesOpen == 1 && f.quality == 0.6)
+        let half = BestShotFrame.Face(FaceInfo(boundingBox: .zero, captureQuality: nil, leftEyeAspect: 0.1, rightEyeAspect: nil))
+        #expect(half.eyesOpen == nil && half.quality == nil, "one eye unknown: unknown")
+    }
+
+    @Test func bestShotOfABurstBecomesItsCover() async throws {
+        let store = MockSessionStore(counts: [60])
+        let m = makeModel(store: store)
+        await m.start()
+        m.setStackBursts(true)
+        let s = try #require(m.browserState.stacks.stacks.max { $0.count < $1.count })
+        m.focus(s.memberIDs[0], extend: false)
+        #expect(!CommandCatalog.isEnabled(.mergeBestShot, model: m), "no merger")
+        m.merger = MockPhotoMerger(store: store, step: .zero)
+        #expect(m.bestShotSources.map(\.id) == s.memberIDs, "one photo of a burst: its whole burst")
+        #expect(CommandCatalog.isEnabled(.mergeBestShot, model: m) && !CommandCatalog.isEnabled(.mergeHDR, model: m))
+        #expect(CommandCatalog.title(.mergeBestShot, model: m) == "Merge to Best Shot…")
+        #expect(MenuCommand.mergeBestShot.shortcut == .init(key: "b", modifiers: [.command, .shift]))
+        #expect(CommandCatalog.help(.mergeBestShot, model: m)?.contains("open eyes") == true)
+        CommandCatalog.perform(.mergeBestShot, model: m)
+        guard case .merge(let sheet)? = m.sheet else {
+            Issue.record("no merge sheet")
+            return
+        }
+        #expect(sheet.kind == .burst && sheet.sources.map(\.id) == s.memberIDs)
+        #expect(await waitUntil { sheet.preview != nil && !sheet.isAnalyzing && !sheet.isPreviewing })
+        #expect(sheet.options.bestShot.count == s.count, "one per frame (Vision found no face in the demo's images)")
+        sheet.merge()
+        #expect(await waitUntil { m.sheet == nil })
+        let shot = try #require(m.focusedPhoto)
+        #expect(shot.filename.hasSuffix("-Best.dng") && !s.memberIDs.contains(shot.id))
+        m.browserState.refresh(photos: m.visiblePhotos) // as the browser does when the list changes
+        let stack = try #require(m.browserState.stacks.stack(of: s.memberIDs[0]))
+        #expect(stack.memberIDs.contains(shot.id) && stack.bestShotID == shot.id)
+        #expect(m.browserState.stacks.currentTop(of: stack, lookup: { m.photo($0) }) == shot.id)
+        #expect(m.coverDecision(of: shot.id)?.source == .bestShot)
+        await m.browserState.coverSave?.value
+        let saved = try await store.stackCovers(in: try #require(m.currentSession))
+        #expect(saved == [StackCover(members: s.memberIDs + [shot.id], cover: shot.id, bestShot: true)])
+        // The Best Shot isn't merged into the next one.
+        #expect(!m.bestShotSources.contains { $0.id == shot.id } && m.bestShotSources.count == s.count)
+        // The user's choice outranks it.
+        let top = try #require(m.coverDecision(of: shot.id)?.candidates.first { $0 != shot.id })
+        m.useAsCover(top)
+        #expect(m.coverDecision(of: shot.id)?.cover == top && m.coverDecision(of: shot.id)?.source == .user)
+    }
+
     // MARK: - The demo merger
 
     @Test func mockMergerSizesAndRefusals() async throws {
@@ -319,6 +448,16 @@ private final class Calls {
         let f = o.ffi
         #expect(f.kind == .panorama && !f.align && f.deghost == .low && f.projection == .spherical && !f.autoCrop)
         #expect(PhotoMergeOptions(kind: .hdr).ffi.kind == .hdr)
+        #expect(PhotoMergeOptions(kind: .burst).ffi.kind == .burst)
+        var b = PhotoMergeOptions(kind: .burst)
+        b.bestShot = [BestShotFrame(faces: [.init(bounds: CGRect(x: 0.25, y: 0.5, width: 0.125, height: 0.25),
+                                                  eyesOpen: 0.75, quality: nil)], score: 0.5),
+                      BestShotFrame()]
+        let signals = b.burstSignals
+        #expect(signals.count == 2 && signals[0].score == 0.5 && signals[1].faces.isEmpty && signals[1].score == nil)
+        #expect(signals[0].faces == [BurstFaceSignal(bounds: NormRect(x: 0.25, y: 0.5, w: 0.125, h: 0.25),
+                                                     eyesOpen: 0.75, quality: nil)])
+        #expect(PhotoMergeOptions(kind: .hdr).burstSignals.isEmpty)
     }
 
     @Test func liveDecodesTheJPEG() throws {

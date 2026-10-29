@@ -273,7 +273,7 @@ fn register(
 
 /// Analysis pixel ↔ full-resolution pixel: `(up, down)` with `up · a · down` mapping a
 /// full-resolution reference pixel through an analysis-grid homography `a`.
-fn upscale(factor: u32) -> (Mat3, Mat3) {
+pub(crate) fn upscale(factor: u32) -> (Mat3, Mat3) {
     let f = f64::from(factor);
     let o = (f - 1.0) / 2.0;
     let up = [[f, 0.0, o], [0.0, f, o], [0.0, 0.0, 1.0]];
@@ -281,7 +281,7 @@ fn upscale(factor: u32) -> (Mat3, Mat3) {
     (up, down)
 }
 
-fn mean_unclipped(g: &Gray) -> f32 {
+pub(crate) fn mean_unclipped(g: &Gray) -> f32 {
     let (sum, n) =
         g.px.iter()
             .filter(|&&v| v < CLIPPED)
@@ -291,7 +291,7 @@ fn mean_unclipped(g: &Gray) -> f32 {
 }
 
 /// Homography from reference to `frame` analysis pixels, `ratio` = `e_frame / e_ref`.
-fn align_pair(reference: &Gray, frame: &Gray, ratio: f32) -> Option<Mat3> {
+pub(crate) fn align_pair(reference: &Gray, frame: &Gray, ratio: f32) -> Option<Mat3> {
     // Both images in reference units, clipped at the lower of the two clips.
     let clip = CLIPPED * (1.0f32).min(1.0 / ratio);
     let prep = |g: &Gray, k: f32| Gray {

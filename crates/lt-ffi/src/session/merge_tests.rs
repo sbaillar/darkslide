@@ -507,7 +507,7 @@ fn mixed_cameras_and_focal_lengths_are_refused() {
         ..HDR
     };
     assert!(matches!(
-        run_merge(&mut sources, pano, &monitor),
+        run_merge(&mut sources, pano, &[], &monitor),
         Err(DsError::InvalidArgument { message }) if message.contains("one camera")
     ));
     drop(d);
@@ -674,4 +674,162 @@ fn merge_memory_budget() {
         out.file_name
     );
     assert!(peak < 2.5, "peak {peak:.2} GB");
+}
+
+#[test]
+fn best_shot_keeps_the_best_scored_frames_in_capture_order() {
+    let scored = |s: &[Option<f32>]| -> Vec<BurstSignals> {
+        s.iter()
+            .map(|&score| BurstSignals {
+                faces: Vec::new(),
+                score,
+            })
+            .collect()
+    };
+    assert_eq!(burst_frames(&[], 3), vec![0, 1, 2]);
+    let n = BURST_MAX_FRAMES + 2;
+    // Two unscored frames and the lowest score drop out; the rest keep their order.
+    let mut s: Vec<Option<f32>> = (0..n).map(|i| Some(0.5 + i as f32 / 100.0)).collect();
+    s[1] = None;
+    s[4] = Some(f32::NAN);
+    s[7] = Some(0.1);
+    let keep = burst_frames(&scored(&s), n);
+    assert_eq!(keep.len(), BURST_MAX_FRAMES);
+    assert!(!keep.contains(&1) && !keep.contains(&4) && keep.contains(&7));
+    assert!(keep.windows(2).all(|w| w[0] < w[1]));
+    // Without scores: the first ones.
+    assert_eq!(
+        burst_frames(&[], n),
+        (0..BURST_MAX_FRAMES).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        kept(MergeKind::Hdr, &[], n).len(),
+        n,
+        "only Best Shot drops frames"
+    );
+    assert_eq!(pick(&["a", "b", "c"], &[0, 2, 9]), vec!["a", "c"]);
+    assert!(check_signals(&[], 3).is_ok());
+    assert!(check_signals(&scored(&[None, None]), 2).is_ok());
+    assert!(matches!(
+        check_signals(&scored(&[None]), 2),
+        Err(DsError::InvalidArgument { .. })
+    ));
+    assert_eq!(candidate_name("A", MergeKind::Burst, 1), "A-Best.dng");
+    assert_eq!(candidate_name("A", MergeKind::Burst, 2), "A-Best-2.dng");
+}
+
+/// A portrait burst scene, upright coordinates (192 × 256): a textured background and one
+/// face whose eyes are open or closed.
+fn burst_scene(x: f32, y: f32, open: bool) -> f32 {
+    if ((x - 96.0) / 30.0).powi(2) + ((y - 128.0) / 38.0).powi(2) > 1.0 {
+        return texture(x, y) * 0.7;
+    }
+    let mut v = 0.45 + 0.05 * texture(x * 0.3, y * 0.3);
+    for cx in [84.0, 108.0] {
+        let d = ((x - cx) / 7.0).powi(2) + ((y - 118.0) / 4.0).powi(2);
+        if d <= 1.0 {
+            v = match (open, d < 0.35) {
+                (true, true) => 0.04,
+                (true, false) => 0.85,
+                (false, _) if (y - 118.0).abs() < 0.8 => 0.15,
+                (false, _) => v,
+            };
+        }
+    }
+    v
+}
+
+const BURST_SHIFTS: [(f32, f32); 3] = [(0.0, 0.0), (2.0, -1.5), (-1.5, 1.0)];
+
+/// Three portrait frames (the sensor holds them turned, `Rotate90`): only the second has
+/// its eyes open.
+fn burst(root: &Path) -> (Arc<SessionHandle>, Vec<i64>, Vec<String>, Vec<BurstSignals>) {
+    let names = ["S1.dng", "S2.dng", "S3.dng"];
+    let (h, ids) = session_with(root, &names, |p, i| {
+        let (dx, dy) = BURST_SHIFTS[i];
+        // Upright (ux, uy) of sensor (x, y) under Rotate90: (191 − y, x).
+        dng_oriented(p, 256, 192, Orientation::Rotate90, |x, y| {
+            burst_scene((191 - y) as f32 + dx, x as f32 + dy, i == 1)
+        });
+    });
+    let paths = names
+        .iter()
+        .map(|n| root.join("Capture").join(n).to_string_lossy().into_owned())
+        .collect();
+    let signals = BURST_SHIFTS
+        .iter()
+        .enumerate()
+        .map(|(i, &(dx, dy))| BurstSignals {
+            faces: vec![BurstFaceSignal {
+                bounds: crate::frame::NormRect {
+                    x: (66.0 - dx) / 192.0,
+                    y: (90.0 - dy) / 256.0,
+                    w: 60.0 / 192.0,
+                    h: 76.0 / 256.0,
+                },
+                eyes_open: Some(if i == 1 { 0.95 } else { 0.05 }),
+                quality: Some(0.7),
+            }],
+            score: Some([0.9, 0.6, 0.5][i]),
+        })
+        .collect();
+    (h, ids, paths, signals)
+}
+
+#[test]
+fn best_shot_takes_the_open_eyes_and_writes_an_upright_dng() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("B");
+    let (h, ids, paths, signals) = burst(&root);
+    let p = block_on(burst_preview(
+        paths.clone(),
+        signals.clone(),
+        256,
+        CancelToken::new(),
+    ))
+    .unwrap();
+    assert_eq!((p.width, p.height), (192, 256), "upright");
+    assert_eq!(
+        (p.faces_replaced, p.faces_kept, p.unaligned_frames),
+        (1, 0, 0)
+    );
+    assert_eq!(p.exposure_ev, 0.0);
+    assert!(matches!(
+        block_on(burst_preview(
+            paths,
+            signals[..1].to_vec(),
+            256,
+            CancelToken::new()
+        )),
+        Err(DsError::InvalidArgument { .. })
+    ));
+
+    let out = block_on(
+        h.clone()
+            .merge_burst(ids, signals, None, CancelToken::new()),
+    )
+    .unwrap();
+    assert_eq!(out.file_name, "S1-Best.dng");
+    assert!(variant_named_opt(&h, "S1-Best.dng").is_some());
+    let raw = lt_raw::decode(Path::new(&out.original_path)).unwrap();
+    assert_eq!(
+        (raw.size, raw.orientation),
+        (Size::new(192, 256), Orientation::Normal)
+    );
+    // The pupils are dark (open eyes), not the reference's closed lids.
+    let green =
+        |x: u32, y: u32| f32::from(raw.data[((y * 192 + x) * 3 + 1) as usize]) / raw.white_level;
+    for x in [84, 108] {
+        assert!(green(x, 118) < 0.15, "pupil at {x}: {}", green(x, 118));
+    }
+    // Away from the face: the reference.
+    assert!((green(10, 10) - burst_scene(10.0, 10.0, false)).abs() < 0.01);
+    let adj = lock(&h.session)
+        .load_adjustments(VariantId(out.variant_id))
+        .unwrap();
+    assert_eq!(adj.exposure.exposure_ev, 0.0);
+    assert!(
+        adj.lens.enabled,
+        "geometry is the camera's: lens corrections stay on"
+    );
 }
