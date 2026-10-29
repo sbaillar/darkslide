@@ -49,6 +49,7 @@ enum WindowSnapshot {
         await instruction(model) // [nl9] `--nl "<text>"`: the ⌘K bar applies it; the toast stays up
         await aiChanges(model) // `--ai-changes`: Auto Adjust's outlined tools and the AI Changes list
         await cropDrag(model) // [cmp9] `--crop-drag`: the crop tool mid-drag
+        await cropRatios(model) // `--crop-ratios`: the Crop button's ratio drop-down, 4:3 chosen
         await layersSky(model) // [lay9] `--layers-sky [photo]`: the Layers panel with an AI sky mask
         survey(model) // [cul9] `--survey [n]`: N-up survey of the first n photos, one eliminated
         multiView(model) // [multiview] `--select n`, `--filmstrip-rows r`, `--filmstrip-position left|right`, `--filmstrip-cell h`
@@ -141,6 +142,19 @@ enum WindowSnapshot {
         model.viewer.updateCanvasDrag(to: CGPoint(x: corner.x - img.width * box.width * 0.25,
                                                   y: corner.y - img.height * box.height * 0.25))
         print("snapshot: crop drag \(model.viewer.cropDragPreview.map { "\($0)" } ?? "none")")
+    }
+
+    /// `--crop-ratios`: 4:3 chosen (the focused photo cropped to it), the crop tool on and its
+    /// ratio drop-down open.
+    private static func cropRatios(_ model: AppModel) async {
+        guard CommandLine.arguments.contains("--crop-ratios") else { return }
+        model.toolTab = .composition
+        _ = await waitFor(seconds: 30) { model.viewer.layout.main != nil && model.viewer.displayFrame != nil }
+        model.chooseCropRatio(.r4x3)
+        model.perform(.tool(.crop))
+        try? await Task.sleep(for: .seconds(1)) // the stage bar lays out before its popover anchors to it
+        model.cropRatiosShown = true
+        print("snapshot: crop ratio \(model.settings.cropRatio.title)")
     }
 
     /// The value after `flag` on the command line.

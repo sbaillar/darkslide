@@ -8,11 +8,9 @@ import Vision
 public enum CropPreset: String, CaseIterable, Sendable, Identifiable {
     case original = "Original", square = "1:1", r4x5 = "4:5", r5x4 = "5:4", r3x2 = "3:2", r2x3 = "2:3"
     case r16x9 = "16:9", r9x16 = "9:16", free = "Free"
+    case r4x3 = "4:3", r3x4 = "3:4", r7x5 = "7:5", r5x7 = "5:7", r8x5 = "8:5", r5x8 = "5:8"
 
     public var id: String { rawValue }
-
-    /// The chips shown in the Crop panel (9:16 is reached with X from 16:9).
-    public static let chips: [CropPreset] = [.original, .square, .r4x5, .r5x4, .r3x2, .r2x3, .r16x9, .free]
 
     public var aspect: CropAspect {
         switch self {
@@ -21,6 +19,9 @@ public enum CropPreset: String, CaseIterable, Sendable, Identifiable {
         case .r4x5, .r5x4: .r4x5
         case .r3x2, .r2x3: .r3x2
         case .r16x9, .r9x16: .r16x9
+        case .r4x3, .r3x4: .r4x3
+        case .r7x5, .r5x7: .r7x5
+        case .r8x5, .r5x8: .r8x5
         case .free: .free
         }
     }
@@ -28,8 +29,8 @@ public enum CropPreset: String, CaseIterable, Sendable, Identifiable {
     /// Fixed orientation of the ratio in displayed pixels; nil for 1:1, Original, Free.
     public var portrait: Bool? {
         switch self {
-        case .r4x5, .r2x3, .r9x16: true
-        case .r5x4, .r3x2, .r16x9: false
+        case .r4x5, .r2x3, .r9x16, .r3x4, .r5x7, .r5x8: true
+        case .r5x4, .r3x2, .r16x9, .r4x3, .r7x5, .r8x5: false
         case .square, .original, .free: nil
         }
     }
@@ -43,6 +44,12 @@ public enum CropPreset: String, CaseIterable, Sendable, Identifiable {
         case .r2x3: .r3x2
         case .r16x9: .r9x16
         case .r9x16: .r16x9
+        case .r4x3: .r3x4
+        case .r3x4: .r4x3
+        case .r7x5: .r5x7
+        case .r5x7: .r7x5
+        case .r8x5: .r5x8
+        case .r5x8: .r8x5
         case .square, .original, .free: self
         }
     }
@@ -56,7 +63,69 @@ public enum CropPreset: String, CaseIterable, Sendable, Identifiable {
         case .r4x5: portrait ? .r4x5 : .r5x4
         case .r3x2: portrait ? .r2x3 : .r3x2
         case .r16x9: portrait ? .r9x16 : .r16x9
+        case .r4x3: portrait ? .r3x4 : .r4x3
+        case .r7x5: portrait ? .r5x7 : .r7x5
+        case .r8x5: portrait ? .r5x8 : .r8x5
         }
+    }
+}
+
+/// The crop tool's ratio, chosen from the Crop button's menu or the Crop panel and kept
+/// (Settings) until the user picks another: every crop drawn or resized holds it, on every
+/// photo. Orientation isn't part of it: a new box follows the drag, X turns the box.
+public enum CropRatio: String, CaseIterable, Sendable, Identifiable {
+    case original, free, square, r4x3, r3x2, r16x9, r5x4, r7x5, r8x5
+
+    public var id: String { rawValue }
+
+    /// Short name (menu rows, panel chips).
+    public var title: String {
+        switch self {
+        case .original: "Original"
+        case .free: "Freeform"
+        case .square: "Square"
+        case .r4x3: "4:3"
+        case .r3x2: "3:2"
+        case .r16x9: "16:9"
+        case .r5x4: "4 × 5"
+        case .r7x5: "5 × 7"
+        case .r8x5: "5 × 8"
+        }
+    }
+
+    /// What it is, where the title alone doesn't say.
+    public var detail: String? {
+        switch self {
+        case .original: "The photo's own shape"
+        case .free: "Any shape"
+        case .r5x4: "Also 8 × 10"
+        case .r7x5, .r8x5: "Print size"
+        default: nil
+        }
+    }
+
+    public var aspect: CropAspect {
+        switch self {
+        case .original: .original
+        case .free: .free
+        case .square: .r1x1
+        case .r4x3: .r4x3
+        case .r3x2: .r3x2
+        case .r16x9: .r16x9
+        case .r5x4: .r4x5
+        case .r7x5: .r7x5
+        case .r8x5: .r8x5
+        }
+    }
+
+    /// The preset of this ratio in an orientation.
+    public func preset(portrait: Bool) -> CropPreset {
+        CropPreset.matching(aspect, portrait: portrait)
+    }
+
+    /// The ratio a preset belongs to.
+    public init(_ preset: CropPreset) {
+        self = Self.allCases.first { $0.aspect == preset.aspect } ?? .original
     }
 }
 
@@ -139,12 +208,21 @@ extension ViewerModel {
         return CropPreset.matching(e.crop.aspect, portrait: CropGeometry.isPortrait(box.rect, size: box.size))
     }
 
-    /// Aspect lock a crop drag uses: the stored ratio in the box's current orientation.
-    /// Original (every photo's default, stored as "no ratio" in lt-core) and Free drag freely.
-    func cropLock(for e: EditState) -> (aspect: (long: Int, short: Int)?, portrait: Bool?) {
-        guard let ratio = e.crop.aspect.ratio else { return (nil, nil) }
+    /// Aspect lock a crop drag uses: the crop tool's ratio (`settings.cropRatio`; by default
+    /// Original, the photo's own shape) in the box's current orientation, or the drag's own
+    /// when `drawing` a new box. Freeform drags freely.
+    func cropLock(for e: EditState, drawing: Bool = false) -> (aspect: (long: Int, short: Int)?, portrait: Bool?) {
         let box = cropBox(for: e)
-        return (ratio, e.crop.aspect == .r1x1 ? nil : CropGeometry.isPortrait(box.rect, size: box.size))
+        let ratio: (long: Int, short: Int)?
+        switch app?.settings.cropRatio ?? .original {
+        case .original:
+            let w = Int(box.size.width.rounded()), h = Int(box.size.height.rounded())
+            ratio = w > 0 && h > 0 ? (max(w, h), min(w, h)) : nil
+        case let r:
+            ratio = r.aspect.ratio
+        }
+        guard let ratio else { return (nil, nil) }
+        return (ratio, drawing || ratio.long == ratio.short ? nil : CropGeometry.isPortrait(box.rect, size: box.size))
     }
 
     /// Enter or leave a composition tool (C / R / I, toolbar). Entering crop or straighten
@@ -219,7 +297,29 @@ extension AppModel {
     /// (default the focused one; ⌘K passes the photo the command was typed for, H3).
     public func setCropAspect(_ preset: CropPreset, for id: PhotoID? = nil) {
         guard let id = id ?? focusedID, photo(id)?.isVideo != true else { return }
+        settings.cropRatio = CropRatio(preset)
         updateEdits([id], label: "Crop \(preset.rawValue)") { id, e in crop(&e, to: preset, photo: id) }
+        endEditGesture()
+    }
+
+    /// Pick the crop tool's ratio (the Crop button's menu, the Crop panel). It stays for every
+    /// later crop until another is picked, and the focused photo's crop becomes the largest
+    /// centred box of that ratio inside its current crop, in the box's orientation (one undo
+    /// step). Original is the photo's own shape; Freeform only unlocks.
+    public func chooseCropRatio(_ r: CropRatio) {
+        settings.cropRatio = r
+        guard let id = focusedID, photo(id)?.isVideo != true else { return }
+        let box = viewer.cropBox(for: edit(for: id))
+        let preset = r.preset(portrait: CropGeometry.isPortrait(box.rect, size: box.size))
+        let v = viewer
+        updateEdits([id], label: "Crop \(r.title)") { id, e in
+            guard r == .original else { return crop(&e, to: preset, photo: id) }
+            e.crop.aspect = .original
+            let b = v.cropBox(for: e, photo: id)
+            guard let ratio = CropGeometry.ratio(.original, box: b.rect, size: b.size),
+                  abs(b.rect.width * b.size.width - ratio * b.rect.height * b.size.height) > 0.5 else { return }
+            v.setCropBox(CropGeometry.fit(b.rect, ratio: ratio, size: b.size), in: &e, photo: id)
+        }
         endEditGesture()
     }
 

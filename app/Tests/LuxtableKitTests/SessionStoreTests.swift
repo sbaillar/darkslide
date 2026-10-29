@@ -213,12 +213,14 @@ import Testing
         #expect(AdjustmentsCodec.aspect(nil) == .original)
         #expect(AdjustmentsCodec.aspect(["long": 3, "short": 2]) == .r3x2)
         #expect(AdjustmentsCodec.aspect(["long": 16, "short": 9]) == .r16x9)
-        #expect(AdjustmentsCodec.aspect(["long": 7, "short": 5]) == .free, "unknown ratio")
+        #expect(AdjustmentsCodec.aspect(["long": 4, "short": 3]) == .r4x3 && AdjustmentsCodec.aspect(["long": 8, "short": 5]) == .r8x5)
+        #expect(AdjustmentsCodec.aspect(["long": 7, "short": 5]) == .r7x5)
+        #expect(AdjustmentsCodec.aspect(["long": 7, "short": 3]) == .free, "unknown ratio")
         #expect(AdjustmentsCodec.aspect(["long": 1, "short": 0]) == .original)
         // An unknown aspect stays when the user leaves it alone...
         var base = try rustDefault()
         var crop = base["crop"] as! AdjustmentsCodec.JSON
-        crop["aspect"] = ["long": 7, "short": 5]
+        crop["aspect"] = ["long": 7, "short": 3]
         base["crop"] = crop
         let (e, _) = try AdjustmentsCodec.decode(String(decoding: try JSONSerialization.data(withJSONObject: base), as: UTF8.self))
         let kept = try AdjustmentsCodec.decode(try AdjustmentsCodec.encode(e, onto: base)).1

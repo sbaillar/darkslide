@@ -304,6 +304,8 @@ public final class AppModel {
                                                           target: AppSettings.defaultArchiveTarget, lastSuccess: nil)
     /// The toolbar archive popover (also opened by `--snapshot --archive-popover`).
     public var archivePopoverShown = false
+    /// The Crop button's ratio drop-down (also opened by `--snapshot --crop-ratios`).
+    public var cropRatiosShown = false
     /// (done, total) while AI Cull runs.
     public internal(set) var cullProgress: (done: Int, total: Int)?
     public internal(set) var cullSuggestions: [PhotoID: CullSuggestion] = [:]

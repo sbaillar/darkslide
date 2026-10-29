@@ -51,7 +51,15 @@ private struct FixedHorizon: HorizonDetecting {
 
 @Suite struct Cmp9GeometryTests {
     @Test func presetsCarryAspectOrientationAndSwap() {
-        #expect(CropPreset.chips.map(\.rawValue) == ["Original", "1:1", "4:5", "5:4", "3:2", "2:3", "16:9", "Free"])
+        #expect(CropRatio.allCases.map(\.title)
+            == ["Original", "Freeform", "Square", "4:3", "3:2", "16:9", "4 × 5", "5 × 7", "5 × 8"])
+        for r in CropRatio.allCases {
+            #expect(CropRatio(r.preset(portrait: true)) == r && CropRatio(r.preset(portrait: false)) == r)
+        }
+        #expect(CropRatio.r7x5.preset(portrait: true) == .r5x7 && CropRatio.r8x5.preset(portrait: false) == .r8x5)
+        #expect(CropRatio.r4x3.preset(portrait: true) == .r3x4 && CropRatio.r5x4.preset(portrait: true) == .r4x5)
+        #expect(CropPreset.r5x8.aspect.ratio.map { $0.long == 8 && $0.short == 5 } == true && CropPreset.r5x8.portrait == true)
+        #expect(CropRatio.r5x4.detail == "Also 8 × 10" && CropRatio.r3x2.detail == nil)
         #expect(CropPreset.r4x5.aspect == .r4x5 && CropPreset.r4x5.portrait == true)
         #expect(CropPreset.r5x4.aspect == .r4x5 && CropPreset.r5x4.portrait == false)
         #expect(CropPreset.r2x3.aspect == .r3x2 && CropPreset.r2x3.portrait == true)
@@ -316,15 +324,52 @@ extension CanvasDrag {
         #expect(abs(pixelRatio(m.viewer.cropBox(for: m.edit(for: id)).rect, size) - 1) < 1e-3)
         m.setCropAspect(.original)
         #expect(m.edit(for: id).crop.rect == full && m.viewer.cropPreset == .original)
-        // Original (the default) and Free drag freely; a ratio locks in the box's orientation.
-        #expect(m.viewer.cropLock(for: m.edit(for: id)).aspect == nil)
+        // Original (the default) locks to the photo's own shape; a ratio locks in the box's
+        // orientation (a new box follows the drag); Free drags freely.
+        let photoLock = try #require(m.viewer.cropLock(for: m.edit(for: id)).aspect)
+        #expect(abs(CGFloat(photoLock.long) / CGFloat(photoLock.short) - max(size.width, size.height) / min(size.width, size.height)) < 1e-2)
         m.setCropAspect(.r2x3)
         let lock = m.viewer.cropLock(for: m.edit(for: id))
         #expect(lock.aspect.map { $0.long == 3 && $0.short == 2 } == true && lock.portrait == true)
+        #expect(m.viewer.cropLock(for: m.edit(for: id), drawing: true).portrait == nil)
         m.setCropAspect(.free)
-        #expect(m.viewer.cropLock(for: m.edit(for: id)).aspect == nil)
+        #expect(m.viewer.cropLock(for: m.edit(for: id)).aspect == nil && m.settings.cropRatio == .free)
         m.undo()
         #expect(m.edit(for: id).crop.aspect == .r3x2, "one undo step per chip")
+    }
+
+    @Test func aChosenRatioStaysForEveryLaterCrop() async throws {
+        let m = await app()
+        let first = try #require(m.focusedID)
+        #expect(m.settings.cropRatio == .original, "the photo's own shape by default")
+        let size = m.viewer.cropBox(for: m.edit(for: first)).size
+        let steps = m.history.undoStack.count
+        m.chooseCropRatio(.r4x3)
+        #expect(m.settings.cropRatio == .r4x3 && m.history.undoStack.count == steps + 1)
+        // In the photo's orientation: 3:4 on a portrait photo.
+        let fourThree: CGFloat = size.height > size.width ? 3.0 / 4 : 4.0 / 3
+        #expect(abs(pixelRatio(m.viewer.cropBox(for: m.edit(for: first)).rect, size) - fourThree) < 1e-3)
+        #expect(m.edit(for: first).crop.aspect == .r4x3)
+        // Remembered across launches.
+        #expect(AppSettings(defaults: m.settings.userDefaults).cropRatio == .r4x3)
+        // On the next photo, a crop drawn by dragging holds 4:3 too, in the drag's orientation.
+        let second = try #require(m.photos.first { $0.id != first }?.id)
+        m.focus(second, extend: false)
+        _ = await waitUntil { m.viewer.frame != nil && m.focusedID == second }
+        m.viewer.toggleTool(.crop)
+        let img = try #require(m.viewer.layout.main?.image)
+        m.viewer.beginCanvasDrag(at: CGPoint(x: img.minX + img.width * 0.1, y: img.minY + img.height * 0.1))
+        m.viewer.updateCanvasDrag(to: CGPoint(x: img.minX + img.width * 0.4, y: img.minY + img.height * 0.9))
+        m.viewer.endCanvasDrag()
+        let drawn = m.viewer.cropBox(for: m.edit(for: second))
+        #expect(abs(pixelRatio(drawn.rect, drawn.size) - 3.0 / 4) < 1e-2, "a tall drag gives 3:4: \(drawn.rect)")
+        #expect(m.edit(for: second).crop.aspect == .r4x3 && m.settings.cropRatio == .r4x3)
+        // Original fits the photo's shape inside the crop; Freeform only unlocks.
+        m.chooseCropRatio(.original)
+        let back = m.viewer.cropBox(for: m.edit(for: second))
+        #expect(abs(pixelRatio(back.rect, back.size) - back.size.width / back.size.height) < 1e-2)
+        m.chooseCropRatio(.free)
+        #expect(m.viewer.cropBox(for: m.edit(for: second)).rect == back.rect && m.edit(for: second).crop.aspect == .free)
     }
 
     @Test func autoStraightenLevelsOnlyConfidentHorizons() async throws {
