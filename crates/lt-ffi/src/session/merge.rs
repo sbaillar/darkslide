@@ -256,6 +256,10 @@ fn file_key(path: &Path) -> Result<FileKey, DsError> {
     Ok((path.to_owned(), md.len(), md.modified().ok()))
 }
 
+/// A merge's distinct photos: session paths, files, and each one's first index into the
+/// variant ids.
+type MergeSources = (Vec<String>, Vec<PathBuf>, Vec<usize>);
+
 /// Recent preview decodes by file version and frame size, oldest first.
 type PreviewCache = Mutex<VecDeque<((FileKey, u32), Arc<Source>)>>;
 
@@ -947,10 +951,7 @@ impl SessionHandle {
 
     /// The distinct photos of `variant_ids`: their session paths and files, and the index
     /// into `variant_ids` of each one's first variant.
-    fn merge_sources(
-        &self,
-        variant_ids: &[i64],
-    ) -> Result<(Vec<String>, Vec<PathBuf>, Vec<usize>), DsError> {
+    fn merge_sources(&self, variant_ids: &[i64]) -> Result<MergeSources, DsError> {
         let s = lock(&self.session);
         let mut images: Vec<ImageId> = Vec::new();
         let mut firsts = Vec::new();
