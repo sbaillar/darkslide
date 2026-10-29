@@ -281,7 +281,7 @@ fn a_soft_region_takes_the_sharper_frame() {
         .iter()
         .filter(|p| p.kind == PatchKind::Sharper)
         .collect();
-    assert!(!regions.is_empty());
+    assert_ne!(regions, [] as [&Patch; 0]);
     assert!(regions.iter().all(|p| p.frame == 1));
     // Inside the soft area (away from its edges) the composite is the sharp scene.
     let inner = (64, 64, 160, 128);
@@ -333,7 +333,7 @@ fn a_frame_that_cannot_be_aligned_contributes_nothing() {
     faces.push(vec![face_in((0.0, 0.0), 1.0, 1.0)]);
     let c = merge_burst(&inputs(&frames, &faces, &[0.9, 0.1]), &opts(), &NoProgress).unwrap();
     assert_eq!(c.unaligned, 1);
-    assert!(c.patches.is_empty());
+    assert_eq!(c.patches, [] as [Patch; 0]);
     assert_eq!(c.frame, frames[0]);
 }
 
@@ -347,7 +347,7 @@ fn with_everything_off_the_reference_comes_back_unchanged() {
     };
     let c = merge_burst(&inputs(&frames, &faces, &[]), &o, &NoProgress).unwrap();
     assert_eq!((c.reference, c.unaligned, c.faces_kept), (2, 0, 0));
-    assert!(c.patches.is_empty());
+    assert_eq!(c.patches, [] as [Patch; 0]);
     assert_eq!(c.frame, frames[2]);
 }
 
