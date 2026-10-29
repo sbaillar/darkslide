@@ -385,6 +385,7 @@ private final class Calls {
         #expect(await waitUntil { m.sheet == nil })
         let shot = try #require(m.focusedPhoto)
         #expect(shot.filename.hasSuffix("-Best.dng") && !s.memberIDs.contains(shot.id))
+        m.browserState.refresh(photos: m.visiblePhotos) // as the browser does when the list changes
         let stack = try #require(m.browserState.stacks.stack(of: s.memberIDs[0]))
         #expect(stack.memberIDs.contains(shot.id) && stack.bestShotID == shot.id)
         #expect(m.browserState.stacks.currentTop(of: stack, lookup: { m.photo($0) }) == shot.id)
