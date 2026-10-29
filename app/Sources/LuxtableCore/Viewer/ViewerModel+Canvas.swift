@@ -101,7 +101,7 @@ extension ViewerModel {
     /// Crop rect the current crop drag would commit (overlay preview, aspect honoured).
     public var cropDragPreview: CGRect? {
         guard let d = activeDrag, d.tool == .crop, let app, let id = dragPhotoID else { return nil }
-        let lock = cropLock(for: app.edit(for: id))
+        let lock = cropLock(for: app.edit(for: id), drawing: d.cropHandle == nil)
         let r = CanvasInteraction.cropRect(for: d, imageSize: displayPixelSize, aspect: lock.aspect, portrait: lock.portrait)
         return cropImageArea.map { CanvasInteraction.confine(r, to: $0) } ?? r
     }
@@ -115,7 +115,7 @@ extension ViewerModel {
             dragPhotoID = nil
         }
         guard let d = activeDrag, let app, let id = dragPhotoID, id == app.focusedID else { return .none }
-        let lock = cropLock(for: app.edit(for: id))
+        let lock = cropLock(for: app.edit(for: id), drawing: d.cropHandle == nil)
         let commit = CanvasInteraction.commit(d, imageSize: displayPixelSize, cropAspect: lock.aspect, brushSize: brushSize,
                                               cropPortrait: lock.portrait)
         apply(commit, to: id)
@@ -153,8 +153,10 @@ extension ViewerModel {
             // Never past the image area (what the pipeline fills): no black corners.
             let r = cropImageArea.map { CanvasInteraction.confine(drawn, to: $0) } ?? drawn
             let aspect = displayAspect
+            let ratio = app.settings.cropRatio.aspect
             app.updateEdits([id], label: "Crop") { _, e in
                 e.crop.rect = ViewTransform(crop: e.crop).canonicalRect(display: r, displayAspect: aspect)
+                e.crop.aspect = ratio // the tool's ratio, which the box was drawn in
             }
         case .mask(let shape):
             let orientedShape = transform.toOriented(shape, displayAspect: displayAspect)

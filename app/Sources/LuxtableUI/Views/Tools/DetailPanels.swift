@@ -71,7 +71,6 @@ struct CropPanel: View {
 
     var body: some View {
         let tool = model.viewer.canvasTool
-        let preset = model.viewer.cropPreset
         let bindings = model.settings.keyBindings
         VStack(alignment: .leading, spacing: DS.Space.s) {
             // [cmp9] The canvas tools: crop (handles, thirds), straighten (drag a level line).
@@ -88,13 +87,11 @@ struct CropPanel: View {
             }
             Text("Aspect Ratio").font(DS.Font.label).foregroundStyle(DS.textSecondary)
                 .accessibilityValue(model.aiNote(AIFieldMap.cropFrame) == nil ? "" : AIHighlightStyle.accessibilityValue(""))
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DS.Space.xs), count: 4), spacing: DS.Space.xs) {
-                ForEach(CropPreset.chips) { p in
-                    Chip(title: p.rawValue, selected: preset == p || (preset == .r9x16 && p == .r16x9)) {
-                        model.setCropAspect(p)
-                    }
-                    .help(CropPanel.help(p))
-                    .accessibilityLabel("Crop aspect \(p.rawValue)")
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DS.Space.xs), count: 3), spacing: DS.Space.xs) {
+                ForEach(CropRatio.allCases) { r in
+                    Chip(title: r.title, selected: model.settings.cropRatio == r) { model.chooseCropRatio(r) }
+                        .help(CropPanel.help(r))
+                        .accessibilityLabel("Crop ratio \(r.title)")
                 }
             }
             .aiHighlight(model, AIFieldMap.cropFrame)
@@ -124,11 +121,11 @@ struct CropPanel: View {
         }
     }
 
-    static func help(_ p: CropPreset) -> String {
-        switch p {
-        case .original: "Back to the whole frame (uncropped)"
+    static func help(_ r: CropRatio) -> String {
+        switch r {
+        case .original: "Crop in the photo's own shape; kept for later crops until you pick another ratio"
         case .free: "Crop to any shape"
-        default: "Crop to \(p.rawValue), centred in the current crop"
+        default: "Crop to \(r.title)\(r.detail.map { " (\($0.lowercased()))" } ?? ""), centred in the current crop; kept for later crops until you pick another ratio"
         }
     }
 }

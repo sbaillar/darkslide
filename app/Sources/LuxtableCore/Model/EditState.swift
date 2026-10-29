@@ -250,6 +250,8 @@ public struct LensEdit: Equatable, Sendable {
 
 public enum CropAspect: String, CaseIterable, Sendable {
     case free = "Free", original = "Original", r1x1 = "1:1", r4x5 = "4:5", r3x2 = "3:2", r16x9 = "16:9"
+    // Added later: appended so presets' stored indices (EditCodec) keep their meaning.
+    case r4x3 = "4:3", r7x5 = "7:5", r8x5 = "8:5"
 
     /// Long:short, or `nil` for free/original.
     public var ratio: (long: Int, short: Int)? {
@@ -259,6 +261,9 @@ public enum CropAspect: String, CaseIterable, Sendable {
         case .r4x5: (5, 4)
         case .r3x2: (3, 2)
         case .r16x9: (16, 9)
+        case .r4x3: (4, 3)
+        case .r7x5: (7, 5)
+        case .r8x5: (8, 5)
         }
     }
 }

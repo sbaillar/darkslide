@@ -33,6 +33,7 @@ shots=(
   "shell|"
   "archive-popover|--archive-popover"
   "crop-tool|--crop-drag"
+  "crop-ratios|--crop-ratios"      # the Crop button's ratio drop-down, 4:3 chosen
   "live-edit|--stage-edit"
   "zoom-1to1|--zoom-actual"
   "nl-command-bar|--nl|warmer and a bit brighter"

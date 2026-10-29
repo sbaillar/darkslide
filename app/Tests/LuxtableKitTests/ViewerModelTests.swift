@@ -439,8 +439,8 @@ func makeViewerApp(renderer: any Renderer = ViewerSizedRenderer(), previews: Vie
         // The line falls to the right: levelling it turns the content counter-clockwise,
         // a positive lt-core angle.
         #expect(m.focusedEdit.crop.angle > 0)
-        // Crop honours the edit's aspect lock.
-        m.updateEdit(label: "aspect") { $0.crop.aspect = .r1x1 }
+        // Crop honours the crop tool's ratio.
+        m.settings.cropRatio = .square
         m.viewer.canvasTool = .crop
         m.viewer.beginCanvasDrag(at: at(0.1, 0.1))
         m.viewer.updateCanvasDrag(to: at(0.9, 0.5))

@@ -68,9 +68,13 @@ In the **Heal & Clone** panel (Details tab), heal and clone spots such as sensor
 
 ## Crop and straighten
 
-- `C` opens the crop tool, with Free, Original, 1:1, 4:5, 3:2 and 16:9 presets. Drag the handles; `↩` applies, `Esc` cancels, `X` swaps the orientation.
+- Click **Crop** above the photo (or press `C`) to open the crop tool. Clicking **Crop** also drops down the crop ratios: **Original** (the photo's own shape), **Freeform**, **Square**, **4:3**, **3:2**, **16:9**, and the print sizes **4 × 5** (also 8 × 10), **5 × 7** and **5 × 8**. The chosen ratio is highlighted. Its **▾** opens the list again while you crop; the Crop panel (Composition tab) has the same ratios.
+- Drag on the photo to draw a crop: it keeps the chosen ratio, in the direction you drag (a tall drag gives a portrait crop). Drag the handles to resize it or drag inside it to move it; `↩` applies, `Esc` cancels, `X` swaps the orientation.
+- The ratio you pick stays chosen, for this photo and every later one, until you pick another, also after Luxtable restarts. Until you choose one it is **Original**. Picking a ratio crops the current photo to the largest box of that ratio inside its current crop; **Freeform** only unlocks the shape.
 - `R` is the straighten tool: drag along something that should be level.
 - `⌘[` / `⌘]` rotate left or right.
+
+![The Crop button's ratio list, with 4:3 chosen.](../screenshots/crop-ratios.png)
 
 ![The crop tool at 4:5, mid-drag.](../screenshots/crop-tool.png)
 

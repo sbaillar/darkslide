@@ -37,16 +37,16 @@ package struct StageBar: View {
             .help(ToolbarHelp.showSelection)
             .accessibilityLabel(ToolbarControl.showSelection.control(model).label)
             Divider().frame(height: 16)
-            // [cmp9] Composition tools: crop and straighten.
-            ForEach([CanvasTool.crop, .straighten], id: \.self) { tool in
-                Button { model.perform(.tool(tool)) } label: {
-                    Label(tool.viewerLabel, systemImage: tool.viewerSymbol)
-                }
-                .buttonStyle(ToolbarPillStyle(showsTitle: true, isOn: model.viewer.canvasTool == tool))
-                .disabled(model.focusedPhoto.map { $0.isVideo } ?? true)
-                .help(ToolbarHelp.tool(tool, keys))
-                .accessibilityLabel("\(tool.viewerLabel) tool")
+            // [cmp9] Composition tools: crop (with its ratios) and straighten.
+            CropToolButton(model: model)
+            let tool = CanvasTool.straighten
+            Button { model.perform(.tool(tool)) } label: {
+                Label(tool.viewerLabel, systemImage: tool.viewerSymbol)
             }
+            .buttonStyle(ToolbarPillStyle(showsTitle: true, isOn: model.viewer.canvasTool == tool))
+            .disabled(model.focusedPhoto.map { $0.isVideo } ?? true)
+            .help(ToolbarHelp.tool(tool, keys))
+            .accessibilityLabel("\(tool.viewerLabel) tool")
         }
         .padding(DS.Space.xs)
         .background(DS.chrome.opacity(0.94), in: .capsule) // solid: legible over any photo

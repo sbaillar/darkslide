@@ -211,7 +211,7 @@ public enum AdjustmentsCodec {
         crop["rect"] = ["x": e.crop.rect.minX, "y": e.crop.rect.minY, "w": e.crop.rect.width, "h": e.crop.rect.height]
         crop["angle_deg"] = e.crop.angle
         crop["quarter_turns"] = ((e.crop.quarterTurns % 4) + 4) % 4
-        // An aspect the UI can't show (e.g. 7:5) decodes as .free; keep it unless changed.
+        // An aspect the UI can't show (e.g. 7:3) decodes as .free; keep it unless changed.
         let baseAspect = aspect(crop["aspect"])
         if !(e.crop.aspect == .free && baseAspect == .free && crop["aspect"] is JSON) {
             crop["aspect"] = e.crop.aspect.ratio.map { ["long": $0.long, "short": $0.short] as JSON } ?? NSNull()
@@ -268,7 +268,7 @@ public enum AdjustmentsCodec {
 
     static func aspect(_ v: Any?) -> CropAspect {
         guard let a = v as? JSON, let long = num(a["long"]), let short = num(a["short"]), short > 0 else { return .original }
-        let known: [CropAspect] = [.r1x1, .r4x5, .r3x2, .r16x9]
+        let known: [CropAspect] = [.r1x1, .r4x5, .r3x2, .r16x9, .r4x3, .r7x5, .r8x5]
         return known.first { c in c.ratio.map { Double($0.long) * short == Double($0.short) * long } ?? false } ?? .free
     }
 
