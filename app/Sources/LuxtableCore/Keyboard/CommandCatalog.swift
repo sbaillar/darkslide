@@ -19,6 +19,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
     case showAIChanges, clearAIHighlights
     /// Adjustments ▸ AI Changes… (⌥⇧⌘A): the list of settings AI changed, and Undo All AI Changes.
     case aiChanges, undoAllAIChanges
+    /// Adjustments ▸ Reset All Adjustments (⇧⌘R): the Styles panel's Original row as a command.
+    case resetAllAdjustments
     case zoomIn, zoomOut, zoomFit, zoomActual
     case rotateLeft, rotateRight, fullScreen, cheatSheet
     case moveTabUp, moveTabDown
@@ -78,6 +80,8 @@ public enum MenuCommand: String, CaseIterable, Sendable, Identifiable {
         case .aiCull: Shortcut(key: "k", modifiers: [.command, .shift])
         // AI Optimize's ⌥⌘A, plus ⇧.
         case .aiChanges: Shortcut(key: "a", modifiers: [.command, .option, .shift])
+        // Lightroom's Reset.
+        case .resetAllAdjustments: Shortcut(key: "r", modifiers: [.command, .shift])
         case .askAI: Shortcut(key: "k", modifiers: [.command])
         case .find: Shortcut(key: "f", modifiers: [.command])
         case .zoomIn: Shortcut(key: "+", modifiers: [.command])
@@ -164,6 +168,7 @@ public enum CommandCatalog {
         case .clearAIHighlights: AIHighlightStyle.clearTitle
         case .aiChanges: model.aiChangesShown ? "Hide AI Changes" : AIChangeText.menuTitle
         case .undoAllAIChanges: model.undoAllAIChangesTitle
+        case .resetAllAdjustments: "Reset All Adjustments"
         case .zoomIn: "Zoom In"
         case .zoomOut: "Zoom Out"
         case .zoomFit: "Zoom to Fit"
@@ -283,6 +288,7 @@ public enum CommandCatalog {
         case .clearAIHighlights: return model.canClearAIHighlights
         case .aiChanges: return model.aiChangesShown || model.focusedPhoto.map { !$0.isVideo } ?? false
         case .undoAllAIChanges: return model.canUndoAllAIChanges
+        case .resetAllAdjustments: return model.focusedPhoto.map { !$0.isVideo } == true && model.focusedEdit != EditState()
         case .moveTabUp: return layout.canMove(ToolWorkspaceCommands.selectedTab(model: model, layout: layout), by: -1)
         case .moveTabDown: return layout.canMove(ToolWorkspaceCommands.selectedTab(model: model, layout: layout), by: 1)
         case .showAll: return model.currentSession != nil
@@ -332,6 +338,7 @@ public enum CommandCatalog {
         case .clearAIHighlights: model.clearAIHighlights()
         case .aiChanges: model.toggleAIChangesList()
         case .undoAllAIChanges: Task { await model.undoAllAIChanges() }
+        case .resetAllAdjustments: model.resetToOriginal()
         case .zoomIn: model.viewer.zoomIn()
         case .zoomOut: model.viewer.zoomOut()
         case .zoomFit: model.viewer.zoom(to: .fit)

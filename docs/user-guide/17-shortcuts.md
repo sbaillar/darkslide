@@ -56,6 +56,7 @@ These are Luxtable's default keys. Single keys can be changed in Settings ▸ Sh
 | `[` / `]` | Brush size |
 | `⌘[` / `⌘]` | Rotate left / right |
 | `⌘Z` / `⇧⌘Z` | Undo / redo |
+| `⇧⌘R` | Reset all adjustments |
 | `⇧⌘C` | Copy adjustments |
 | `⇧⌘V` | Apply to the selection |
 | `⌥⌘V` | Copy from previous |

@@ -328,6 +328,7 @@ struct AppCommands: Commands {
             item(.copyFromPrevious)
             Divider()
             item(.autoAdjust)
+            item(.resetAllAdjustments)
             item(.aiOptimize)
             item(.askAI) // [nl9] ⌘K
             item(.aiCull)

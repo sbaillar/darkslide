@@ -250,6 +250,25 @@ import Testing
         #expect(m.focusedEdit == styled, "one undo brings the styled edit back")
     }
 
+    /// User request: a reset-all button. Adjustments ▸ Reset All Adjustments (⇧⌘R, as in
+    /// Lightroom) does what the Original row does; off when there's nothing to reset.
+    @Test func resetAllAdjustmentsIsTheOriginalRowAsAMenuCommand() async {
+        let m = makeModel()
+        await m.start()
+        let c = MenuCommand.resetAllAdjustments
+        #expect(CommandCatalog.title(c, model: m) == "Reset All Adjustments")
+        #expect(c.shortcut == MenuCommand.Shortcut(key: "r", modifiers: [.command, .shift]))
+        #expect(!CommandCatalog.isEnabled(c, model: m), "no adjustments yet")
+        m.updateEdit(label: "Exposure") { $0.exposure.ev = 1 }
+        let edited = m.focusedEdit
+        #expect(CommandCatalog.isEnabled(c, model: m))
+        CommandCatalog.perform(c, model: m)
+        #expect(m.focusedEdit == EditState() && m.history.undoLabel == "Original")
+        #expect(!CommandCatalog.isEnabled(c, model: m))
+        m.undo()
+        #expect(m.focusedEdit == edited)
+    }
+
     @Test func failuresLeaveTheIconAndNoRendererMeansNoTiles() async {
         let t = StyleThumbnails(render: { _, _ in throw MockError.invalid("x") })
         t.refresh(photo: Self.photo(), edit: EditState(), presets: Array(Preset.builtIns.prefix(2)))

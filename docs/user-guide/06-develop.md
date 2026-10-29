@@ -2,6 +2,8 @@
 
 Edits are never applied to the original file. They are stored as settings in the sidecar and rendered by the develop pipeline on the GPU, so you can change or undo them at any time (`⌘Z` / `⇧⌘Z`).
 
+**Adjustments ▸ Reset All Adjustments** (`⇧⌘R`) takes the photo back as shot, with no adjustments, in one undo step. It does the same as the **Original** row in Styles & Presets.
+
 ![A live edit: warmer white balance, more exposure, a crop and a straighten, with the histogram.](../screenshots/live-edit.png)
 
 ## Tool tabs
