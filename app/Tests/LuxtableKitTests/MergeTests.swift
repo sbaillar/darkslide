@@ -401,6 +401,30 @@ private final class Calls {
         #expect(m.coverDecision(of: shot.id)?.cover == top && m.coverDecision(of: shot.id)?.source == .user)
     }
 
+    @Test func rightClickingABurstMergesItsFramesWhateverIsSelected() async throws {
+        let store = MockSessionStore(counts: [60])
+        let m = makeModel(store: store)
+        await m.start()
+        m.setStackBursts(true)
+        let s = try #require(m.browserState.stacks.stacks.max { $0.count < $1.count })
+        let other = try #require(m.visibleIDs.first { m.browserState.stacks.stack(of: $0) == nil })
+        m.focus(other, extend: false)
+        #expect(!m.canMergeBestShot(ofStackOf: s.memberIDs[0]), "no merger")
+        m.merger = MockPhotoMerger(store: store, step: .zero)
+        #expect(m.canMergeBestShot(ofStackOf: s.memberIDs[0]) && !m.canMergeBestShot(ofStackOf: other), "a burst only")
+        #expect(!m.canMergeBestShot(ofStackOf: PhotoID(999_999)))
+        m.mergeBestShot(ofStackOf: other)
+        #expect(m.sheet == nil)
+        m.mergeBestShot(ofStackOf: s.memberIDs[1])
+        guard case .merge(let sheet)? = m.sheet else {
+            Issue.record("no merge sheet")
+            return
+        }
+        #expect(sheet.kind == .burst && sheet.sources.map(\.id) == s.memberIDs, "the burst's frames, not the selection")
+        #expect(m.selectedIDs == [other] && !m.canMergeBestShot(ofStackOf: s.memberIDs[0]), "one sheet at a time")
+        sheet.cancel()
+    }
+
     // MARK: - The demo merger
 
     @Test func mockMergerSizesAndRefusals() async throws {

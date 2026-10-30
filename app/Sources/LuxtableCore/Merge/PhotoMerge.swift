@@ -333,16 +333,23 @@ extension AppModel {
     /// The frames a Best Shot merges: the selected RAWs; with one photo selected, the RAWs
     /// of its burst (a collapsed stack shows one frame). Earlier Best Shots are left out.
     var bestShotSources: [Photo] {
+        guard selectedIDs.count == 1, let id = selectedIDs.first, browserState.stacks.stack(of: id) != nil else {
+            return bestShotRaws(selectedIDs)
+        }
+        return bestShotSources(ofStackOf: id)
+    }
+
+    /// The RAWs of the burst `id` is in (none when it isn't in one), earlier Best Shots left out.
+    func bestShotSources(ofStackOf id: PhotoID) -> [Photo] {
+        bestShotRaws(browserState.stacks.stack(of: id)?.memberIDs ?? [])
+    }
+
+    private func bestShotRaws(_ ids: [PhotoID]) -> [Photo] {
         let shots = Set(browserState.covers.filter(\.bestShot).map(\.cover))
-        let raw = { (p: Photo) in
-            !shots.contains(p.id)
-                && RustRaw.extensions.contains(URL(fileURLWithPath: p.filename).pathExtension.lowercased())
+        return ids.compactMap { photo($0) }.filter {
+            !shots.contains($0.id)
+                && RustRaw.extensions.contains(URL(fileURLWithPath: $0.filename).pathExtension.lowercased())
         }
-        let selected = selectedIDs.compactMap { photo($0) }.filter(raw)
-        guard selectedIDs.count == 1, let id = selectedIDs.first, let s = browserState.stacks.stack(of: id) else {
-            return selected
-        }
-        return s.memberIDs.compactMap { photo($0) }.filter(raw)
     }
 
     /// Photo ▸ Merge to Best Shot… is available: two or more frames (see `bestShotSources`).
@@ -350,10 +357,26 @@ extension AppModel {
         merger != nil && currentSession != nil && sheet == nil && bestShotSources.count >= 2
     }
 
+    /// A burst's right-click Merge to Best Shot… is available: `id` is in a burst of two or
+    /// more frames, whatever is selected.
+    public func canMergeBestShot(ofStackOf id: PhotoID) -> Bool {
+        merger != nil && currentSession != nil && sheet == nil && bestShotSources(ofStackOf: id).count >= 2
+    }
+
     /// Show the merge sheet for the selected photos and start its preview.
     public func beginMerge(_ kind: PhotoMergeKind) {
-        guard kind == .burst ? canMergeBestShot : canMergePhotos, let merger, let session = currentSession else { return }
-        let sources = kind == .burst ? bestShotSources : mergeSources
+        guard kind == .burst ? canMergeBestShot : canMergePhotos else { return }
+        showMergeSheet(kind, sources: kind == .burst ? bestShotSources : mergeSources)
+    }
+
+    /// The right-click Merge to Best Shot… of the burst `id` is in; the selection stays.
+    public func mergeBestShot(ofStackOf id: PhotoID) {
+        guard canMergeBestShot(ofStackOf: id) else { return }
+        showMergeSheet(.burst, sources: bestShotSources(ofStackOf: id))
+    }
+
+    private func showMergeSheet(_ kind: PhotoMergeKind, sources: [Photo]) {
+        guard let merger, let session = currentSession else { return }
         let ids = sources.map(\.id)
         var analyze: (@MainActor ([Photo]) async -> [BestShotFrame])?
         if kind == .burst { analyze = { [weak self] photos in await self?.bestShotFrames(photos) ?? [] } }

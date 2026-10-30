@@ -457,10 +457,23 @@ package struct Filmstrip: View {
                     if model.canUseAsCover(id) {
                         Button("Use as Stack Cover", systemImage: "checkmark.seal") { model.useAsCover(id) }
                     }
+                    BestShotMenuItem(model: model, id: id)
                     Divider()
                     Menu("Filmstrip") { FilmstripPositionMenu(model: model) } // [multiview]
                 }
                 .modifier(MapDragSource(model: model, id: id)) // [map] geotag by dropping on the map
+        }
+    }
+}
+
+/// A burst's right-click Merge to Best Shot…: that burst's frames, whatever is selected.
+private struct BestShotMenuItem: View {
+    let model: AppModel
+    let id: PhotoID
+
+    var body: some View {
+        if model.canMergeBestShot(ofStackOf: id) {
+            Button("Merge to Best Shot…", systemImage: "sparkles.rectangle.stack") { model.mergeBestShot(ofStackOf: id) }
         }
     }
 }
@@ -643,7 +656,10 @@ package struct BrowserGrid: View {
                                                       onRate: { n in model.rate(id, n) })
                                             .id(id)
                                             .onTapGesture { BrowserClick.handle(id, model: model) }
-                                            .contextMenu { CullContextMenu(model: model) }
+                                            .contextMenu {
+                                                CullContextMenu(model: model)
+                                                BestShotMenuItem(model: model, id: id)
+                                            }
                                             .simultaneousGesture(TapGesture(count: 2).onEnded {
                                                 model.focus(id, extend: false)
                                                 model.browserMode = .filmstrip
