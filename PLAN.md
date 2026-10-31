@@ -157,7 +157,7 @@ decode → black/white levels → WB multipliers → demosaic (Bayer: RCD/AMaZE-
 
 Copy and apply adjustments:
 
-- **⌘⇧C** (the large Copy button at the top right) copies in one click, like Capture One. By default it takes the groups edited on the photo, leaving out the per-photo ones (crop & straighten, heal & clone, layers); its ▾ switches to **Custom** checkboxes per group (layers per layer), kept between launches.
+- **⌘⇧C** (the large Copy button at the top right) copies in one click. By default it takes the groups edited on the photo, leaving out the per-photo ones (crop & straighten, heal & clone, layers); its ▾ switches to **Custom** checkboxes per group (layers per layer), kept between launches.
 - **⌘⇧V** (Apply) pastes onto the **selection**, never onto the copied photo itself. For a whole session, album or filter, select all (⌘A) in that view first: collapsed stacks and photos the filter hides are not pasted onto.
 - Per-group paste mode: **absolute** (default) or **relative** (exposure/temperature deltas), so a batch keeps its individual corrections.
 - Aspect-aware crop paste (see §2).

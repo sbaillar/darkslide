@@ -29,8 +29,6 @@ Because a session is self-contained, you can move it to another drive, copy it t
 
 A folder opened in place has just one `.lt/` folder at its top, with the same contents; your photos stay where they are.
 
-Sessions made by Darkslide, as Luxtable was called before, have a `.ds/` folder instead. The first time Luxtable opens such a session, it renames `.ds/` (and the `.ds/` folders next to the photos) to `.lt/` in place, with nothing copied or deleted. If the folder can't be renamed (a read-only drive, missing permissions), the session isn't opened and nothing in it changes. After that, Darkslide 0.1 can no longer open that session, because it looks for `.ds/`. See [Coming from Darkslide](14-migrate.md#coming-from-darkslide).
-
 ## Disconnected drives and missing files
 
 - Sessions on a drive that isn't connected stay listed, marked as disconnected. Nothing is hidden or removed.

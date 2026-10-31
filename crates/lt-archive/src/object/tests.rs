@@ -967,7 +967,7 @@ fn requests_never_delete_objects_across_every_scenario() {
     assert_eq!(s3.state().object_deletes(), 0);
 }
 
-/// A bucket archived by Darkslide 0.1: its folder marked `.ds-archive-owner`, objects
+/// A bucket archived by version 0.1: its folder marked `.ds-archive-owner`, objects
 /// with `x-amz-meta-ds-blake3`, an old `.ds-archive-trash`. The folder is still ours
 /// (the new marker goes beside the old one), unchanged files aren't sent again, and
 /// nothing old is deleted, renamed or rewritten.

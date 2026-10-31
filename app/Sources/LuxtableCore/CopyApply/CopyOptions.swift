@@ -1,6 +1,6 @@
 import Foundation
 
-/// Capture One–style Copy and Apply (PLAN §8). Copy takes the focused photo's adjustments
+/// Copy and Apply (PLAN §8). Copy takes the focused photo's adjustments
 /// in one click and keeps them until the next Copy; Apply pastes them onto every selected
 /// photo but the copied one, as one undo step. What is pasted is read from the Copy
 /// options when Apply runs, so changing a tick after copying changes what Apply pastes.

@@ -657,7 +657,7 @@ fn card_file_meta_of_an_unreadable_or_damaged_file_is_empty() {
     }
 }
 
-/// An import interrupted under Darkslide 0.1 (journal in `.ds`) is listed and
+/// An import interrupted under version 0.1 (journal in `.ds`) is listed and
 /// resumes after the rename: opening the session moves it to `.lt` first.
 #[test]
 fn an_import_journal_resumes_across_the_lt_migration() {

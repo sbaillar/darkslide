@@ -424,7 +424,7 @@ public struct SpotEdit: Equatable, Sendable, Identifiable {
     }
 }
 
-/// C1-style cursor tools acting on the viewer canvas.
+/// Cursor tools acting on the viewer canvas.
 public enum CanvasTool: String, Sendable, CaseIterable {
     case pan, crop, straighten, rotate, colorPicker, wbPicker, brush, eraser, linearGradient, radialGradient
     /// Lens blur: a click sets the depth in focus (`LensBlurEdit.focus`).

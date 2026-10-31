@@ -404,7 +404,7 @@ fn stale_temporary_files_are_trimmed() {
     }
     denoise_with_blur(&photo(64, 48, 6));
     assert!(!old.exists(), "a crash's leftover goes");
-    assert!(!legacy.exists(), "Darkslide 0.1's too");
+    assert!(!legacy.exists(), "version 0.1's too");
     assert!(fresh.exists(), "a write in progress stays");
     assert!(other.exists(), "not ours");
 }

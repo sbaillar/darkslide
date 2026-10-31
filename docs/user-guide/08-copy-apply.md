@@ -1,6 +1,6 @@
 # Copy and apply
 
-Edit one photo, then give the same look to the rest. The **Copy** and **Apply** buttons sit at the top right, as in Capture One.
+Edit one photo, then give the same look to the rest. The **Copy** and **Apply** buttons sit at the top right.
 
 - **Copy** (`⇧⌘C`) takes the photo's edited adjustments in one click. Its ▾ menu switches to **Custom**, where you tick the groups to copy. Crop, heal and layers are off unless you tick them.
 - **Apply** (`⇧⌘V`) pastes onto every selected photo except the one copied from, as one undo step. The clipboard stays until the next Copy.

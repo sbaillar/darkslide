@@ -34,7 +34,7 @@ pub fn journal_path(dest: &Path, id: &str) -> PathBuf {
     lt_dir(dest).join(format!("{PREFIX}{id}.json"))
 }
 
-/// Migration source: the folder Darkslide 0.1 kept its journals in. A session
+/// Migration source: the folder version 0.1 kept its journals in. A session
 /// that has not been opened since the rename still has them there; opening it
 /// (`lt_session::Session::open`) moves them to `.lt` before an import resumes.
 pub const LEGACY_DIR: &str = ".ds";

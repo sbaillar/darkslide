@@ -169,7 +169,7 @@ pub enum PutIfAbsent {
 /// User metadata header with the file's BLAKE3.
 pub const META_BLAKE3: &str = "x-amz-meta-lt-blake3";
 
-/// Migration source: the same metadata as Darkslide 0.1 wrote it. Objects it uploaded
+/// Migration source: the same metadata as version 0.1 wrote it. Objects it uploaded
 /// keep it (they are never rewritten for the rename), so it is still read.
 pub const LEGACY_META_BLAKE3: &str = "x-amz-meta-ds-blake3";
 

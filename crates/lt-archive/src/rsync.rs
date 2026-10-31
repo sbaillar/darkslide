@@ -567,7 +567,7 @@ const CHECKSUM_TIMEOUT_SECS: u32 = 600;
 /// Directory (relative to the destination) holding interrupted transfers.
 pub const PARTIAL_DIR: &str = ".lt-rsync-partial";
 
-/// Migration source: Darkslide 0.1's partial-transfer folder. Interrupted runs may
+/// Migration source: version 0.1's partial-transfer folder. Interrupted runs may
 /// have left it on the target; it is skipped, never removed.
 pub const LEGACY_PARTIAL_DIR: &str = ".ds-rsync-partial";
 

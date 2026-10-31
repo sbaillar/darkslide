@@ -402,7 +402,7 @@ pub struct Detail {
     pub clarity: f32,
     #[serde(deserialize_with = "crate::lenient::f32")]
     pub structure: f32,
-    /// 0..=1000, like Capture One.
+    /// 0..=1000.
     #[serde(deserialize_with = "crate::lenient::f32")]
     pub sharpen_amount: f32,
     /// Pixels, 0.2..=2.5.

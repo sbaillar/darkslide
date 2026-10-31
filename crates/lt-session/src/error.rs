@@ -66,7 +66,7 @@ pub enum SessionError {
     ExternalOnly(&'static str),
     /// A session from before the rename couldn't be moved to the `.lt` layout.
     #[error(
-        "{path} is a session from Darkslide 0.1 that couldn't be moved to Luxtable's layout (.ds → .lt): {reason}. Nothing was changed"
+        "{path} is a session from an earlier version that couldn't be moved to the current layout (.ds → .lt): {reason}. Nothing was changed"
     )]
     LegacyMigration { path: PathBuf, reason: String },
 }

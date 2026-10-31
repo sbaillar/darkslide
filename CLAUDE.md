@@ -1,6 +1,6 @@
 # Luxtable: engineering rules
 
-A macOS RAW photo workflow app (Capture One–style sessions, fast culling, layers, copy/apply) with a Rust core and a SwiftUI shell. The product is **Luxtable** (https://luxtable.app); internal names use `lt` (crates `lt-*`, `LT_*` variables, the sessions' `.lt/` folder). See `PLAN.md` for the product and `docs/ARCHITECTURE.md` for crate contracts.
+A macOS RAW photo workflow app (self-contained sessions, fast culling, layers, copy/apply) with a Rust core and a SwiftUI shell. The product is **Luxtable** (https://luxtable.app); internal names use `lt` (crates `lt-*`, `LT_*` variables, the sessions' `.lt/` folder). See `PLAN.md` for the product and `docs/ARCHITECTURE.md` for crate contracts.
 
 ## Non-negotiables
 - **Performance first for RAW.** Every hot path has a criterion bench and a budget (see ARCHITECTURE.md §Budgets). Never allocate per-pixel, never block the UI thread, prefer SIMD-friendly loops over `f32` slices, parallelize with rayon by rows/tiles. Measure before and after; report numbers in the PR/commit message.

@@ -26,7 +26,7 @@ if BenchCommand.wants(CommandLine.arguments) {
     dispatchMain()
 }
 
-// The first launch after the rename copies Darkslide's preferences and support folder
+// The first launch after the rename copies the old app's preferences and support folder
 // (never changing them), before anything here opens or locks the support folder.
 MainActor.assumeIsolated { _ = LegacyMigration.runAtLaunch() }
 

@@ -34,7 +34,7 @@ use crate::{PluginError, pack, params};
 
 pub const MANIFEST_FILE: &str = "plugin.toml";
 pub const PLUGIN_EXT: &str = "ltplugin";
-/// Migration source: the package extension when the app was called Darkslide.
+/// Migration source: the package extension before the rename (0.1).
 /// Still accepted everywhere a package is read (folders, zips, the Plugins folder).
 pub const LEGACY_PLUGIN_EXT: &str = "dsplugin";
 

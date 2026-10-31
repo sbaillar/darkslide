@@ -49,7 +49,7 @@ fn dirs_named(root: &Path, name: &str) -> Vec<PathBuf> {
     out
 }
 
-/// Turn a closed session into what Darkslide 0.1 left: `.ds` folders, a
+/// Turn a closed session into what version 0.1 left: `.ds` folders, a
 /// `.dsession` index whose sidecar paths name `.ds`.
 fn make_legacy(root: &Path) {
     let db = fs::read_dir(root)
@@ -235,7 +235,7 @@ fn an_interrupted_migration_is_finished_on_the_next_open() {
 #[test]
 fn a_journal_from_before_the_migration_still_rolls_forward() {
     let o = old_session();
-    // The sidecar of v1 as Darkslide named it, with a batch that crashed mid-way.
+    // The sidecar of v1 as version 0.1 named it, with a batch that crashed mid-way.
     let db = Connection::open(o.root.join("Hike.dsession")).unwrap();
     let rel: String = db
         .query_row("SELECT sidecar FROM variants WHERE id = ?", [o.v1.0], |r| {
