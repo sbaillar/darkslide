@@ -2,9 +2,9 @@
 
 ## Version and tag
 
-`scripts/release.sh [patch|minor|major|beta]` bumps `version` in `Cargo.toml`, commits, tags `vX.Y.Z` and pushes `main` and the tag atomically. Enable the pre-push hook that enforces it with `git config core.hooksPath scripts/hooks`.
+`scripts/release.sh [patch|minor|major|beta] notes.md` bumps `version` in `Cargo.toml`, commits, tags `vX.Y.Z` and pushes `main` and the tag atomically. Then it builds the app and publishes it on GitHub with `notes.md` as the release's body (see below). It checks the notes file and that `gh` is signed in before it changes anything. Enable the pre-push hook that enforces the version bump with `git config core.hooksPath scripts/hooks`.
 
-If the push fails, the commit and tag stay local. Run `scripts/release.sh` again: it sees the unpushed tag and pushes that release without bumping. To abandon it: `git tag -d vX.Y.Z && git reset --hard HEAD~1`.
+If the push fails, the commit and tag stay local. Run `scripts/release.sh` again: it sees the unpushed tag and pushes that release without bumping. To abandon it: `git tag -d vX.Y.Z && git reset --hard HEAD~1`. If publishing fails after the push, run it again too: it sees the pushed tag at `HEAD` with no GitHub release and publishes that one.
 
 Betas: `scripts/release.sh beta` makes `X.Y.(Z+1)-beta.1` from a release and `-beta.(N+1)` from a beta; `scripts/release.sh patch` after a beta releases that version (`0.1.19-beta.2` → `0.1.19`). The version goes into `CFBundleShortVersionString` as is (`0.1.19-beta.1`), which is what the in-app updater compares. No other pre-release form (`-rc1`) is supported.
 
@@ -16,12 +16,13 @@ Luxtable checks `GET https://api.github.com/repos/sbaillar/luxtable/releases` (a
 - It has the asset `Luxtable-<version>-macos-arm64.zip`, made with `ditto -c -k --keepParent` from the app `scripts/build-app.sh` built at that tag. GitHub's asset `digest` (SHA-256) must be present: the app checks the download against it and the size, then checks the unzipped app's bundle identifier, that its `CFBundleShortVersionString` is the tag's version, and `codesign --verify --deep --strict`, signed the way the running app is: the same Developer ID team, or the same certificate (a self-signed `Luxtable Dev`); an ad-hoc signed app has no identity to compare, so any valid signature passes. Its download URL must be https on github.com. Any failure installs nothing. A release signed with a new identity can't update the old one: users install it by hand once.
 - The body starts with a `## What's new` section of bullets (then `## Install`). Those bullets are the short release notes the app shows before downloading and once after updating, as plain text (bold, code and links are flattened). Without that heading it shows the body's first ten lines.
 
+`scripts/release.sh` does all of this. It builds with `scripts/build-app.sh` at the tag, checks that the app's version is the tag's and that `codesign --verify --deep --strict` passes, zips it into `dist/`, and runs `gh release create --verify-tag` (`--prerelease` for a beta). By hand, it is:
+
 ```sh
-scripts/release.sh                      # or: scripts/release.sh beta
-V=0.1.19                                # the version it printed
+V=0.1.19                                # the version it tagged
 scripts/build-app.sh
-ditto -c -k --keepParent dist/Luxtable.app "Luxtable-$V-macos-arm64.zip"
-gh release create "v$V" "Luxtable-$V-macos-arm64.zip" --title "Luxtable $V" --notes-file notes.md
+ditto -c -k --keepParent dist/Luxtable.app "dist/Luxtable-$V-macos-arm64.zip"
+gh release create "v$V" "dist/Luxtable-$V-macos-arm64.zip" --title "Luxtable $V" --notes-file notes.md
 ```
 
 **A beta** is the same with a `-beta.N` version and tag, published with `gh release create … --prerelease`. Only users who turned on Settings ▸ Updates ▸ Include beta versions are offered it. Versions compare by semver, so `0.1.19-beta.1` < `0.1.19-beta.2` < `0.1.19`: beta testers move on to the release once it is out, and users on the stable channel never see a beta. Never replace a published release's zip: publish a new version instead.
