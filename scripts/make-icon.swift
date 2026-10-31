@@ -8,8 +8,10 @@
 //   swift scripts/make-icon.swift [app] <out.iconset>   then `iconutil -c icns <out.iconset>`
 //   swift scripts/make-icon.swift wordmark <out.png>    the 1774x887 wordmark (docs/brand, site)
 //   swift scripts/make-icon.swift png <size> <out.png>  the icon alone at one size (favicons)
+//   swift scripts/make-icon.swift dmg-background <scale> <out.png>
+//                                                       the installer window, 660x400 points
 // The results are committed (app/Resources, docs/brand, site), so this only runs when
-// the design changes.
+// the design changes; scripts/make-dmg.sh draws the installer background each time.
 import AppKit
 
 let cli = Array(CommandLine.arguments.dropFirst())
@@ -294,6 +296,44 @@ func wordmark() -> CGContext {
     return ctx
 }
 
+// MARK: - Installer window
+
+/// The DMG window (660x400 points, `scale` pixels per point): the light table, focus brackets
+/// and an arrow from the app (centred at 170, 200 from the top left) to Applications (490, 200).
+/// Light like most installer windows: Finder draws the icon names dark in light mode.
+let dmgWindow = CGSize(width: 660, height: 400)
+
+func dmgBackground(_ scale: Int) -> CGContext {
+    let (W, H) = (dmgWindow.width, dmgWindow.height)
+    let ctx = newContext(Int(W) * scale, Int(H) * scale, unit: W)
+    let g = CGGradient(colorsSpace: cs, colors: [lampHot, lampEdge] as CFArray, locations: [0, 1])!
+    let c = CGPoint(x: W / 2, y: H * 0.56)
+    ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: W * 0.75,
+                           options: [.drawsAfterEndLocation])
+    let len: CGFloat = 30, bw: CGFloat = 3, inset: CGFloat = 34
+    corner(ctx, inset, H - inset, 1, -1, len: len, w: bw, shade: 0.3)
+    corner(ctx, W - inset, H - inset, -1, -1, len: len, w: bw, shade: 0.3)
+    corner(ctx, inset, inset, 1, 1, len: len, w: bw, shade: 0.3)
+    corner(ctx, W - inset, inset, -1, 1, len: len, w: bw, shade: 0.3)
+    // The arrow, between the two icons (128 points wide).
+    let y = H - 200, from: CGFloat = 170 + 64 + 28, to: CGFloat = 490 - 64 - 28, head: CGFloat = 16
+    let arrow = onLamp.copy(alpha: 0.55)!
+    ctx.setStrokeColor(arrow)
+    ctx.setLineWidth(5)
+    ctx.setLineCap(.round)
+    ctx.setLineDash(phase: 0, lengths: [14, 10])
+    ctx.move(to: CGPoint(x: from, y: y))
+    ctx.addLine(to: CGPoint(x: to - head, y: y))
+    ctx.strokePath()
+    ctx.setLineDash(phase: 0, lengths: [])
+    ctx.setFillColor(arrow)
+    ctx.move(to: CGPoint(x: to, y: y))
+    ctx.addLine(to: CGPoint(x: to - head * 1.4, y: y + head * 0.8))
+    ctx.addLine(to: CGPoint(x: to - head * 1.4, y: y - head * 0.8))
+    ctx.fillPath()
+    return ctx
+}
+
 func png(_ ctx: CGContext) -> Data {
     NSBitmapImageRep(cgImage: ctx.makeImage()!).representation(using: .png, properties: [:])!
 }
@@ -303,6 +343,7 @@ func usage() -> Never {
     usage: swift scripts/make-icon.swift [app] <out.iconset>
            swift scripts/make-icon.swift wordmark <out.png>
            swift scripts/make-icon.swift png <size> <out.png>
+           swift scripts/make-icon.swift dmg-background <scale> <out.png>
 
     """.utf8))
     exit(2)
@@ -314,6 +355,9 @@ case "wordmark" where cli.count == 2:
 case "png" where cli.count == 3:
     guard let px = Int(cli[1]), px > 0 else { usage() }
     try png(appIcon(px)).write(to: URL(fileURLWithPath: cli[2]))
+case "dmg-background" where cli.count == 3:
+    guard let scale = Int(cli[1]), scale > 0 else { usage() }
+    try png(dmgBackground(scale)).write(to: URL(fileURLWithPath: cli[2]))
 case _ where cli.count == 1 || (cli.count == 2 && cli[0] == "app"):
     let out = URL(fileURLWithPath: cli[cli.count - 1])
     try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)

@@ -48,9 +48,10 @@ push() {
 }
 
 # Build the app at the tag, check it is that version and validly signed, and publish it with
-# the notes (a beta as a pre-release). The zip is what the in-app updater downloads.
+# the notes (a beta as a pre-release). The zip is what the in-app updater downloads; the disk
+# image is the drag-to-Applications installer people download by hand.
 publish() {
-  local zip="dist/Luxtable-$1-macos-arm64.zip" pre=()
+  local zip="dist/Luxtable-$1-macos-arm64.zip" dmg="dist/Luxtable-$1-macos-arm64.dmg" pre=()
   [[ "$1" == *-beta.* ]] && pre=(--prerelease)
   scripts/build-app.sh
   local built
@@ -59,7 +60,8 @@ publish() {
   codesign --verify --deep --strict dist/Luxtable.app
   rm -f "$zip"
   ditto -c -k --keepParent dist/Luxtable.app "$zip"
-  gh release create "v$1" "$zip" --verify-tag --title "Luxtable $1" --notes-file "$notes" ${pre[@]+"${pre[@]}"} || {
+  scripts/make-dmg.sh dist/Luxtable.app "$dmg"
+  gh release create "v$1" "$dmg" "$zip" --verify-tag --title "Luxtable $1" --notes-file "$notes" ${pre[@]+"${pre[@]}"} || {
     echo "release: publishing failed; v$1 is pushed. Run scripts/release.sh again to publish it." >&2
     exit 1
   }
