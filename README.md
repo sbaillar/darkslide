@@ -359,7 +359,7 @@ rawler is licensed under the LGPL-2.1, so it isn't built into Luxtable. It lives
 
 ## Install and build from source
 
-Download the app from [Releases](https://github.com/sbaillar/luxtable/releases) (`Luxtable-X.Y.Z-macos-arm64.zip`; macOS 26, Apple silicon). It's ad-hoc signed, not notarized: the first time, right-click Luxtable.app and choose **Open**. From then on Luxtable updates itself (Settings ▸ Updates).
+Download the app from [Releases](https://github.com/sbaillar/luxtable/releases) (`Luxtable-X.Y.Z-macos-arm64.dmg`: open it and drag Luxtable to Applications; macOS 26, Apple silicon). It's ad-hoc signed, not notarized: the first time, right-click Luxtable.app and choose **Open**. From then on Luxtable updates itself (Settings ▸ Updates).
 
 Or build it from source. You need:
 

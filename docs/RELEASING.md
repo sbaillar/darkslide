@@ -16,13 +16,17 @@ Luxtable checks `GET https://api.github.com/repos/sbaillar/luxtable/releases` (a
 - It has the asset `Luxtable-<version>-macos-arm64.zip`, made with `ditto -c -k --keepParent` from the app `scripts/build-app.sh` built at that tag. GitHub's asset `digest` (SHA-256) must be present: the app checks the download against it and the size, then checks the unzipped app's bundle identifier, that its `CFBundleShortVersionString` is the tag's version, and `codesign --verify --deep --strict`, signed the way the running app is: the same Developer ID team, or the same certificate (a self-signed `Luxtable Dev`); an ad-hoc signed app has no identity to compare, so any valid signature passes. Its download URL must be https on github.com. Any failure installs nothing. A release signed with a new identity can't update the old one: users install it by hand once.
 - The body starts with a `## What's new` section of bullets (then `## Install`). Those bullets are the short release notes the app shows before downloading and once after updating, as plain text (bold, code and links are flattened). Without that heading it shows the body's first ten lines.
 
-`scripts/release.sh` does all of this. It builds with `scripts/build-app.sh` at the tag, checks that the app's version is the tag's and that `codesign --verify --deep --strict` passes, zips it into `dist/`, and runs `gh release create --verify-tag` (`--prerelease` for a beta). By hand, it is:
+Each release also has `Luxtable-<version>-macos-arm64.dmg`, the installer people download by hand: a window with Luxtable.app and an arrow to the Applications folder. `scripts/make-dmg.sh` makes it from `dist/Luxtable.app` (Finder lays out the window, so it runs in a logged-in session and the first run asks to let the terminal control Finder). The updater ignores it. Link the disk image in the notes' `## Install` section.
+
+`scripts/release.sh` does all of this. It builds with `scripts/build-app.sh` at the tag, checks that the app's version is the tag's and that `codesign --verify --deep --strict` passes, zips it and makes the disk image in `dist/`, and runs `gh release create --verify-tag` with both (`--prerelease` for a beta). By hand, it is:
 
 ```sh
 V=0.1.19                                # the version it tagged
 scripts/build-app.sh
 ditto -c -k --keepParent dist/Luxtable.app "dist/Luxtable-$V-macos-arm64.zip"
-gh release create "v$V" "dist/Luxtable-$V-macos-arm64.zip" --title "Luxtable $V" --notes-file notes.md
+scripts/make-dmg.sh
+gh release create "v$V" "dist/Luxtable-$V-macos-arm64.dmg" "dist/Luxtable-$V-macos-arm64.zip" \
+  --title "Luxtable $V" --notes-file notes.md
 ```
 
 **A beta** is the same with a `-beta.N` version and tag, published with `gh release create … --prerelease`. Only users who turned on Settings ▸ Updates ▸ Include beta versions are offered it. Versions compare by semver, so `0.1.19-beta.1` < `0.1.19-beta.2` < `0.1.19`: beta testers move on to the release once it is out, and users on the stable channel never see a beta. Never replace a published release's zip: publish a new version instead.
