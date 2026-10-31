@@ -7,7 +7,7 @@
 
 ## Download
 
-Download `Luxtable-X.Y.Z-macos-arm64.dmg` from the project's GitHub releases, open it and drag Luxtable.app onto the Applications folder in its window. The app is ad-hoc signed, not notarised: the first time, right-click Luxtable.app and choose **Open**. From then on Luxtable keeps itself up to date (see [Updates](#updates)).
+Download `Luxtable-X.Y.Z-macos-arm64.dmg` from the project's GitHub releases, open it and drag Luxtable.app onto the Applications folder in its window. The app is self-signed (Luxtable's own certificate), not notarised: the first time, right-click Luxtable.app and choose **Open**. From then on Luxtable keeps itself up to date (see [Updates](#updates)).
 
 ## Build from source
 
