@@ -198,7 +198,7 @@ pub struct EditIntentRecord {
     pub saturation: f32,
     /// + lifts shadows.
     pub shadows: f32,
-    /// + recovers (darkens) highlights, as in Capture One and lt-core.
+    /// + recovers (darkens) highlights, as in lt-core.
     pub highlights: f32,
     pub band_edits: Vec<BandEditRecord>,
     /// Spoken width:height ("4:5" is portrait).

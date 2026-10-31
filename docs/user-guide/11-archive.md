@@ -37,8 +37,6 @@ Unchanged files are skipped, every upload is verified, and large files go up in 
 
 The archive never deletes anything. A file that changed is archived again only after its previous version is moved aside, into `.lt-archive-trash/` with the time: in the archive folder, or under the path in the bucket. Developed copies and XMP sidecars for Immich travel with the session.
 
-An archive made by Darkslide (as Luxtable was called before) is used as it is: a folder marked `.ds-archive-owner` is still recognised as the session's (a `.lt-archive-owner` is added beside it), files it archived aren't sent again, and its `.ds-archive-trash/` stays where it is. Since sessions now keep their data in `.lt/`, the archive gets a `.lt/` next to the old `.ds/` copy, which stays: the archive never deletes or renames anything.
-
 ## Immich
 
 [Immich](https://immich.app) is a self-hosted photo server. Luxtable works with an Immich server that indexes your archive folder as an **external library** (mounted read-only is fine): Luxtable never uploads to Immich, and Immich never writes to the archive. Turn Immich on in Settings ▸ Plugins, then set it up in Settings ▸ Immich.

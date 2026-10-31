@@ -16,7 +16,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     // In-flight temp files (lt-fsutil temp names) and our lock files.
     ".lt-*.tmp",
     ".lt/*.lock",
-    // Migration source: the same files under Darkslide 0.1's names, in a session
+    // Migration source: the same files under version 0.1's names, in a session
     // that still has an old `.ds` next to its `.lt`.
     "*.dsession",
     "*.dsession-wal",
@@ -31,7 +31,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
 /// that owns it (see [`ArchiveTarget::claim_dest`]).
 pub const ARCHIVE_OWNER_FILE: &str = ".lt-archive-owner";
 
-/// Migration source: the owner marker Darkslide 0.1 wrote. Still read (a folder
+/// Migration source: the owner marker version 0.1 wrote. Still read (a folder
 /// marked with it is still ours), never removed or renamed: the new marker is
 /// written beside it.
 pub const LEGACY_ARCHIVE_OWNER_FILE: &str = ".ds-archive-owner";
@@ -806,7 +806,7 @@ mod tests {
         assert_eq!(plain_io(&std::io::Error::other("x")), "x");
     }
 
-    /// A folder Darkslide 0.1 claimed (`.ds-archive-owner`) is still ours: the new
+    /// A folder version 0.1 claimed (`.ds-archive-owner`) is still ours: the new
     /// marker is written beside the old one, which stays, like its old trash. New
     /// runs' trash goes to `.lt-archive-trash`, and pruning never touches the old one.
     #[test]

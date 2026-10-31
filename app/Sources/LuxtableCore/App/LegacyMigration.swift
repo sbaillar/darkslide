@@ -1,23 +1,23 @@
 import Foundation
 import LuxtableFFI
 
-/// The first launch after the rename: the app was called Darkslide, with its own
+/// The first launch after the rename: the app had another name in 0.1, with its own
 /// preferences domain, support folder and Keychain services. Luxtable copies what it
 /// finds there into its own places and never deletes or changes the old ones, so going
-/// back to Darkslide still works. Sessions move to `.lt` on their own, when opened
+/// back to version 0.1 still works. Sessions move to `.lt` on their own, when opened
 /// (lt-session); Keychain keys are copied the first time each is needed
 /// (`KeychainItem.keychain`), so an integration that is off never reads its old key.
 ///
 /// - Preferences: every key of the old domain the new one doesn't have, once.
-/// - The sessions folder: a user who never chose one used `~/Pictures/Darkslide`; it
+/// - The sessions folder: a user who never chose one used the old sessions folder in `~/Pictures`; it
 ///   stays their sessions folder (nothing in it is moved).
 /// - The support folder: copied (APFS clones) to the new name when the new one isn't
 ///   there yet, then put in place with one rename; the global index's records of the
 ///   stores kept in it follow. The old app's update leftovers aren't copied.
 public enum LegacyMigration {
-    /// Migration source: Darkslide's bundle identifier (its preferences domain).
+    /// Migration source: the old app's bundle identifier (its preferences domain).
     public static let legacyBundleID = "casa.baillargeon.darkslide"
-    /// Migration source: Darkslide's folder name (support folder, default sessions folder).
+    /// Migration source: the old app's folder name (support folder, default sessions folder).
     public static let legacyName = "Darkslide"
     /// Set once the preferences were copied (a key reset later isn't copied again).
     static let defaultsDoneKey = "legacyMigration.defaultsCopied"

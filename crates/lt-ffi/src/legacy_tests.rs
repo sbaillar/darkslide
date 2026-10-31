@@ -30,7 +30,7 @@ fn named(root: &Path, name: &str, dirs: bool) -> Vec<PathBuf> {
     out
 }
 
-/// Turn closed sessions under `root` into what Darkslide 0.1 left: every `.lt`
+/// Turn closed sessions under `root` into what version 0.1 left: every `.lt`
 /// folder named `.ds`, every index `.dsession` with its sidecar paths in `.ds`.
 pub(crate) fn make_legacy(root: &Path) {
     for db in named(root, ".ltsession", false) {

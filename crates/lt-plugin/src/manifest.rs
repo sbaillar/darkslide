@@ -18,8 +18,8 @@ pub const MANIFEST_VERSION: u32 = 1;
 pub const HOST_API: u32 = 1;
 /// Ids starting with this are reserved for plug-ins bundled with Luxtable.
 pub const BUILTIN_PREFIX: &str = "luxtable.";
-/// Migration source: the bundled plug-ins' id prefix when the app was called
-/// Darkslide. Still reserved (no other plug-in may take those ids); stored state
+/// Migration source: the bundled plug-ins' id prefix before the rename (0.1).
+/// Still reserved (no other plug-in may take those ids); stored state
 /// under it moves to [`BUILTIN_PREFIX`] (`State::load`).
 pub const LEGACY_BUILTIN_PREFIX: &str = "darkslide.";
 

@@ -51,7 +51,7 @@ import Testing
         m.stop()
     }
 
-    // MARK: 3. Open a Capture One-style session in place
+    // MARK: 3. Open a session in place
 
     @Test func openCaptureOneSessionInPlace() async throws {
         guard FJ.sandboxed() else { return }

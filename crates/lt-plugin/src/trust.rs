@@ -20,7 +20,7 @@ use crate::package::Package;
 pub const SIGNATURE_FILE: &str = "SIGNATURE";
 /// Domain prefix of the signed message.
 const DOMAIN: &[u8] = b"luxtable-plugin-sig-v1\0";
-/// Migration source: the domain of signatures made when the app was called Darkslide.
+/// Migration source: the domain of signatures made before the rename (0.1).
 /// Plug-ins signed then still verify (new signatures always use [`DOMAIN`]).
 const LEGACY_DOMAIN: &[u8] = b"darkslide-plugin-sig-v1\0";
 

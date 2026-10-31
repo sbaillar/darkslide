@@ -1535,7 +1535,7 @@ fn a_third_party_package_declaring_a_native_feature_is_refused() {
     assert!(!h.feature_enabled("archive"));
 }
 
-/// Packages made for Darkslide: `.dsplugin` folders and zips install like `.ltplugin`
+/// Packages made before the rename: `.dsplugin` folders and zips install like `.ltplugin`
 /// ones, `min_darkslide` is read, a signature made then still verifies, and the old
 /// `darkslide.*` ids stay reserved.
 #[test]

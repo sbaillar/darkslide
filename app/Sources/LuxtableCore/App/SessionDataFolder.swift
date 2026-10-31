@@ -5,7 +5,7 @@ import Foundation
 /// lt-session the first time it is opened; until then it is still recognized here.
 public enum SessionDataFolder {
     public static let name = ".lt"
-    /// Migration source: the data folder Darkslide 0.1 kept in each session.
+    /// Migration source: the data folder version 0.1 kept in each session.
     public static let legacyName = ".ds"
 
     /// Whether `dir` holds a session's settings, in the current layout or the old one.

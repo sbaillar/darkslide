@@ -1,7 +1,7 @@
 import LuxtableCore
 import SwiftUI
 
-/// Capture One–style tool tabs across the top of the tools pane. Click an icon to
+/// Tool tabs across the top of the tools pane. Click an icon to
 /// show its tools; drag icons to reorder; drop a tool on an icon to add it to that
 /// tab; hover shows the name. Tabs that don't fit go in the » menu; + adds or
 /// removes tools in the selected tab.

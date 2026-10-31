@@ -232,7 +232,7 @@ public struct ToolWorkspace: Equatable, Sendable {
         })
     }
 
-    /// Show or hide the All Tools tab (C1-style "all tools stacked in one tab").
+    /// Show or hide the All Tools tab ("all tools stacked in one tab").
     public mutating func toggleAllToolsTab() {
         if contains(.allTools) { removeTab(.allTools) } else { addBuiltInTab(.allTools) }
     }

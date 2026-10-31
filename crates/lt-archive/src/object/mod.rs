@@ -476,7 +476,7 @@ impl ObjectDestination {
     }
 
     /// The owner recorded in `folder`'s marker, if any (the old marker's when
-    /// there is no new one: a folder Darkslide 0.1 claimed is still ours).
+    /// there is no new one: a folder version 0.1 claimed is still ours).
     fn owner_of(&self, folder: &str, cancel: &AtomicBool) -> Result<Option<String>, ObjectError> {
         match self.marker(folder, ARCHIVE_OWNER_FILE, cancel)? {
             Some(o) => Ok(Some(o)),

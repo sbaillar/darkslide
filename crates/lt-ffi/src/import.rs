@@ -1167,7 +1167,7 @@ pub fn pending_import(session_dir: String) -> Result<Option<PendingImport>, DsEr
     guard(|| pending_in(Path::new(&session_dir)))
 }
 
-/// After the app's support folder was copied to its new name (Darkslide → Luxtable):
+/// After the app's support folder was copied to its new name (0.1 → 0.2):
 /// point the sessions the global index at `index` registered under `from` (stores the
 /// app keeps for folders that can't hold their own) at the same place under `to`.
 /// Returns how many moved. A missing index is nothing to do.

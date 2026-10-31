@@ -17,6 +17,6 @@ public enum AppLog {
     public static let archive = Logger(subsystem: subsystem, category: "archive")
     /// Natural-language search: indexing failures, global-index problems.
     public static let search = Logger(subsystem: subsystem, category: "search")
-    /// The first launch after the rename (Darkslide → Luxtable): what was copied.
+    /// The first launch after the rename (0.1 → 0.2): what was copied.
     public static let migration = Logger(subsystem: subsystem, category: "migration")
 }

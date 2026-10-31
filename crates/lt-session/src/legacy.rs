@@ -1,4 +1,4 @@
-//! Sessions made before the rename (Darkslide 0.1.x) keep their data in `.ds`
+//! Sessions made before the rename (version 0.1.x) keep their data in `.ds`
 //! folders (`<root>/.ds`, `Capture/…/.ds`, `Trash/.ds`, and `<folder>/.ds` around
 //! an in-place store) and their index in `<name>.dsession`. Luxtable uses `.lt`
 //! and `<name>.ltsession`. [`migrate`] moves an old session over the first time it
@@ -14,7 +14,7 @@
 //! - When both `.ds` and `.lt` exist, `.lt` is used and `.ds` is left untouched
 //!   ([`Legacy::BothPresent`], for the caller to log).
 //!
-//! A migrated session can't be opened by Darkslide 0.1.x any more (it looks for `.ds`).
+//! A migrated session can't be opened by version 0.1.x any more (it looks for `.ds`).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -23,11 +23,11 @@ use rusqlite::Connection;
 
 use crate::error::{IoContext, Result, SessionError};
 
-/// Migration source: the data folder Darkslide 0.1.x kept in every session folder.
+/// Migration source: the data folder version 0.1.x kept in every session folder.
 pub const LEGACY_DIR: &str = ".ds";
-/// Migration source: the index extension Darkslide 0.1.x used (`<name>.dsession`).
+/// Migration source: the index extension version 0.1.x used (`<name>.dsession`).
 pub const LEGACY_DB_EXT: &str = "dsession";
-/// Migration source: Darkslide's temp-file mark (leftovers are cleaned like ours).
+/// Migration source: the old app's temp-file mark (leftovers are cleaned like ours).
 pub(crate) const LEGACY_TEMP_MARK: &str = ".dstmp-";
 
 const DIR: &str = ".lt";
@@ -75,7 +75,7 @@ pub fn migrate(dir: &Path) -> Result<Option<Legacy>> {
     if !is_real_dir(&old) {
         return Ok(None);
     }
-    // A Darkslide still running on this session would lose its index under it.
+    // A version 0.1 app still running on this session would lose its index under it.
     for db in legacy_dbs(dir) {
         checkpoint(&db)?;
     }
@@ -196,7 +196,7 @@ fn checkpoint(db: &Path) -> Result<()> {
     if side("-wal").exists() || side("-journal").exists() {
         return Err(failed(
             db,
-            "its index is in use (quit Darkslide and open it again)",
+            "its index is in use (quit the app using it and open it again)",
         ));
     }
     let _ = fs::remove_file(side("-shm")); // a shared-memory index only, rebuilt on open

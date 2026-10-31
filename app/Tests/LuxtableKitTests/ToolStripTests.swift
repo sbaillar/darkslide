@@ -5,7 +5,7 @@ import Testing
 @testable import LuxtableUI
 
 @MainActor
-@Suite("Tools: Capture One–style tab strip")
+@Suite("Tools: tab strip")
 struct ToolStripTests {
     let tabs = ToolTab.allCases // Favorites first, then ten more
 

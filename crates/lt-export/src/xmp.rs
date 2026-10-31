@@ -202,8 +202,8 @@ pub const LUXTABLE_NS: &str = "http://luxtable.invalid/ns/xmp/1.0/";
 /// `xmp:CreatorTool` of the sidecars Luxtable writes.
 pub const CREATOR_TOOL: &str = "Luxtable";
 
-/// Migration source: how the app marked its sidecars when it was called Darkslide
-/// (`xmlns:darkslide`, creator tool "Darkslide"). Those sidecars are still ours, so
+/// Migration source: how the app marked its sidecars before the rename (0.1)
+/// (the old namespace and creator tool). Those sidecars are still ours, so
 /// they are recognized and rewritten (then with the new marks).
 const LEGACY_MARKS: (&str, &str, &str) = (
     "darkslide",

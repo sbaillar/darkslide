@@ -235,7 +235,7 @@ import LuxtableFFI
         let fm = FileManager.default
         let dir = base.appendingPathComponent("Hike")
         _ = try await LuxtableFFI.createSession(dir: dir.path, name: "Hike", token: CancelToken())
-        // What Darkslide 0.1 left: `.ds` and `Hike.dsession`.
+        // What version 0.1 left: `.ds` and `Hike.dsession`.
         try fm.moveItem(at: dir.appendingPathComponent(".lt"), to: dir.appendingPathComponent(".ds"))
         try fm.moveItem(at: dir.appendingPathComponent("Hike.ltsession"), to: dir.appendingPathComponent("Hike.dsession"))
         #expect(SessionDataFolder.hasSettings(dir) && SessionDataFolder.exists(in: dir))

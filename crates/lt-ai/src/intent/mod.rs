@@ -84,7 +84,7 @@ pub struct EditIntent {
     pub saturation: f32,
     /// HDR shadows: + lifts.
     pub shadows: f32,
-    /// HDR highlights: + recovers (darkens) highlights, as in Capture One.
+    /// HDR highlights: + recovers (darkens) highlights.
     pub highlights: f32,
     pub color_bands: Vec<BandEdit>,
     pub crop_aspect: Option<CropAspect>,

@@ -1,7 +1,7 @@
 import LuxtableCore
 import SwiftUI
 
-/// Compact Capture One-style slider row: label · track · scrubbable value.
+/// Compact slider row: label · track · scrubbable value.
 /// Double-click the label or the track to reset. ⌥-drag = fine, scroll wheel
 /// (once focused by a click) the scroll wheel and ←/→ (⇧ ×10, ⌥ fine) nudge it.
 struct ToolSlider: View {

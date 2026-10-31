@@ -5,7 +5,7 @@ import Testing
 @testable import LuxtableMac
 @testable import LuxtableUI
 
-/// Capture One–style Copy and Apply: one-click Copy of the edited groups (or the Custom
+/// Copy and Apply: one-click Copy of the edited groups (or the Custom
 /// ticks), the clipboard kept across photos, Apply onto the selection but the copied photo
 /// as one undo step.
 @MainActor

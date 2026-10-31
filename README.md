@@ -4,7 +4,7 @@
 
 <p align="center"><b>A fast, local-first RAW photo workflow for macOS.</b><br>
 Card import, culling, sessions, editing, export and archiving, with a Rust core on the GPU and a native SwiftUI app.<br>
-<a href="https://luxtable.app">luxtable.app</a> · Formerly Darkslide.</p>
+<a href="https://luxtable.app">luxtable.app</a></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="Licence: Apache-2.0" src="https://img.shields.io/badge/licence-Apache--2.0-blue"></a>
@@ -14,7 +14,7 @@ Card import, culling, sessions, editing, export and archiving, with a Rust core 
 
 ![Luxtable: the grid, filter bar and tools on a culling session](docs/screenshots/grid.png)
 
-Luxtable is built for photographers who shoot a lot and want to get from the card to the keepers quickly: Capture One–style sessions, culling at the speed of your fingers, a GPU develop pipeline, and backups that never delete anything.
+Luxtable is built for photographers who shoot a lot and want to get from the card to the keepers quickly: self-contained sessions, culling at the speed of your fingers, a GPU develop pipeline, and backups that never delete anything.
 
 **Contents:** [Why Luxtable](#why-luxtable) · [Feature tour](#feature-tour) · [How it works](#how-it-works) · [Cameras](#supported-cameras) · [Install](#install-and-build-from-source) · [Privacy](#privacy-and-network-use) · [Docs](#documentation) · [Roadmap](#roadmap) · [Contributing](#contributing) · [Licence](#licence)
 
@@ -58,7 +58,7 @@ Luxtable detects memory cards, copies in parallel and verifies each file's check
 
 ### Develop
 
-A GPU pipeline with Capture One–style tool tabs you can rearrange, a CPU reference implementation it is tested against, and full-resolution 1:1 views.
+A GPU pipeline with tool tabs you can rearrange, a CPU reference implementation it is tested against, and full-resolution 1:1 views.
 
 - **Light and colour:** exposure, contrast, high dynamic range, levels, curves, white balance (presets, temperature/tint and a picker with a loupe), colour balance, colour editor, saturation and vibrance.
 - **Looks, styles and presets** that preview as you hover, camera profiles (and imported Adobe DCP profiles), and Match exposure / white balance across photos.
@@ -303,8 +303,6 @@ My Session/
 ```
 
 Luxtable can also open an existing folder of photos in place, without moving anything.
-
-Coming from Darkslide (Luxtable's name before 0.2): the first launch copies its preferences, support folder and Keychain keys and leaves the originals alone, and each session's `.ds/` folder is renamed `.lt/` when the session is first opened, after which Darkslide 0.1 can't open that session any more ([user guide](docs/user-guide/14-migrate.md#coming-from-darkslide)).
 
 ## Supported cameras
 

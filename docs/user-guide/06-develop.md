@@ -8,7 +8,7 @@ Edits are never applied to the original file. They are stored as settings in the
 
 ## Tool tabs
 
-Tools live in tabs across the top of the tools pane, like Capture One. Tabs that don't fit go in a » menu.
+Tools live in tabs across the top of the tools pane. Tabs that don't fit go in a » menu.
 
 - The **+** button adds or removes any tool in one click. Each panel's **⋯** menu removes or moves it, and panels can be dragged into any order.
 - **Tools ▸ Customize Tools…** (`⇧⌘T`) arranges tabs, creates your own (for example a "Portraits" tab with just the tools you use for portraits) and saves **workspaces**.

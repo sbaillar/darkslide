@@ -68,7 +68,7 @@ impl From<Rating> for u8 {
     }
 }
 
-/// Capture One–style color labels.
+/// Color labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ColorTag {

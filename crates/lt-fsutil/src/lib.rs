@@ -73,7 +73,7 @@ pub fn temp_path(dir: &Path, ext: &str) -> PathBuf {
     dir.join(format!(".lt-{:x}-{n:x}.{ext}", std::process::id()))
 }
 
-/// Migration source: the prefix Darkslide 0.1 gave its temp files. Its leftovers
+/// Migration source: the prefix version 0.1 gave its temp files. Its leftovers
 /// are cleaned like ours.
 pub const LEGACY_TEMP_PREFIX: &str = ".ds-";
 
@@ -81,7 +81,7 @@ pub const LEGACY_TEMP_PREFIX: &str = ".ds-";
 pub const STALE_TEMP_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
 /// Remove `path` if it is one of our temp files a crash left behind: named like
-/// [`temp_path`] (`.lt-<hex>-<hex>.partial` or `.tmp`, or Darkslide 0.1's `.ds-…`) and not modified for
+/// [`temp_path`] (`.lt-<hex>-<hex>.partial` or `.tmp`, or version 0.1's `.ds-…`) and not modified for
 /// [`STALE_TEMP_AGE`] (a write in progress keeps touching it). Anything else is never
 /// touched. Returns whether it was removed.
 pub fn remove_stale_temp(path: &Path) -> bool {
@@ -624,7 +624,7 @@ mod tests {
         assert!(remove_stale_temp(&stale) && !stale.exists());
         assert!(remove_stale_temp(&stale_tmp));
         let legacy = make(".ds-1a2b-9.partial", 7200);
-        assert!(remove_stale_temp(&legacy), "Darkslide 0.1's leftovers too");
+        assert!(remove_stale_temp(&legacy), "version 0.1's leftovers too");
         assert!(
             !remove_stale_temp(&fresh) && fresh.exists(),
             "a write in progress"

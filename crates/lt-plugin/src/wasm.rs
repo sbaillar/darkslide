@@ -167,8 +167,8 @@ impl WasmModule {
 
 /// The host's import module.
 const HOST_MODULE: &str = "luxtable";
-/// Migration source: the import module and export prefix of plug-ins built when the
-/// app was called Darkslide (`darkslide.log`, `ds_api`, `ds_post_process`, …). They
+/// Migration source: the import module and export prefix of plug-ins built before the
+/// 0.2 rename (`darkslide.log`, `ds_api`, `ds_post_process`, …). They
 /// keep working: the host provides both and looks for both.
 const LEGACY_HOST_MODULE: &str = "darkslide";
 const LEGACY_EXPORT_PREFIX: &str = "ds_";

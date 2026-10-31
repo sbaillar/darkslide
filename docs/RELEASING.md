@@ -33,7 +33,6 @@ gh release create "v$V" "dist/Luxtable-$V-macos-arm64.dmg" "dist/Luxtable-$V-mac
 
 The update installs when the app quits, or at once with Download & Restart. A small relauncher waits for the app to exit, moves the new bundle next to the old one (a copy when it is on another volume), swaps the two with renames in that folder, then moves the old bundle to `~/Library/Application Support/Luxtable/Previous Version/` (one kept, replaced by the next update; if it can't go there it stays next to the new one, hidden) and, after Download & Restart, reopens it. Either way the next launch opens the session and photo the user was on. If the swap fails, the old bundle is put back. When the app's folder isn't writable, the new app is shown in Finder to install by hand.
 
-**The rename.** 0.2.0 is the first release as Luxtable (bundle identifier `app.luxtable.Luxtable`, assets `Luxtable-<version>-macos-arm64.zip`, repository `sbaillar/luxtable`). Copies of Darkslide 0.1 don't update to it (another bundle identifier, another asset name): users install Luxtable by hand once, and its first launch copies Darkslide's preferences, support folder and keys (docs/user-guide/14-migrate.md). The `Luxtable Dev` certificate replaces `Darkslide Dev`; nothing signed with the old one is published.
 
 ## The RAW helper
 

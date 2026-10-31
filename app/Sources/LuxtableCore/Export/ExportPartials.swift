@@ -13,7 +13,7 @@ public enum ExportPartials {
     /// Folders remembered for the launch sweep.
     static let rememberLimit = 32
 
-    /// Migration source: the prefix Darkslide 0.1 gave the same temps (swept like ours).
+    /// Migration source: the prefix version 0.1 gave the same temps (swept like ours).
     static let legacyPrefix = ".ds-"
 
     /// Whether `name` is one of our export temps, and its writer's pid.

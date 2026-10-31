@@ -35,7 +35,6 @@ Film Border.ltplugin/
 - A zip is read into memory with its names checked (no absolute paths, no `..`, no link entries, sizes capped before inflating), and a single top folder `Name.ltplugin/` is stripped.
 - **Read once:** every file is read into memory once, without following links. Hashing, the signature, parsing and compiling all use those bytes; nothing is reopened by path after it was verified.
 
-**Plug-ins made for Darkslide** (Luxtable's name before 0.2) keep working unchanged: a `.dsplugin` folder or zip installs like a `.ltplugin` one (`lt-plugin pack` writes `.ltplugin`), `min_darkslide` is read as `min_luxtable`, a signature made then still verifies (its domain prefix was `darkslide-plugin-sig-v1\0`), and a module importing `darkslide.*` host functions and exporting `ds_api`, `ds_alloc`, `ds_post_process` and `ds_output_layout` runs as before. The old bundled ids `darkslide.*` stay reserved, and the choices recorded for them (on, off, grants) carry over to `luxtable.*`.
 
 ### The manifest (`plugin.toml`)
 
