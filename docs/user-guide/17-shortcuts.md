@@ -66,6 +66,7 @@ These are Luxtable's default keys. Single keys can be changed in Settings ▸ Sh
 | `⌥⇧⌘A` | AI Changes |
 | `⌘K` | Edit with words |
 | `⇧⌘H` / `⇧⌘M` | Merge to HDR / panorama |
+| `⇧⌘B` | Merge to Best Shot |
 | `⇧⌘T` | Customize tools |
 
 ## Sessions and files
